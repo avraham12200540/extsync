@@ -15,11 +15,22 @@ export default function DownloadPage() {
         <Card className="mt-6">
           <h2 className="font-semibold text-ink">Windows 10/11</h2>
           <p className="mt-1 text-sm text-ink-muted">קובץ התקנה: ExtSyncAgentSetup.exe</p>
-          <a href="/downloads/ExtSyncAgentSetup.exe" className="mt-3 inline-block">
+          <a
+            href="https://github.com/avraham12200540/extsync/releases/latest/download/ExtSyncAgentSetup.exe"
+            className="mt-3 inline-block"
+          >
             <Button>הורדה ל-Windows</Button>
           </a>
           <p className="mt-3 text-xs text-ink-muted">
-            * בסביבת פיתוח יש לבנות את המתקין מקומית — ראו installers/windows ו-README.
+            כל הגרסאות:{" "}
+            <a
+              href="https://github.com/avraham12200540/extsync/releases"
+              className="text-brand hover:underline"
+            >
+              דף ה-Releases
+            </a>
+            . בהפעלה הראשונה Windows עשוי להציג אזהרת SmartScreen (התוכנה עדיין לא חתומה
+            ברישיון Code Signing) — לחצו "מידע נוסף" → "הפעל בכל זאת".
           </p>
         </Card>
 

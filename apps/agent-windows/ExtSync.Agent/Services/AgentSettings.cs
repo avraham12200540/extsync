@@ -5,8 +5,8 @@ namespace ExtSync.Agent.Services;
 /// <summary>User-configurable settings (§18 settings screen), persisted to JSON.</summary>
 public sealed class AgentSettings
 {
-    public string ApiBaseUrl { get; set; } = "http://localhost:8000";
-    public string WsBaseUrl { get; set; } = "ws://localhost:8000";
+    public string ApiBaseUrl { get; set; } = "https://api.extsync.com";
+    public string WsBaseUrl { get; set; } = "wss://api.extsync.com";
     public bool StartWithWindows { get; set; } = true;
     public bool AutoCheck { get; set; } = true;
     public int CheckIntervalHours { get; set; } = 4;     // default: every 4 hours (§6)

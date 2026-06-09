@@ -1,0 +1,74 @@
+name: Build Agent Installer
+
+# Builds the Windows Agent + Native Host, packages an Inno Setup installer, and
+# publishes it to GitHub Releases so /download can serve ExtSyncAgentSetup.exe.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "apps/agent-windows/**"
+      - "apps/native-host/**"
+      - "installers/windows/**"
+      - ".github/workflows/build-agent.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Publish Native Host (self-contained, single-file)
+        run: >
+          dotnet publish apps/native-host/ExtSync.NativeHost.csproj
+          -c Release -r win-x64 --self-contained true
+          -o installers/windows/stage/native-host
+
+      - name: Publish Agent (self-contained)
+        run: >
+          dotnet publish apps/agent-windows/ExtSync.Agent/ExtSync.Agent.csproj
+          -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false
+          -o installers/windows/stage/agent
+
+      - name: Embed platform public key (keys.json)
+        shell: pwsh
+        run: |
+          '{ "key-2026-01": "WuEfobMXrxkfT8kiOLJgd8hqbyfjZ4jKN9jrlPMAf3M=" }' |
+            Out-File -Encoding ascii installers/windows/stage/agent/keys.json
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installers/windows/extsync-agent.iss
+          if (-not (Test-Path installers/windows/Output/ExtSyncAgentSetup.exe)) {
+            throw "installer was not produced"
+          }
+
+      - name: Publish to GitHub Releases
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "agent-r${{ github.run_number }}"
+          gh release create $tag installers/windows/Output/ExtSyncAgentSetup.exe `
+            --title "ExtSync Agent (build ${{ github.run_number }})" `
+            --notes "Automated Windows Agent build. Targets api.extsync.com." `
+            --latest
+
+      - name: Upload build artifact (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ExtSyncAgentSetup
+          path: installers/windows/Output/ExtSyncAgentSetup.exe
+          if-no-files-found: ignore
