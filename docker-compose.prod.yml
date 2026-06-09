@@ -1,0 +1,162 @@
+# =============================================================================
+# ExtSync — PRODUCTION stack for a single VPS.
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# Differences from the dev compose:
+#   * no source bind-mounts, no --reload (runs the built images)
+#   * no Mailpit — uses a real SMTP provider (Resend) via env
+#   * only Caddy is exposed to the internet (80/443) with automatic HTTPS;
+#     the API, signing service, DB, Redis and MinIO are on the internal network
+#   * Caddy reverse-proxies  api.<domain> -> api  and  files.<domain> -> minio
+#   * the Next.js frontend is deployed separately on Vercel (not in this file)
+# =============================================================================
+name: extsync-prod
+
+x-app-env: &app-env
+  ENVIRONMENT: production
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  DATABASE_URL_SYNC: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  REDIS_URL: redis://redis:6379/0
+  S3_ENDPOINT_URL: http://minio:9000
+  S3_PUBLIC_ENDPOINT_URL: https://files.${DOMAIN}
+  S3_REGION: ${S3_REGION:-us-east-1}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+  S3_SECRET_KEY: ${S3_SECRET_KEY}
+  S3_BUCKET_UPLOADS: ${S3_BUCKET_UPLOADS:-extsync-uploads}
+  S3_BUCKET_ARTIFACTS: ${S3_BUCKET_ARTIFACTS:-extsync-artifacts}
+  S3_FORCE_PATH_STYLE: "true"
+  JWT_SECRET: ${JWT_SECRET}
+  CSRF_SECRET: ${CSRF_SECRET}
+  JWT_ACCESS_TTL_SECONDS: ${JWT_ACCESS_TTL_SECONDS:-900}
+  JWT_REFRESH_TTL_SECONDS: ${JWT_REFRESH_TTL_SECONDS:-2592000}
+  SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-extsync_session}
+  SESSION_COOKIE_SECURE: "true"
+  SESSION_COOKIE_SAMESITE: lax
+  ARGON2_TIME_COST: ${ARGON2_TIME_COST:-3}
+  ARGON2_MEMORY_COST_KIB: ${ARGON2_MEMORY_COST_KIB:-65536}
+  ARGON2_PARALLELISM: ${ARGON2_PARALLELISM:-4}
+  SIGNING_SERVICE_URL: http://signing:8090
+  SIGNING_INTERNAL_TOKEN: ${SIGNING_INTERNAL_TOKEN}
+  SIGNING_ACTIVE_KEY_ID: ${SIGNING_ACTIVE_KEY_ID}
+  SIGNING_PUBLIC_KEYS: ${SIGNING_PUBLIC_KEYS}
+  SMTP_HOST: ${SMTP_HOST}
+  SMTP_PORT: ${SMTP_PORT}
+  SMTP_USERNAME: ${SMTP_USERNAME}
+  SMTP_PASSWORD: ${SMTP_PASSWORD}
+  SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+  EMAIL_FROM: ${EMAIL_FROM}
+  PUBLIC_WEB_URL: https://${WEB_DOMAIN}
+  PUBLIC_API_URL: https://api.${DOMAIN}
+  MAX_UPLOAD_ZIP_BYTES: ${MAX_UPLOAD_ZIP_BYTES:-52428800}
+  MAX_EXTRACTED_BYTES: ${MAX_EXTRACTED_BYTES:-209715200}
+  MAX_FILE_COUNT: ${MAX_FILE_COUNT:-5000}
+  MAX_DIR_DEPTH: ${MAX_DIR_DEPTH:-20}
+  VALIDATION_TIMEOUT_SECONDS: ${VALIDATION_TIMEOUT_SECONDS:-120}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    volumes:
+      - minio-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${S3_ACCESS_KEY} ${S3_SECRET_KEY} &&
+      mc mb -p local/${S3_BUCKET_UPLOADS:-extsync-uploads} || true;
+      mc mb -p local/${S3_BUCKET_ARTIFACTS:-extsync-artifacts} || true;
+      mc anonymous set download local/${S3_BUCKET_ARTIFACTS:-extsync-artifacts} || true;
+      echo done;"
+
+  signing:
+    build: { context: ., dockerfile: infrastructure/docker/signing.Dockerfile }
+    environment:
+      <<: *app-env
+      SIGNING_PRIVATE_KEY_PATH: /run/secrets/ed25519_private.pem
+    volumes:
+      - ./infrastructure/docker/prod-signing-key.pem:/run/secrets/ed25519_private.pem:ro
+    expose: ["8090"]
+    restart: unless-stopped
+
+  api:
+    build: { context: ., dockerfile: infrastructure/docker/api.Dockerfile }
+    environment: *app-env
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+    command: ["uvicorn", "extsync_api.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+    expose: ["8000"]
+    restart: unless-stopped
+
+  worker:
+    build: { context: ., dockerfile: infrastructure/docker/worker.Dockerfile }
+    environment: *app-env
+    depends_on:
+      api: { condition: service_started }
+      redis: { condition: service_healthy }
+    command: ["python", "-m", "extsync_worker.main"]
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on: [api, minio]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./infrastructure/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  caddy-data:
+  caddy-config:

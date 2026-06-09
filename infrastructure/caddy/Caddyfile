@@ -1,0 +1,17 @@
+# Caddy reverse proxy with automatic HTTPS (Let's Encrypt).
+# DOMAIN is provided via the environment (see docker-compose.prod.yml).
+# Point these DNS A-records at the VPS:  api.<domain>  and  files.<domain>.
+# (The website itself is served by Vercel at <domain>/www — not here.)
+
+# API
+api.{$DOMAIN} {
+	encode gzip zstd
+	reverse_proxy api:8000
+}
+
+# Public artifact downloads (MinIO, artifacts bucket is anonymous-download).
+# Used both by the Agent and by the "manual download" button in the store.
+files.{$DOMAIN} {
+	encode gzip
+	reverse_proxy minio:9000
+}
