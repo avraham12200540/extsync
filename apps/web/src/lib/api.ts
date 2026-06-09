@@ -146,6 +146,46 @@ export interface InstallLink {
   disabled: boolean;
 }
 
+export interface CatalogItem {
+  slug: string;
+  name: string;
+  shortDescription: string;
+  iconUrl?: string | null;
+  developerName: string;
+  extensionId?: string | null;
+  latestVersion?: string | null;
+  category?: string | null;
+}
+
+export interface CatalogChannelInfo {
+  channel: string;
+  version: string;
+  releaseId: string;
+  publishedAt?: string | null;
+  downloadUrl?: string | null;
+  size?: number | null;
+  sha256?: string | null;
+}
+
+export interface CatalogDetail {
+  slug: string;
+  name: string;
+  shortDescription: string;
+  fullDescription?: string | null;
+  iconUrl?: string | null;
+  developerName: string;
+  website?: string | null;
+  repoUrl?: string | null;
+  privacyPolicyUrl?: string | null;
+  extensionId?: string | null;
+  category?: string | null;
+  channels: CatalogChannelInfo[];
+  permissions: string[];
+  hostPermissions: string[];
+  usesNativeMessaging: boolean;
+  installUri?: string | null;
+}
+
 export interface InstallPage {
   token: string;
   name: string;

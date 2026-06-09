@@ -67,7 +67,7 @@ class Storage:
         )
 
     def put_bytes(self, bucket: str, key: str, data: bytes,
-                  *, content_type: str = "application/octet-stream") -> None:
+                  content_type: str = "application/octet-stream") -> None:
         _client().put_object(Bucket=bucket, Key=key, Body=data, ContentType=content_type)
 
     def get_bytes(self, bucket: str, key: str) -> bytes:

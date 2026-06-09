@@ -29,7 +29,8 @@ export default function HomePage() {
             אוטומטיים מאובטחים עם חתימה דיגיטלית ו-Rollback.
           </p>
           <div className="mt-8 flex items-center justify-center gap-3">
-            <Link href="/register"><Button size="md">פתיחת חשבון מפתח</Button></Link>
+            <Link href="/store"><Button size="md">עיון בגלריית התוספים</Button></Link>
+            <Link href="/register"><Button size="md" variant="secondary">פתיחת חשבון מפתח</Button></Link>
             <Link href="/download"><Button size="md" variant="secondary">הורדת ExtSync Agent</Button></Link>
           </div>
           <p className="mt-4 text-sm text-ink-muted">

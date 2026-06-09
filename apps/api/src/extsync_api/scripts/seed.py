@@ -43,9 +43,10 @@ async def _get_or_create_user(session, email, password, role, name) -> tuple[Use
 
 
 async def seed() -> None:
-    admin_email = os.environ.get("ADMIN_EMAIL", "admin@extsync.local")
+    # NOTE: use a real TLD — email-validator rejects reserved names like .local.
+    admin_email = os.environ.get("ADMIN_EMAIL", "admin@extsync.dev")
     admin_password = os.environ.get("ADMIN_PASSWORD") or ("Admin-" + secrets.token_urlsafe(9))
-    dev_email = os.environ.get("DEV_EMAIL", "dev@extsync.local")
+    dev_email = os.environ.get("DEV_EMAIL", "dev@extsync.dev")
     dev_password = os.environ.get("DEV_PASSWORD") or ("Dev-" + secrets.token_urlsafe(9))
 
     sm = get_sessionmaker()
