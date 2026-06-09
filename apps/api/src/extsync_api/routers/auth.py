@@ -1,0 +1,188 @@
+"""Authentication endpoints (§23)."""
+from __future__ import annotations
+
+from fastapi import APIRouter, Request, Response, status
+
+from ..config import settings
+from ..deps import CurrentUser, DBSession, OptionalUser
+from ..errors import APIError, ErrorCode, unauthorized
+from ..models.enums import DeviceOS
+from ..schemas.auth import (
+    DeviceFlowApproveRequest,
+    DeviceFlowStartRequest,
+    DeviceFlowStartResponse,
+    DeviceFlowTokenRequest,
+    DeviceFlowTokenResponse,
+    ForgotPasswordRequest,
+    LoginRequest,
+    LoginResponse,
+    MeResponse,
+    RegisterRequest,
+    ResetPasswordRequest,
+    TokenResponse,
+    TwoFactorEnabledResponse,
+    TwoFactorSetupResponse,
+    TwoFactorVerifyRequest,
+    VerifyEmailRequest,
+)
+from ..schemas.common import OkResponse
+from ..services import auth_service as svc
+from ..services.ratelimit import client_ip, enforce_rate_limit
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+REFRESH_COOKIE = settings.session_cookie_name
+
+
+def _set_refresh_cookie(response: Response, raw_refresh: str) -> None:
+    response.set_cookie(
+        key=REFRESH_COOKIE,
+        value=raw_refresh,
+        max_age=settings.jwt_refresh_ttl_seconds,
+        httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite=settings.session_cookie_samesite,
+        path="/",
+    )
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(REFRESH_COOKIE, path="/")
+
+
+@router.post("/register", status_code=status.HTTP_201_CREATED, response_model=OkResponse)
+async def register(req: RegisterRequest, request: Request, db: DBSession) -> OkResponse:
+    ip = client_ip(request)
+    await enforce_rate_limit(f"register:{ip}", limit=10, window_seconds=3600)
+    try:
+        await svc.register_user(
+            db, email=req.email, password=req.password,
+            display_name=req.display_name, org_name=req.org_name, ip=ip,
+        )
+    except ValueError as exc:  # weak password
+        raise APIError(ErrorCode.VALIDATION_ERROR, str(exc), status_code=422) from exc
+    return OkResponse()
+
+
+@router.post("/login", response_model=LoginResponse)
+async def login(req: LoginRequest, request: Request, response: Response, db: DBSession) -> LoginResponse:
+    ip = client_ip(request)
+    await enforce_rate_limit(f"login:{ip}", limit=settings.rate_limit_login_per_min, window_seconds=60)
+    await enforce_rate_limit(f"login:{req.email.lower()}", limit=settings.rate_limit_login_per_min, window_seconds=60)
+
+    user = await svc.authenticate(db, email=req.email, password=req.password, ip=ip)
+    if user.two_factor_enabled:
+        return LoginResponse(two_factor_required=True, challenge=svc._make_challenge(user.id))
+
+    ua = request.headers.get("user-agent")
+    access, raw_refresh, _ = await svc.create_session(db, user, ip=ip, user_agent=ua)
+    await svc.post_login_side_effects(db, user, ip=ip)
+    _set_refresh_cookie(response, raw_refresh)
+    return LoginResponse(access_token=access, expires_in=settings.jwt_access_ttl_seconds)
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh(request: Request, response: Response, db: DBSession) -> TokenResponse:
+    raw_refresh = request.cookies.get(REFRESH_COOKIE)
+    if not raw_refresh:
+        raise unauthorized("חסר טוקן רענון")
+    ua = request.headers.get("user-agent")
+    access, new_refresh = await svc.rotate_refresh(db, raw_refresh, ip=client_ip(request), user_agent=ua)
+    _set_refresh_cookie(response, new_refresh)
+    return TokenResponse(access_token=access, expires_in=settings.jwt_access_ttl_seconds)
+
+
+@router.post("/logout", response_model=OkResponse)
+async def logout(request: Request, response: Response, db: DBSession) -> OkResponse:
+    raw_refresh = request.cookies.get(REFRESH_COOKIE)
+    if raw_refresh:
+        await svc.revoke_session_by_refresh(db, raw_refresh)
+    _clear_refresh_cookie(response)
+    return OkResponse()
+
+
+@router.post("/logout-all", response_model=OkResponse)
+async def logout_all(user: CurrentUser, response: Response, db: DBSession) -> OkResponse:
+    await svc.revoke_all_sessions(db, user.id)
+    _clear_refresh_cookie(response)
+    return OkResponse()
+
+
+@router.post("/verify-email", response_model=OkResponse)
+async def verify_email(req: VerifyEmailRequest, db: DBSession) -> OkResponse:
+    await svc.verify_email(db, req.token)
+    return OkResponse()
+
+
+@router.post("/forgot-password", response_model=OkResponse)
+async def forgot_password(req: ForgotPasswordRequest, request: Request, db: DBSession) -> OkResponse:
+    await enforce_rate_limit(f"forgot:{client_ip(request)}", limit=10, window_seconds=3600)
+    await svc.start_password_reset(db, req.email)
+    return OkResponse()  # always ok — no enumeration
+
+
+@router.post("/reset-password", response_model=OkResponse)
+async def reset_password(req: ResetPasswordRequest, db: DBSession) -> OkResponse:
+    try:
+        await svc.reset_password(db, token=req.token, new_password=req.new_password)
+    except ValueError as exc:
+        raise APIError(ErrorCode.VALIDATION_ERROR, str(exc), status_code=422) from exc
+    return OkResponse()
+
+
+@router.post("/2fa/setup", response_model=TwoFactorSetupResponse)
+async def two_factor_setup(user: CurrentUser, db: DBSession) -> TwoFactorSetupResponse:
+    secret, uri = await svc.setup_2fa(db, user)
+    return TwoFactorSetupResponse(secret=secret, otpauth_uri=uri)
+
+
+@router.post("/2fa/verify")
+async def two_factor_verify(
+    req: TwoFactorVerifyRequest, request: Request, response: Response,
+    db: DBSession, user: OptionalUser = None,
+):
+    # Login-challenge path (no auth header, challenge present) -> returns tokens.
+    if req.challenge:
+        verified = await svc.verify_login_2fa(db, challenge=req.challenge, code=req.code)
+        ua = request.headers.get("user-agent")
+        access, raw_refresh, _ = await svc.create_session(db, verified, ip=client_ip(request), user_agent=ua)
+        await svc.post_login_side_effects(db, verified, ip=client_ip(request))
+        _set_refresh_cookie(response, raw_refresh)
+        return TokenResponse(access_token=access, expires_in=settings.jwt_access_ttl_seconds)
+
+    # Setup-confirmation path (requires auth) -> returns recovery codes.
+    if user is None:
+        raise unauthorized()
+    codes = await svc.confirm_2fa(db, user, req.code)
+    return TwoFactorEnabledResponse(recovery_codes=codes)
+
+
+@router.post("/device-flow/start", response_model=DeviceFlowStartResponse)
+async def device_flow_start(req: DeviceFlowStartRequest, request: Request, db: DBSession) -> DeviceFlowStartResponse:
+    await enforce_rate_limit(f"devflow:{client_ip(request)}", limit=30, window_seconds=3600)
+    user_code, device_code, interval, expires_in = await svc.device_flow_start(
+        db, anonymous_device_id=req.anonymous_device_id, os=req.os,
+        os_version=req.os_version, agent_version=req.agent_version,
+    )
+    return DeviceFlowStartResponse(
+        user_code=user_code, device_code=device_code,
+        verification_uri=f"{settings.public_web_url}/activate",
+        interval=interval, expires_in=expires_in,
+    )
+
+
+@router.post("/device-flow/approve", response_model=OkResponse)
+async def device_flow_approve(req: DeviceFlowApproveRequest, user: CurrentUser, db: DBSession) -> OkResponse:
+    await svc.device_flow_approve(db, user=user, user_code=req.user_code)
+    return OkResponse()
+
+
+@router.post("/device-flow/token", response_model=DeviceFlowTokenResponse)
+async def device_flow_token(req: DeviceFlowTokenRequest, db: DBSession) -> DeviceFlowTokenResponse:
+    status_str, token, device_id = await svc.device_flow_poll(db, device_code=req.device_code)
+    return DeviceFlowTokenResponse(status=status_str, device_token=token, device_id=device_id)
+
+
+@router.get("/me", response_model=MeResponse)
+async def me(user: CurrentUser) -> MeResponse:
+    return MeResponse.model_validate(user)

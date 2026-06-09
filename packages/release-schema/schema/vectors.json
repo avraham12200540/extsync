@@ -1,0 +1,112 @@
+{
+  "seedHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "publicKeyB64": "A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=",
+  "privateSeedB64": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "keyId": "test-key-1",
+  "canonicalCases": [
+    {
+      "name": "empty",
+      "input": {},
+      "canonical": "{}",
+      "canonicalBytesB64": "e30="
+    },
+    {
+      "name": "scalars",
+      "input": {
+        "b": true,
+        "a": 1,
+        "c": "x",
+        "z": 0
+      },
+      "canonical": "{\"a\":1,\"b\":true,\"c\":\"x\",\"z\":0}",
+      "canonicalBytesB64": "eyJhIjoxLCJiIjp0cnVlLCJjIjoieCIsInoiOjB9"
+    },
+    {
+      "name": "nested",
+      "input": {
+        "o": {
+          "y": 2,
+          "x": 1
+        },
+        "arr": [
+          "b",
+          "a",
+          "c"
+        ]
+      },
+      "canonical": "{\"arr\":[\"b\",\"a\",\"c\"],\"o\":{\"x\":1,\"y\":2}}",
+      "canonicalBytesB64": "eyJhcnIiOlsiYiIsImEiLCJjIl0sIm8iOnsieCI6MSwieSI6Mn19"
+    },
+    {
+      "name": "unicode",
+      "input": {
+        "name": "תוסף שלום",
+        "v": "1.0"
+      },
+      "canonical": "{\"name\":\"תוסף שלום\",\"v\":\"1.0\"}",
+      "canonicalBytesB64": "eyJuYW1lIjoi16rXldeh16Mg16nXnNeV150iLCJ2IjoiMS4wIn0="
+    },
+    {
+      "name": "escapes",
+      "input": {
+        "s": "a\"b\\c\nd\te"
+      },
+      "canonical": "{\"s\":\"a\\\"b\\\\c\\nd\\te\"}",
+      "canonicalBytesB64": "eyJzIjoiYVwiYlxcY1xuZFx0ZSJ9"
+    }
+  ],
+  "sampleMetadata": {
+    "schema": 1,
+    "releaseId": "rel_abc123",
+    "projectId": "ext_proj1",
+    "extensionId": "abcdefghijklmnopabcdefghijklmnop",
+    "version": "1.4.0",
+    "channel": "stable",
+    "minimumAgentVersion": "1.0.0",
+    "artifact": {
+      "url": "https://cdn.extsync.dev/artifacts/rel_abc123.zip",
+      "size": 123456,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "sequence": 15,
+    "rolloutPercentage": 100,
+    "permissionsChanged": false,
+    "requiresUserApproval": false,
+    "publishedAt": "2026-06-08T10:00:00Z",
+    "keyId": "test-key-1"
+  },
+  "sampleCanonical": "{\"artifact\":{\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"size\":123456,\"url\":\"https://cdn.extsync.dev/artifacts/rel_abc123.zip\"},\"channel\":\"stable\",\"extensionId\":\"abcdefghijklmnopabcdefghijklmnop\",\"keyId\":\"test-key-1\",\"minimumAgentVersion\":\"1.0.0\",\"permissionsChanged\":false,\"projectId\":\"ext_proj1\",\"publishedAt\":\"2026-06-08T10:00:00Z\",\"releaseId\":\"rel_abc123\",\"requiresUserApproval\":false,\"rolloutPercentage\":100,\"schema\":1,\"sequence\":15,\"version\":\"1.4.0\"}",
+  "sampleSigned": {
+    "schema": 1,
+    "releaseId": "rel_abc123",
+    "projectId": "ext_proj1",
+    "extensionId": "abcdefghijklmnopabcdefghijklmnop",
+    "version": "1.4.0",
+    "channel": "stable",
+    "minimumAgentVersion": "1.0.0",
+    "artifact": {
+      "url": "https://cdn.extsync.dev/artifacts/rel_abc123.zip",
+      "size": 123456,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "sequence": 15,
+    "rolloutPercentage": 100,
+    "permissionsChanged": false,
+    "requiresUserApproval": false,
+    "publishedAt": "2026-06-08T10:00:00Z",
+    "keyId": "test-key-1",
+    "signature": "YiB9ujGKDk/F7XF9YMwUksAbDLhB/xQYgKGy2YtA+57e5etMd2jcEYK84SE4piPP1Zj/uQg4PKLLb4vgGRJxBg=="
+  },
+  "rolloutSamples": [
+    {
+      "projectId": "ext_proj1",
+      "deviceId": "dev-xyz",
+      "bucket": 2
+    },
+    {
+      "projectId": "ext_proj1",
+      "deviceId": "dev-aaa",
+      "bucket": 8
+    }
+  ]
+}

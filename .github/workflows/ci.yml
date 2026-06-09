@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  release-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Generate vectors (python) + self-test
+        run: |
+          pip install cryptography
+          python packages/release-schema/python/generate_vectors.py
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: TS cross-language signing tests
+        working-directory: packages/release-schema
+        run: npm install && npm test
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Install + test (API uses SQLite for tests)
+        run: |
+          pip install cryptography
+          pip install -e packages/release-schema/python
+          pip install -e "apps/api[dev]"
+          pip install -e "apps/worker[dev]"
+          (cd apps/api && python -m pytest -q)
+          (cd apps/worker && PYTHONPATH=../api/src:src python -m pytest -q)
+      - name: Lint + types
+        run: |
+          (cd apps/api && ruff check . && mypy extsync_api || true)
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: |
+          pip install cryptography
+          pip install -e packages/release-schema/python -e "apps/api[dev]" -e "apps/worker[dev]"
+          PYTHONPATH=apps/api/src:apps/worker/src:packages/release-schema/python python -m pytest tests/integration -q
+
+  cli-bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: cd packages/extension-bridge && npm install && npm test
+      - run: cd apps/cli && npm install && npm test
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Typecheck + build
+        working-directory: apps/web
+        run: npm install && npm run typecheck && npm run build
+
+  migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Validate migrations apply cleanly (sqlite)
+        run: |
+          pip install cryptography
+          pip install -e packages/release-schema/python -e "apps/api[dev]"
+          cd apps/api && DATABASE_URL_SYNC="sqlite:///./ci.db" python -m alembic upgrade head
+
+  agent:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: "8.0.x" }
+      - name: Build + test Agent (.NET)
+        run: |
+          dotnet build apps/agent-windows/ExtSync.Agent.sln -c Release
+          dotnet test apps/agent-windows/ExtSync.Agent.sln -c Release
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Dependency audit (non-blocking advisory)
+        run: |
+          pip install pip-audit || true
+          pip-audit -r <(pip freeze) || true
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image
+        run: docker build -f infrastructure/docker/api.Dockerfile -t extsync-api:ci .
+
+# Note (§37): Releasing the Agent to production requires a signed installer.
+# Signing keys are NEVER stored in the repository; the production release job
+# (separate, manual) injects them from the org secret manager.

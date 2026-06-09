@@ -1,0 +1,194 @@
+# =============================================================================
+# ExtSync — local development stack.
+#   docker compose up -d        # start infra + services
+#   docker compose logs -f api  # follow API logs
+# The Windows Agent, Native Host, Installer and CLI run OUTSIDE compose
+# (they target the developer's / end-user's machine, not a container).
+# =============================================================================
+name: extsync
+
+x-api-env: &api-env
+  ENVIRONMENT: ${ENVIRONMENT:-development}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATABASE_URL: ${DATABASE_URL}
+  DATABASE_URL_SYNC: ${DATABASE_URL_SYNC}
+  REDIS_URL: ${REDIS_URL}
+  S3_ENDPOINT_URL: ${S3_ENDPOINT_URL}
+  S3_PUBLIC_ENDPOINT_URL: ${S3_PUBLIC_ENDPOINT_URL}
+  S3_REGION: ${S3_REGION}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+  S3_SECRET_KEY: ${S3_SECRET_KEY}
+  S3_BUCKET_UPLOADS: ${S3_BUCKET_UPLOADS}
+  S3_BUCKET_ARTIFACTS: ${S3_BUCKET_ARTIFACTS}
+  S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE}
+  JWT_SECRET: ${JWT_SECRET}
+  JWT_ACCESS_TTL_SECONDS: ${JWT_ACCESS_TTL_SECONDS}
+  JWT_REFRESH_TTL_SECONDS: ${JWT_REFRESH_TTL_SECONDS}
+  CSRF_SECRET: ${CSRF_SECRET}
+  SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME}
+  SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE}
+  SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE}
+  ARGON2_TIME_COST: ${ARGON2_TIME_COST}
+  ARGON2_MEMORY_COST_KIB: ${ARGON2_MEMORY_COST_KIB}
+  ARGON2_PARALLELISM: ${ARGON2_PARALLELISM}
+  SIGNING_SERVICE_URL: ${SIGNING_SERVICE_URL}
+  SIGNING_INTERNAL_TOKEN: ${SIGNING_INTERNAL_TOKEN}
+  SIGNING_ACTIVE_KEY_ID: ${SIGNING_ACTIVE_KEY_ID}
+  SIGNING_PUBLIC_KEYS: ${SIGNING_PUBLIC_KEYS}
+  SMTP_HOST: ${SMTP_HOST}
+  SMTP_PORT: ${SMTP_PORT}
+  EMAIL_FROM: ${EMAIL_FROM}
+  PUBLIC_WEB_URL: ${PUBLIC_WEB_URL}
+  PUBLIC_API_URL: ${PUBLIC_API_URL}
+  MAX_UPLOAD_ZIP_BYTES: ${MAX_UPLOAD_ZIP_BYTES}
+  MAX_EXTRACTED_BYTES: ${MAX_EXTRACTED_BYTES}
+  MAX_FILE_COUNT: ${MAX_FILE_COUNT}
+  MAX_DIR_DEPTH: ${MAX_DIR_DEPTH}
+  VALIDATION_TIMEOUT_SECONDS: ${VALIDATION_TIMEOUT_SECONDS}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-shot: create buckets, then exit.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${S3_ACCESS_KEY} ${S3_SECRET_KEY} &&
+      mc mb -p local/${S3_BUCKET_UPLOADS} || true;
+      mc mb -p local/${S3_BUCKET_ARTIFACTS} || true;
+      mc anonymous set download local/${S3_BUCKET_ARTIFACTS} || true;
+      echo 'buckets ready';
+      "
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    environment:
+      MP_MAX_MESSAGES: 500
+
+  signing:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/signing.Dockerfile
+    environment:
+      <<: *api-env
+      SIGNING_PRIVATE_KEY_PATH: /run/secrets/ed25519_private.pem
+    volumes:
+      - ./infrastructure/docker/dev-signing-key.pem:/run/secrets/ed25519_private.pem:ro
+    # Intentionally NOT exposed to host: internal network only.
+    expose:
+      - "8090"
+
+  api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/api.Dockerfile
+    environment: *api-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/api:/app/apps/api
+      - ./packages:/app/packages
+    command: ["uvicorn", "extsync_api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; urllib.request.urlopen('http://localhost:8000/health/live'); "]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/worker.Dockerfile
+    environment: *api-env
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./apps/worker:/app/apps/worker
+      - ./apps/api:/app/apps/api
+      - ./packages:/app/packages
+    command: ["python", "-m", "extsync_worker.main"]
+
+  web:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/web.Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL}
+      NEXT_PUBLIC_DEFAULT_LOCALE: ${NEXT_PUBLIC_DEFAULT_LOCALE}
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/web:/app/apps/web
+      - ./packages:/app/packages
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:

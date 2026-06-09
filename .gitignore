@@ -1,0 +1,74 @@
+# ---- Secrets & local env ----
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+!**/keys/*.pub.example
+signing-keys/
+secrets/
+
+# ---- Node / JS / TS ----
+node_modules/
+.next/
+out/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+coverage/
+playwright-report/
+test-results/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# ---- .NET / C# ----
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+.vs/
+publish/
+*.dll
+*.exe
+!installers/**/*.exe.example
+
+# ---- Installers build output ----
+installers/windows/Output/
+installers/windows/*.exe
+
+# ---- Local data / storage ----
+.data/
+minio-data/
+postgres-data/
+redis-data/
+*.sqlite
+*.sqlite3
+*.db
+!tests/fixtures/**/*.db
+
+# ---- IDE / OS ----
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.shared.json
+.DS_Store
+Thumbs.db
+*.log
+logs/

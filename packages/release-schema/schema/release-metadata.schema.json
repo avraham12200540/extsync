@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://extsync.dev/schema/release-metadata-v1.json",
+  "title": "ExtSync Release Metadata",
+  "description": "Signed metadata describing a single published release. The Agent verifies the Ed25519 signature over the canonical form (signature field excluded) before installing. See packages/release-schema/README.md for the canonicalization rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "releaseId",
+    "projectId",
+    "extensionId",
+    "version",
+    "channel",
+    "minimumAgentVersion",
+    "artifact",
+    "sequence",
+    "rolloutPercentage",
+    "permissionsChanged",
+    "requiresUserApproval",
+    "publishedAt",
+    "keyId",
+    "signature"
+  ],
+  "properties": {
+    "schema": {
+      "type": "integer",
+      "const": 1,
+      "description": "Schema version. Bump on breaking changes."
+    },
+    "releaseId": {
+      "type": "string",
+      "pattern": "^rel_[A-Za-z0-9]+$"
+    },
+    "projectId": {
+      "type": "string",
+      "pattern": "^ext_[A-Za-z0-9]+$"
+    },
+    "extensionId": {
+      "type": "string",
+      "pattern": "^[a-p]{32}$",
+      "description": "Stable Chrome extension id derived from the project public key (ADR-0005)."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+(\\.[0-9]+){0,3}$",
+      "description": "Chrome extension version (1-4 dot-separated integers)."
+    },
+    "channel": {
+      "type": "string",
+      "enum": ["stable", "beta", "nightly"]
+    },
+    "minimumAgentVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "size", "sha256"],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "HTTPS URL (or presigned) to the immutable, validated artifact ZIP."
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Exact byte size. Agent rejects artifacts larger than this."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Lowercase hex SHA-256 of the artifact bytes."
+        }
+      }
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonic per-project sequence. Agent ignores lower-or-equal sequences unless 'rollback' is true."
+    },
+    "rollback": {
+      "type": "boolean",
+      "default": false,
+      "description": "True for a signed rollback to an earlier version; allows installing a lower sequence."
+    },
+    "rolloutPercentage": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Deterministic rollout bucket cutoff. Device installs if bucket(projectId+deviceId) < rolloutPercentage."
+    },
+    "permissionsChanged": {
+      "type": "boolean",
+      "description": "True if permissions/host_permissions changed vs the previously published release in this channel."
+    },
+    "requiresUserApproval": {
+      "type": "boolean",
+      "description": "Computed server-side per policy (ADR/spec §15). When true the Agent must show a permission diff and not auto-install."
+    },
+    "publishedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "keyId": {
+      "type": "string",
+      "description": "Identifies which platform public key verifies 'signature' (key rotation, ADR-0003)."
+    },
+    "signature": {
+      "type": "string",
+      "contentEncoding": "base64",
+      "description": "base64(Ed25519(canonical(metadata without 'signature'))). EXCLUDED from the canonical form being signed."
+    }
+  }
+}

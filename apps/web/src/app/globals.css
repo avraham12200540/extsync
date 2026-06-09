@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --surface: 255 255 255;
+  --surface-2: 243 244 246;
+  --ink: 17 24 39;
+  --ink-muted: 107 114 128;
+  --line: 229 231 235;
+}
+
+.dark {
+  --surface: 17 26 46;
+  --surface-2: 11 18 32;
+  --ink: 237 240 245;
+  --ink-muted: 148 163 184;
+  --line: 39 51 74;
+}
+
+body {
+  background-color: rgb(var(--surface-2));
+  color: rgb(var(--ink));
+}
+
+/* Restrained focus ring for keyboard accessibility (§18, §39). */
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}

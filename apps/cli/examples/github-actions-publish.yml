@@ -1,0 +1,65 @@
+# Example GitHub Actions workflow for ExtSync.
+# Validates and uploads a DRAFT release on every push to main.
+# It NEVER publishes to Stable automatically — promotion is a manual,
+# explicit step (see the commented job at the bottom).
+#
+# Required repository secret:
+#   EXTSYNC_TOKEN  — an API token created in the ExtSync dashboard (Settings > API)
+# Required repository variable:
+#   EXTSYNC_PROJECT_ID — e.g. ext_abc123
+#   EXTSYNC_API_URL    — e.g. https://api.extsync.example  (optional; defaults to localhost)
+
+name: ExtSync Draft
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  validate-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Build your extension here if needed (e.g. `npm ci && npm run build`),
+      # so that ./dist contains the unpacked extension with manifest.json.
+      - name: Build extension
+        run: |
+          npm ci
+          npm run build
+
+      - name: Validate (fails CI on errors)
+        run: npx extsync-cli validate ./dist
+
+      - name: Upload draft release
+        env:
+          EXTSYNC_TOKEN: ${{ secrets.EXTSYNC_TOKEN }}
+          EXTSYNC_API_URL: ${{ vars.EXTSYNC_API_URL }}
+        run: |
+          npx extsync-cli upload ./dist \
+            --project "${{ vars.EXTSYNC_PROJECT_ID }}" \
+            --channel beta \
+            --notes "CI build ${{ github.sha }}"
+
+# ---------------------------------------------------------------------------
+# Manual promotion to Stable — intentionally a SEPARATE, manually triggered job.
+# Uncomment and provide the release id to publish. Stable is never automatic.
+#
+#  publish-stable:
+#    if: github.event_name == 'workflow_dispatch'
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/setup-node@v4
+#        with: { node-version: "20" }
+#      - env:
+#          EXTSYNC_TOKEN: ${{ secrets.EXTSYNC_TOKEN }}
+#          EXTSYNC_API_URL: ${{ vars.EXTSYNC_API_URL }}
+#        run: |
+#          npx extsync-cli publish \
+#            --project "${{ vars.EXTSYNC_PROJECT_ID }}" \
+#            --release "${{ inputs.release_id }}" \
+#            --rollout 10

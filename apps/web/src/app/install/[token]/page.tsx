@@ -1,0 +1,111 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { api, ApiError, type InstallPage } from "@/lib/api";
+import { SiteHeader } from "@/components/site-header";
+import { Badge, Button, Card, Spinner } from "@/components/ui";
+import { formatDate } from "@/lib/utils";
+
+export default function InstallTokenPage({ params }: { params: { token: string } }) {
+  const [data, setData] = useState<InstallPage | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.post<InstallPage>(`/install-links/${params.token}/resolve`)
+      .then(setData)
+      .catch((e) => setError(e instanceof ApiError ? e.message : "שגיאה"));
+  }, [params.token]);
+
+  return (
+    <div className="min-h-screen">
+      <SiteHeader />
+      <main className="mx-auto max-w-2xl px-6 py-12">
+        {!data && !error && <div className="flex justify-center py-20"><Spinner /></div>}
+        {error && (
+          <Card className="text-center">
+            <h1 className="text-xl font-semibold text-ink">הקישור אינו זמין</h1>
+            <p className="mt-2 text-ink-muted">{error}</p>
+          </Card>
+        )}
+        {data && <InstallContent data={data} />}
+      </main>
+    </div>
+  );
+}
+
+function InstallContent({ data }: { data: InstallPage }) {
+  const onInstall = () => {
+    // Only fired by an explicit user click (§16) — never auto-launched.
+    window.location.href = data.installUri;
+  };
+
+  return (
+    <Card>
+      <div className="flex items-center gap-4">
+        {data.iconUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={data.iconUrl} alt="" className="h-16 w-16 rounded-lg" />
+        ) : (
+          <div className="h-16 w-16 rounded-lg bg-brand-muted" />
+        )}
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">{data.name}</h1>
+          <p className="text-sm text-ink-muted">מאת {data.developerName}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Badge>{data.visibility === "public" ? "ציבורי" : "פרטי"}</Badge>
+            <Badge>ערוץ {data.channel}</Badge>
+            {data.version && <Badge>גרסה {data.version}</Badge>}
+            {data.hasBridge && <Badge>תומך עדכון אוטומטי</Badge>}
+          </div>
+        </div>
+      </div>
+
+      {data.shortDescription && <p className="mt-4 text-ink">{data.shortDescription}</p>}
+
+      <div className="mt-6">
+        <h2 className="mb-2 text-sm font-semibold text-ink">הרשאות שהתוסף מבקש</h2>
+        {data.permissions.permissions.length === 0 && data.permissions.hostPermissions.length === 0 ? (
+          <p className="text-sm text-ink-muted">אין הרשאות מיוחדות.</p>
+        ) : (
+          <ul className="space-y-1 text-sm text-ink-muted">
+            {data.permissions.permissions.map((p) => <li key={p}>• {p}</li>)}
+            {data.permissions.hostPermissions.length > 0 && (
+              <li>• גישה לאתרים: {data.permissions.hostPermissions.join(", ")}</li>
+            )}
+            {data.permissions.usesNativeMessaging && <li>• תקשורת עם תוכנה מקומית (Native Messaging)</li>}
+          </ul>
+        )}
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-4 text-sm text-ink-muted">
+        {data.publishedAt && <span>פורסם: {formatDate(data.publishedAt)}</span>}
+        {data.repoUrl && <a href={data.repoUrl} className="text-brand hover:underline">קוד מקור</a>}
+        {data.privacyPolicyUrl && <a href={data.privacyPolicyUrl} className="text-brand hover:underline">מדיניות פרטיות</a>}
+      </div>
+
+      {!data.usable ? (
+        <div className="mt-6 rounded-md bg-amber-50 p-4 text-sm text-amber-800">
+          קישור ההתקנה אינו זמין יותר ({data.reason === "expired" ? "פג תוקף" : data.reason === "limit_reached" ? "נוצלה מכסת השימושים" : "הושבת"}).
+        </div>
+      ) : (
+        <>
+          <div className="mt-8">
+            <Button size="md" onClick={onInstall} className="w-full sm:w-auto">
+              התקנה באמצעות ExtSync
+            </Button>
+          </div>
+          <div className="mt-4 rounded-md bg-surface-2 p-4 text-sm text-ink-muted">
+            עדיין אין לך את <strong className="text-ink">ExtSync Agent</strong>? התקן אותו פעם אחת ואז חזור לדף הזה.
+            <div className="mt-2">
+              <Link href="/download"><Button size="sm" variant="secondary">הורדת ExtSync Agent</Button></Link>
+            </div>
+          </div>
+          {data.requiresAccount && (
+            <p className="mt-3 text-xs text-ink-muted">להתקנה זו נדרש חשבון משתמש מחובר ב-Agent.</p>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}
