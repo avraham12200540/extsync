@@ -10,7 +10,12 @@ namespace ExtSync.Agent.Services;
 /// Local IPC between the Native Messaging Host (which talks to Chrome over stdio)
 /// and the Agent. Newline-delimited JSON over a per-user named pipe. The Agent
 /// uses this to deliver a verified <c>update.reload_ready</c> (with a one-time
-/// nonce) to a specific extension's Bridge and to await its ack (§10, §27, ADR-0006).
+/// nonce) to an extension's Bridge and to await its ack (§10, §27, ADR-0006).
+///
+/// Multi-profile support: each Chrome profile that runs the extension spawns its
+/// own native-host process and thus its own pipe connection. Connections are
+/// tracked as a SET per projectId, and reload requests are broadcast to all of
+/// them — the extension folder on disk is shared, so every profile must reload.
 /// </summary>
 public sealed class PipeServer : IAsyncDisposable
 {
@@ -18,15 +23,20 @@ public sealed class PipeServer : IAsyncDisposable
 
     private readonly ILogger _log;
     private readonly CancellationTokenSource _cts = new();
-    private readonly ConcurrentDictionary<string, BridgeConnection> _byProject = new();
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<BridgeConnection, byte>> _byProject = new();
     private readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _pendingReloads = new();
 
     public event Action<string, string>? BridgeConnected;     // (projectId, extensionId)
-    public event Action<string>? BridgeDisconnected;          // (projectId)
+    public event Action<string>? BridgeDisconnected;          // (projectId) — last instance gone
 
     public PipeServer(ILogger log) => _log = log;
 
-    public bool IsBridgeConnected(string projectId) => _byProject.ContainsKey(projectId);
+    public bool IsBridgeConnected(string projectId) =>
+        _byProject.TryGetValue(projectId, out var set) && !set.IsEmpty;
+
+    /// <summary>How many Chrome profiles currently have this extension connected.</summary>
+    public int ConnectedInstanceCount(string projectId) =>
+        _byProject.TryGetValue(projectId, out var set) ? set.Count : 0;
 
     public void Start()
     {
@@ -75,12 +85,21 @@ public sealed class PipeServer : IAsyncDisposable
         catch (Exception ex) { _log.Debug(ex, "bridge connection ended"); }
         finally
         {
-            if (projectId != null)
-            {
-                _byProject.TryRemove(projectId, out _);
-                BridgeDisconnected?.Invoke(projectId);
-            }
+            if (projectId != null) RemoveConnection(projectId, conn);
             await stream.DisposeAsync();
+        }
+    }
+
+    private void RemoveConnection(string projectId, BridgeConnection conn)
+    {
+        if (_byProject.TryGetValue(projectId, out var set))
+        {
+            set.TryRemove(conn, out _);
+            if (set.IsEmpty && _byProject.TryRemove(projectId, out _))
+            {
+                BridgeDisconnected?.Invoke(projectId);
+                _log.Information("last bridge instance disconnected project={Project}", projectId);
+            }
         }
     }
 
@@ -97,9 +116,11 @@ public sealed class PipeServer : IAsyncDisposable
             case "extension.status":
                 if (!string.IsNullOrEmpty(pid))
                 {
-                    _byProject[pid] = conn;
+                    var set = _byProject.GetOrAdd(pid, _ => new ConcurrentDictionary<BridgeConnection, byte>());
+                    if (set.TryAdd(conn, 0))
+                        _log.Information("bridge connected project={Project} ext={Ext} instances={Count}",
+                            pid, extId, set.Count);
                     BridgeConnected?.Invoke(pid, extId ?? "");
-                    _log.Information("bridge connected project={Project} ext={Ext}", pid, extId);
                 }
                 return pid;
 
@@ -118,10 +139,15 @@ public sealed class PipeServer : IAsyncDisposable
         }
     }
 
-    /// <summary>Ask the project's Bridge to reload, then await its ack (verified by nonce).</summary>
+    /// <summary>
+    /// Ask every connected instance (every Chrome profile) of the project's Bridge
+    /// to reload, then await the first ack (verified by nonce). All instances share
+    /// the same on-disk folder, so each must reload itself; one ack is enough to
+    /// confirm the new version is live (the rest reload independently).
+    /// </summary>
     public async Task<bool> RequestReloadAsync(string projectId, string version, TimeSpan timeout)
     {
-        if (!_byProject.TryGetValue(projectId, out var conn))
+        if (!_byProject.TryGetValue(projectId, out var set) || set.IsEmpty)
             return false; // no Bridge connected -> caller marks Pending Restart
 
         var nonce = Guid.NewGuid().ToString("N");
@@ -138,16 +164,27 @@ public sealed class PipeServer : IAsyncDisposable
             type = "update.reload_ready",
             payload = new { nonce, version },
         };
-        try
+
+        var delivered = 0;
+        foreach (var conn in set.Keys)
         {
-            await conn.SendAsync(message);
+            try
+            {
+                await conn.SendAsync(message);
+                delivered++;
+            }
+            catch (Exception ex)
+            {
+                _log.Warning(ex, "failed to send reload to one bridge instance project={Project}", projectId);
+                RemoveConnection(projectId, conn);
+            }
         }
-        catch (Exception ex)
+        if (delivered == 0)
         {
-            _log.Warning(ex, "failed to send reload to bridge project={Project}", projectId);
             _pendingReloads.TryRemove(nonce, out _);
             return false;
         }
+        _log.Information("reload_ready broadcast project={Project} instances={Count}", projectId, delivered);
 
         using var timeoutCts = new CancellationTokenSource(timeout);
         await using var reg = timeoutCts.Token.Register(() => tcs.TrySetResult(false));
