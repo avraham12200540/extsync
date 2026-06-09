@@ -125,6 +125,21 @@ public sealed class AgentController
         return inst;
     }
 
+    /// <summary>User confirms they loaded the unpacked folder in Chrome. For
+    /// extensions without a Bridge we cannot detect the load automatically, so this
+    /// flips the installation to Installed and lets the Agent manage future updates.</summary>
+    public void MarkManuallyLoaded(string projectId)
+    {
+        var inst = _store.Get(projectId);
+        if (inst is null) return;
+        if (inst.Status is InstallationStatus.AwaitingManualLoad or InstallationStatus.ReloadRequired)
+            inst.Status = InstallationStatus.Installed;
+        inst.LastError = null;
+        inst.LastUpdatedAt = DateTimeOffset.UtcNow;
+        _store.Upsert(inst);
+        InstallationsChanged?.Invoke();
+    }
+
     // ---- updates ----
     public async Task CheckUpdatesAsync(bool autoApply, CancellationToken ct = default)
     {

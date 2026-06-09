@@ -12,18 +12,25 @@ namespace ExtSync.Agent.Services;
 [SupportedOSPlatform("windows")]
 public static class ChromeHelper
 {
+    public const string ExtensionsUrl = "chrome://extensions/";
+
     public static bool OpenExtensionsPage()
     {
-        // Prefer launching Chrome directly at chrome://extensions; fall back to default browser.
+        // If Chrome is already running, the new tab opens in the current profile
+        // window (no picker). If it is closed, Chrome may show the profile picker;
+        // with some setups the picker drops the start URL and a blank tab opens —
+        // that is why the wizard also offers a "copy chrome://extensions" button.
         var chrome = FindChrome();
         try
         {
             if (chrome != null)
             {
-                Process.Start(new ProcessStartInfo(chrome, "chrome://extensions") { UseShellExecute = false });
+                // --new-window keeps the URL attached more reliably than a plain tab.
+                Process.Start(new ProcessStartInfo(chrome, $"--new-window {ExtensionsUrl}")
+                    { UseShellExecute = false });
                 return true;
             }
-            Process.Start(new ProcessStartInfo("chrome://extensions") { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(ExtensionsUrl) { UseShellExecute = true });
             return true;
         }
         catch
@@ -32,7 +39,11 @@ public static class ChromeHelper
         }
     }
 
-    public static void CopyPathToClipboard(string path)
+    public static void CopyPathToClipboard(string path) => CopyText(path);
+
+    public static void CopyExtensionsUrl() => CopyText(ExtensionsUrl);
+
+    public static void CopyText(string text)
     {
         // Use clip.exe to avoid an STA/WPF clipboard dependency from background threads.
         try
@@ -44,7 +55,7 @@ public static class ChromeHelper
                 CreateNoWindow = true,
             };
             using var p = Process.Start(psi)!;
-            p.StandardInput.Write(path);
+            p.StandardInput.Write(text);
             p.StandardInput.Close();
             p.WaitForExit(2000);
         }

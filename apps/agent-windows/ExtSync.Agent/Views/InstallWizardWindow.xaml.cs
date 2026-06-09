@@ -90,23 +90,19 @@ public partial class InstallWizardWindow : Window
         if (_installation != null) ChromeHelper.OpenFolder(_installation.ActivePath);
     }
 
-    private void OnRecheck(object sender, RoutedEventArgs e)
+    private void OnCopyUrl(object sender, RoutedEventArgs e)
+    {
+        ChromeHelper.CopyExtensionsUrl();
+        TxtGuideStatus.Text = "הכתובת chrome://extensions הועתקה — הדבק בשורת הכתובת של Chrome. " +
+                              "לפני 'טען פריט לא ארוז' לחץ שוב 'העתק נתיב התיקייה'.";
+    }
+
+    private void OnConfirmLoaded(object sender, RoutedEventArgs e)
     {
         if (_installation == null) return;
-        var current = _controller.Installations.FirstOrDefault(i => i.ProjectId == _installation.ProjectId);
-        if (current is { BridgeConnected: true } ||
-            current is { Status: InstallationStatus.UpToDate or InstallationStatus.Installed })
-        {
-            TxtGuideStatus.Text = "התוסף זוהה בהצלחה! אפשר לסגור.";
-        }
-        else if (current is { HasBridge: false })
-        {
-            TxtGuideStatus.Text = "התוסף אינו כולל Bridge. לאחר טעינה ב-Chrome ההתקנה תיחשב מוכנה.";
-        }
-        else
-        {
-            TxtGuideStatus.Text = "עדיין לא זיהינו את התוסף. ודא שטענת את התיקייה ב-Chrome ונסה שוב.";
-        }
+        _controller.MarkManuallyLoaded(_installation.ProjectId);
+        TxtGuideStatus.Text = "מצוין! התוסף סומן כמותקן ועדכונים עתידיים ינוהלו אוטומטית. אפשר לסגור.";
+        BtnConfirmLoaded.IsEnabled = false;
     }
 
     private void OnHelp(object sender, RoutedEventArgs e)

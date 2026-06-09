@@ -58,28 +58,35 @@
             <Border Background="{StaticResource Surface}" CornerRadius="12" Padding="18" Margin="0,16"
                     BorderBrush="{StaticResource Border}" BorderThickness="1">
                 <StackPanel>
-                    <TextBlock Text="1. בחלון Chrome שנפתח, הפעל 'מצב מפתח' בפינה העליונה." Margin="0,4" TextWrapping="Wrap"/>
-                    <TextBlock Text="2. לחץ על 'טען פריט לא ארוז' (Load unpacked)." Margin="0,4" TextWrapping="Wrap"/>
-                    <TextBlock Text="3. בחר את התיקייה שפתחנו עבורך ב-Explorer (הנתיב כבר הועתק)." Margin="0,4" TextWrapping="Wrap"/>
-                    <TextBlock Text="4. לאחר הטעינה, ExtSync יזהה את התוסף אוטומטית." Margin="0,4" TextWrapping="Wrap"/>
+                    <TextBlock Text="1. בדף chrome://extensions, הפעל 'מצב מפתח' (Developer mode) בפינה." Margin="0,4" TextWrapping="Wrap"/>
+                    <TextBlock Text="2. לחץ 'טען פריט לא ארוז' (Load unpacked)." Margin="0,4" TextWrapping="Wrap"/>
+                    <TextBlock Text="3. הדבק את הנתיב שהעתקנו (Ctrl+V) ובחר את תיקיית active — בתוכה נמצא manifest.json." Margin="0,4" TextWrapping="Wrap"/>
+                    <TextBlock Text="4. לאחר הטעינה לחץ למטה 'טענתי את התוסף ✓'." Margin="0,4" TextWrapping="Wrap"/>
                     <TextBlock x:Name="TxtFolder" Margin="0,8,0,0" FontSize="12" TextWrapping="Wrap"
                                Foreground="{StaticResource TextMuted}"/>
                 </StackPanel>
             </Border>
 
+            <Border Background="#EFF6FF" CornerRadius="8" Padding="10" Margin="0,0,0,10">
+                <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#1E40AF"
+                    Text="אם Chrome פתח בורר פרופילים — בחר פרופיל; ואם נפתח טאב ריק, לחץ 'העתק chrome://extensions' והדבק בשורת הכתובת."/>
+            </Border>
+
             <WrapPanel>
                 <Button Content="פתח שוב את דף התוספים" Click="OnOpenExtensions" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8"/>
-                <Button Content="העתק נתיב" Click="OnCopyPath" Style="{StaticResource PrimaryButton}" Background="{StaticResource TextMuted}" Margin="0,0,8,8"/>
+                <Button Content="העתק chrome://extensions" Click="OnCopyUrl" Style="{StaticResource PrimaryButton}" Background="{StaticResource TextMuted}" Margin="0,0,8,8"/>
+                <Button Content="העתק נתיב התיקייה" Click="OnCopyPath" Style="{StaticResource PrimaryButton}" Background="{StaticResource TextMuted}" Margin="0,0,8,8"/>
                 <Button Content="פתח תיקייה" Click="OnOpenFolder" Style="{StaticResource PrimaryButton}" Background="{StaticResource TextMuted}" Margin="0,0,8,8"/>
-                <Button Content="בדוק שוב" Click="OnRecheck" Style="{StaticResource PrimaryButton}" Background="{StaticResource Success}" Margin="0,0,8,8"/>
             </WrapPanel>
 
             <TextBlock x:Name="TxtGuideStatus" Margin="0,8" FontSize="13" Foreground="{StaticResource TextMuted}"/>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,8,0,0">
-                <Button x:Name="BtnDone" Content="סיום" Click="OnCancel" Style="{StaticResource PrimaryButton}"/>
+                <Button x:Name="BtnConfirmLoaded" Content="טענתי את התוסף ✓" Click="OnConfirmLoaded"
+                        Style="{StaticResource PrimaryButton}" Background="{StaticResource Success}" Margin="0,0,8,0"/>
+                <Button x:Name="BtnDone" Content="סיום" Click="OnCancel" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
                 <Button Content="אני צריך עזרה" Click="OnHelp" Style="{StaticResource PrimaryButton}"
-                        Background="{StaticResource TextMuted}" Margin="8,0,0,0"/>
+                        Background="{StaticResource TextMuted}"/>
             </StackPanel>
         </StackPanel>
     </Grid>
