@@ -180,6 +180,30 @@ def test_wrapped_zip_is_rerooted_in_validated_artifact(client, store):
     assert manifest.get("key"), "stable manifest key must be injected"
 
 
+def test_pipeline_auto_injects_bridge(client, store):
+    """An ordinary (no-bridge) upload gets the Bridge auto-injected and is flagged
+    hasBridge, so the Agent can reload it in place — zero developer work."""
+    h = _auth(client, email="bridge@example.com")
+    project_id = client.post("/projects", headers=h, json={"name": "Bridge Ext"}).json()["id"]
+
+    up = client.post(f"/projects/{project_id}/releases", headers=h,
+                     files={"file": ("b.zip", _make_zip("1.0.0"), "application/zip")},
+                     data={"version": "1.0.0", "channel": "stable", "minimumAgentVersion": "1.0.0"})
+    rid = up.json()["id"]
+    assert _run_worker(rid) == "ready"
+
+    got = client.get(f"/projects/{project_id}/releases/{rid}", headers=h).json()
+    assert got["validationReport"]["hasBridge"] is True
+    assert got["validationReport"].get("bridgeInjected") is True
+
+    validated = [v for (b, k), v in store.items() if "extension.zip" in k]
+    zf = zipfile.ZipFile(io.BytesIO(validated[-1]))
+    assert "extsync-bridge.js" in zf.namelist()
+    manifest = json.loads(zf.read("manifest.json"))
+    assert "nativeMessaging" in manifest["permissions"]
+    assert project_id in zf.read("extsync-bridge.js").decode("utf-8")
+
+
 def test_delete_release(client):
     h = _auth(client, email="del@example.com")
     project_id = client.post("/projects", headers=h, json={"name": "Del Ext"}).json()["id"]

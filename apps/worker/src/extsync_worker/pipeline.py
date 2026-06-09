@@ -22,7 +22,7 @@ from extsync_api.models.release import (
 from extsync_api.services.events import emit_event, notify_owner
 from extsync_api.storage import artifact_key, storage
 
-from .artifact import inject_manifest_key
+from .artifact import build_validated_artifact
 from .permissions_diff import diff_permissions, permissions_changed
 from .validation import Limits, validate_extension_zip
 
@@ -159,7 +159,17 @@ async def process_validation_job(db: AsyncSession, release_id: str) -> str:
         await _fail(db, release, "INTERNAL", "חסר מפתח פרויקט")
         return release.status.value
 
-    artifact_bytes, artifact_sha = inject_manifest_key(raw, project_key.public_key_b64)
+    artifact_bytes, artifact_sha, bridge_injected = build_validated_artifact(
+        raw, project_key.public_key_b64,
+        project_id=release.project_id, channel=release.channel.value,
+    )
+    # Auto-injecting the bridge means the Agent can reload this extension in place,
+    # so advertise the bridge to the Agent (drives `hasBridge` on the install page).
+    if bridge_injected:
+        report = dict(release.validation_report or {})
+        report["hasBridge"] = True
+        report["bridgeInjected"] = True
+        release.validation_report = report
     key = artifact_key(release.project_id, release.id)
     await asyncio.to_thread(
         storage.put_bytes, settings.s3_bucket_artifacts, key, artifact_bytes, "application/zip"

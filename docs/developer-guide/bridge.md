@@ -4,6 +4,19 @@
 קוד: `packages/extension-bridge` (גרסת ESM וגרסת classic SW). וריאנט standalone מוזרק
 ע"י `extsync init`.
 
+## הזרקה אוטומטית (ברירת מחדל — אין צורך לעשות כלום)
+בעת בניית ה-artifact המאומת, הפלטפורמה **מזריקה את ה-Bridge אוטומטית** לכל תוסף MV3
+(`apps/worker/src/extsync_worker/bridge.py`): מוסיפה את `extsync-bridge.js`, מחווטת אותו
+ל-service worker (יוצרת אחד אם אין, או טוענת אותו ראשון מתוך הקיים), ומוסיפה את הרשאת
+`nativeMessaging`. ה-`projectId` וה-`channel` נצרבים בקובץ. כך **מפתחים מעלים תוסף רגיל
+ומקבלים עדכון-בְּמָקוֹם אוטומטי בלי לכתוב שום קוד**. אם התוסף כבר כולל bridge משלו —
+ההזרקה מדולגת ומכבדים את האינטגרציה הקיימת.
+
+> הרענון האוטומטי המלא מתרחש מהעדכון **השני** ואילך: כדי לקבל פקודת reload, הגרסה המותקנת
+> כרגע חייבת לכלול את ה-Bridge. העדכון הראשון שמכניס את ה-Bridge עדיין דורש רענון ידני אחד.
+
+האינטגרציה הידנית שלהלן רלוונטית רק אם רוצים שליטה מלאה (אירועים, reload מותנה וכו').
+
 ## מה ה-Bridge עושה
 - מתחבר ל-Native Messaging Host בשם הקבוע `com.extsync.agent`.
 - שולח `extension.register` עם `projectId`, `extensionId`, `currentVersion`, `channel`.
