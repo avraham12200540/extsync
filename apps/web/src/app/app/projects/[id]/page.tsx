@@ -33,12 +33,12 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
       </div>
       <p className="mb-6 text-sm text-ink-muted">Extension ID: {project.extensionId ?? "—"}</p>
 
-      <div className="mb-6 flex gap-1 border-b border-line">
+      <div className="mb-6 flex gap-1 overflow-x-auto border-b border-line">
         {tabs.map((tb) => (
           <button
             key={tb.id}
             onClick={() => setTab(tb.id)}
-            className={`px-4 py-2 text-sm ${tab === tb.id ? "border-b-2 border-brand font-medium text-brand" : "text-ink-muted"}`}
+            className={`whitespace-nowrap px-4 py-2 text-sm ${tab === tb.id ? "border-b-2 border-brand font-medium text-brand" : "text-ink-muted"}`}
           >
             {tb.label}
           </button>
