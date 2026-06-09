@@ -74,6 +74,9 @@ class Storage:
         resp = _client().get_object(Bucket=bucket, Key=key)
         return resp["Body"].read()
 
+    def delete(self, bucket: str, key: str) -> None:
+        _client().delete_object(Bucket=bucket, Key=key)
+
     def head(self, bucket: str, key: str) -> dict:
         return _client().head_object(Bucket=bucket, Key=key)
 

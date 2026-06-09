@@ -61,6 +61,7 @@ public sealed class UpdateService
 
                 SafeClear(inst.ActivePath);
                 ExtractZipSafely(tempZip, inst.ActivePath);
+                NormalizeExtensionRoot(inst.ActivePath);
                 var (okLocal, localErr) = LocalValidate(inst.ActivePath, meta);
                 if (!okLocal) return new ApplyResult(UpdateStepResult.Failed, localErr);
 
@@ -143,6 +144,7 @@ public sealed class UpdateService
             var staging = inst.StagingPath;
             SafeClear(staging);
             ExtractZipSafely(tempZip, staging);
+            NormalizeExtensionRoot(staging);
 
             // (9-11) local validation
             var (okLocal, localErr) = LocalValidate(staging, meta);
@@ -252,6 +254,29 @@ public sealed class UpdateService
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             entry.ExtractToFile(target, overwrite: true);
         }
+    }
+
+    /// <summary>Chrome requires manifest.json at the root of the loaded folder.
+    /// Developer ZIPs frequently wrap everything in a single top folder
+    /// (e.g. my-ext/manifest.json). If we find exactly one wrapper directory that
+    /// holds the manifest, flatten its contents up to the root. Defense in depth:
+    /// the server's artifact builder also re-roots, but the Agent must not depend
+    /// on that for installs to succeed.</summary>
+    private static void NormalizeExtensionRoot(string dir)
+    {
+        if (File.Exists(Path.Combine(dir, "manifest.json"))) return;
+        var entries = Directory.GetFileSystemEntries(dir);
+        if (entries.Length != 1 || !Directory.Exists(entries[0])) return;
+        var wrapper = entries[0];
+        if (!File.Exists(Path.Combine(wrapper, "manifest.json"))) return;
+
+        foreach (var entry in Directory.GetFileSystemEntries(wrapper))
+        {
+            var dest = Path.Combine(dir, Path.GetFileName(entry));
+            if (Directory.Exists(entry)) Directory.Move(entry, dest);
+            else File.Move(entry, dest, overwrite: true);
+        }
+        try { Directory.Delete(wrapper, recursive: true); } catch { /* now empty */ }
     }
 
     private static (bool, string?) LocalValidate(string dir, ReleaseMetadata meta)

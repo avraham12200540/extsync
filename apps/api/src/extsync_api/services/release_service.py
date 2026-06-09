@@ -22,6 +22,7 @@ from ..models.release import (
     ChannelState,
     Release,
     ReleaseArtifact,
+    ReleasePermissionSnapshot,
 )
 from ..models.user import User
 from ..config import settings
@@ -325,6 +326,57 @@ async def rollback_release(db: AsyncSession, project: Project, channel: Channel,
                      {"releaseId": target.id, "version": target.version, "channel": channel.value})
     await notify_project_update(project.id, channel.value, event="rollback")
     return target
+
+
+# --------------------------------------------------------------------------- delete
+async def delete_release(db: AsyncSession, project: Project, release: Release, *,
+                         user: User, ip: str | None) -> None:
+    """Delete a release and its artifacts. Allowed for failed uploads, drafts,
+    ready/superseded/revoked/paused versions — anything that is NOT the currently
+    live published release (removing that would break active installs)."""
+    if release.status == ReleaseStatus.published:
+        raise APIError(ErrorCode.INVALID_STATE_TRANSITION,
+                       "לא ניתן למחוק גרסה שמפורסמת כעת — השהה או בצע לה Rollback קודם.",
+                       status_code=409)
+
+    # If this release is still the channel's active pointer (e.g. paused), clear it.
+    state = await db.scalar(
+        select(ChannelState).where(
+            ChannelState.project_id == project.id, ChannelState.channel == release.channel
+        )
+    )
+    if state is not None and state.active_release_id == release.id:
+        state.active_release_id = None
+        state.is_paused = False
+
+    # Drop dangling "superseded_by" pointers from other releases (plain string col).
+    await db.execute(
+        Release.__table__.update()
+        .where(Release.superseded_by_release_id == release.id)
+        .values(superseded_by_release_id=None)
+    )
+
+    # Delete artifacts from object storage (best effort), then DB child rows.
+    artifacts = list((await db.scalars(
+        select(ReleaseArtifact).where(ReleaseArtifact.release_id == release.id)
+    )).all())
+    for art in artifacts:
+        try:
+            await asyncio.to_thread(storage.delete, art.s3_bucket, art.s3_key)
+        except Exception:  # noqa: BLE001 — object may already be gone; deletion is best effort
+            pass
+
+    for model in (ReleaseArtifact, ReleasePermissionSnapshot, ChannelAssignment):
+        await db.execute(model.__table__.delete().where(model.release_id == release.id))
+
+    version, status_ = release.version, release.status.value
+    await record_audit(db, action="release.delete", actor_user_id=user.id,
+                       target_type="release", target_id=release.id, project_id=project.id,
+                       ip_address=ip, extra={"version": version, "status": status_})
+    await emit_event(db, project.id, "release.deleted",
+                     {"releaseId": release.id, "version": version})
+    await db.delete(release)
+    await db.commit()
 
 
 # --------------------------------------------------------------------------- queries

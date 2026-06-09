@@ -82,6 +82,15 @@ async def get_release(project_id: str, release_id: str, user: CurrentUser, db: D
     return _response(release)
 
 
+@router.delete("/{release_id}", status_code=status.HTTP_200_OK, response_model=OkResponse)
+async def delete_release(project_id: str, release_id: str,
+                         request: Request, user: CurrentUser, db: DBSession) -> OkResponse:
+    project, _ = await load_project_for_user(db, project_id, user, Permission.RELEASE_DELETE_DRAFT)
+    release = await svc.get_release(db, project_id, release_id)
+    await svc.delete_release(db, project, release, user=user, ip=client_ip(request))
+    return OkResponse()
+
+
 @router.post("/{release_id}/publish", response_model=ReleaseResponse)
 async def publish_release(project_id: str, release_id: str, req: PublishRequest,
                           request: Request, user: CurrentUser, db: DBSession) -> ReleaseResponse:

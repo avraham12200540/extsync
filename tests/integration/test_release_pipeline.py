@@ -141,6 +141,88 @@ def test_invalid_zip_marks_validation_failed(client):
     assert pub.status_code == 409
 
 
+def _make_wrapped_zip(version: str = "2.5.4", folder: str = "my-ext") -> bytes:
+    """A ZIP that wraps everything in a single top folder (the real-world case
+    that broke the Agent with INVALID_MANIFEST)."""
+    manifest = {
+        "manifest_version": 3, "name": "Wrapped", "version": version,
+        "background": {"service_worker": "sw.js"}, "permissions": ["storage"],
+    }
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(f"{folder}/manifest.json", json.dumps(manifest))
+        zf.writestr(f"{folder}/sw.js", "console.log('hi')")
+    return buf.getvalue()
+
+
+def test_wrapped_zip_is_rerooted_in_validated_artifact(client, store):
+    """A wrapped upload must validate AND the built artifact must have
+    manifest.json at the root (so Chrome + the Agent load it)."""
+    h = _auth(client, email="wrap@example.com")
+    project_id = client.post("/projects", headers=h, json={"name": "Wrapped Ext"}).json()["id"]
+
+    up = client.post(f"/projects/{project_id}/releases", headers=h,
+                     files={"file": ("w.zip", _make_wrapped_zip("2.5.4"), "application/zip")},
+                     data={"version": "2.5.4", "channel": "stable", "minimumAgentVersion": "1.0.0"})
+    release_id = up.json()["id"]
+    assert _run_worker(release_id) == "ready"
+
+    # find the validated artifact bytes in the in-memory store and inspect them
+    validated = [v for (bucket, key), v in store.items() if "extension.zip" in key]
+    assert validated, "validated artifact not stored"
+    zf = zipfile.ZipFile(io.BytesIO(validated[-1]))
+    names = set(zf.namelist())
+    assert "manifest.json" in names, names           # at the ROOT now
+    assert "sw.js" in names
+    assert not any(n.startswith("my-ext/") for n in names)  # wrapper stripped
+    manifest = json.loads(zf.read("manifest.json"))
+    assert manifest["version"] == "2.5.4"
+    assert manifest.get("key"), "stable manifest key must be injected"
+
+
+def test_delete_release(client):
+    h = _auth(client, email="del@example.com")
+    project_id = client.post("/projects", headers=h, json={"name": "Del Ext"}).json()["id"]
+
+    # a ready-but-unpublished release can be deleted
+    up = client.post(f"/projects/{project_id}/releases", headers=h,
+                     files={"file": ("v.zip", _make_zip("1.0.0"), "application/zip")},
+                     data={"version": "1.0.0", "channel": "stable", "minimumAgentVersion": "1.0.0"})
+    rid = up.json()["id"]
+    assert _run_worker(rid) == "ready"
+
+    dele = client.delete(f"/projects/{project_id}/releases/{rid}", headers=h)
+    assert dele.status_code == 200, dele.text
+    assert client.get(f"/projects/{project_id}/releases/{rid}", headers=h).status_code == 404
+
+    # a failed upload attempt can also be deleted
+    bad = io.BytesIO()
+    with zipfile.ZipFile(bad, "w") as zf:
+        zf.writestr("manifest.json", json.dumps({"manifest_version": 2, "name": "B", "version": "9.9"}))
+    up2 = client.post(f"/projects/{project_id}/releases", headers=h,
+                      files={"file": ("bad.zip", bad.getvalue(), "application/zip")},
+                      data={"version": "9.9.9", "channel": "beta"})
+    rid2 = up2.json()["id"]
+    assert _run_worker(rid2) == "validation_failed"
+    assert client.delete(f"/projects/{project_id}/releases/{rid2}", headers=h).status_code == 200
+
+
+def test_cannot_delete_published_release(client):
+    h = _auth(client, email="delpub@example.com")
+    project_id = client.post("/projects", headers=h, json={"name": "DelPub Ext"}).json()["id"]
+    up = client.post(f"/projects/{project_id}/releases", headers=h,
+                     files={"file": ("v.zip", _make_zip("1.0.0"), "application/zip")},
+                     data={"version": "1.0.0", "channel": "stable", "minimumAgentVersion": "1.0.0"})
+    rid = up.json()["id"]
+    _run_worker(rid)
+    client.post(f"/projects/{project_id}/releases/{rid}/publish", headers=h, json={"rolloutPercentage": 100})
+
+    # the live published release is protected from deletion
+    dele = client.delete(f"/projects/{project_id}/releases/{rid}", headers=h)
+    assert dele.status_code == 409, dele.text
+    assert client.get(f"/projects/{project_id}/releases/{rid}", headers=h).status_code == 200
+
+
 def test_rollback_keeps_old_release(client, test_public_keys):
     h = _auth(client, email="owner3@example.com")
     project_id = client.post("/projects", headers=h, json={"name": "RB Ext"}).json()["id"]

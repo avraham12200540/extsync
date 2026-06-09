@@ -110,6 +110,12 @@ function VersionsTab({ project }: { project: Project }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["releases", project.id] }),
   });
 
+  const remove = useMutation({
+    mutationFn: (releaseId: string) => api.del(`/projects/${project.id}/releases/${releaseId}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["releases", project.id] }),
+    onError: (e) => setError(e instanceof ApiError ? e.message : "המחיקה נכשלה"),
+  });
+
   return (
     <div className="space-y-6">
       <Card>
@@ -155,6 +161,18 @@ function VersionsTab({ project }: { project: Project }) {
               )}
               {(r.status === "superseded" || r.status === "published") && (
                 <Button size="sm" variant="warning" onClick={() => rollback.mutate(r.id)}>Rollback לכאן</Button>
+              )}
+              {r.status !== "published" && (
+                <Button
+                  size="sm"
+                  variant="danger"
+                  disabled={remove.isPending}
+                  onClick={() => {
+                    if (confirm(`למחוק את גרסה ${r.version}? פעולה זו בלתי הפיכה.`)) remove.mutate(r.id);
+                  }}
+                >
+                  מחק
+                </Button>
               )}
             </div>
           </Card>

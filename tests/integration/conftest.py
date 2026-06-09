@@ -58,8 +58,12 @@ def client(tmp_path, monkeypatch):
     def _get(bucket, key):
         return _STORE[(bucket, key)]
 
+    def _del(bucket, key):
+        _STORE.pop((bucket, key), None)
+
     monkeypatch.setattr(storage, "put_bytes", _put)
     monkeypatch.setattr(storage, "get_bytes", _get)
+    monkeypatch.setattr(storage, "delete", _del)
     monkeypatch.setattr(storage, "public_url", lambda b, k: f"memory://{b}/{k}")
 
     # ---- patch the signing-service boundary with a local Ed25519 signer ----
