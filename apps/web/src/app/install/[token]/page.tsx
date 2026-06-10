@@ -36,7 +36,7 @@ export default function InstallTokenPage({ params }: { params: { token: string }
 
 function InstallContent({ data }: { data: InstallPage }) {
   const onInstall = () => {
-    // Only fired by an explicit user click (§16) — never auto-launched.
+    // Only fired by an explicit user click (§16) - never auto-launched.
     window.location.href = data.installUri;
   };
 

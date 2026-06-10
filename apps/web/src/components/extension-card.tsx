@@ -12,7 +12,7 @@ export function ExtensionCard({ item, delay = 0 }: { item: CatalogItem; delay?: 
         className="lift fade-up group overflow-hidden rounded-xl border border-line bg-surface shadow-card hover:border-brand/50"
         style={{ ["--d" as never]: `${delay}ms` }}
       >
-        {/* image area — most of the card */}
+        {/* image area - most of the card */}
         <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-gradient-to-br from-brand/10 via-surface-2 to-brand-teal/10">
           {item.iconUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -38,7 +38,7 @@ export function ExtensionCard({ item, delay = 0 }: { item: CatalogItem; delay?: 
           <div className="flex items-center justify-between gap-3">
             <h3 className="truncate font-semibold text-ink group-hover:text-brand">{item.name}</h3>
             <span className="shrink-0 rounded-md bg-surface-2 px-2 py-0.5 text-xs font-medium text-ink-muted" dir="ltr">
-              v{item.latestVersion ?? "—"}
+              v{item.latestVersion ?? "-"}
             </span>
           </div>
           {item.shortDescription && (

@@ -12,7 +12,7 @@ export default function DownloadPage() {
       <PageHero
         eyebrow="ExtSync Agent"
         title="התוכנה שמעדכנת את התוספים לבד"
-        subtitle="אפליקציית Windows קטנה שמתקינה תוספים מהגלרייה ושומרת אותם מעודכנים אוטומטית — בלי הרשאות מנהל."
+        subtitle="אפליקציית Windows קטנה שמתקינה תוספים מהגלרייה ושומרת אותם מעודכנים אוטומטית - בלי הרשאות מנהל."
       />
 
       <section className="mx-auto max-w-4xl px-6 py-14">

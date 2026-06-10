@@ -83,7 +83,7 @@ export function RateWidget({
         ))}
       </div>
       <span className="text-xs text-ink-muted">
-        {user ? (mine ? "הדירוג שלך נשמר — אפשר לשנות" : "דרג את התוסף") : "התחבר כדי לדרג"}
+        {user ? (mine ? "הדירוג שלך נשמר - אפשר לשנות" : "דרג את התוסף") : "התחבר כדי לדרג"}
       </span>
     </div>
   );

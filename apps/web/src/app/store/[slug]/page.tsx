@@ -89,7 +89,7 @@ export default function StoreDetailPage({ params }: { params: { slug: string } }
             <div className="space-y-1 text-sm">
               {d.channels.map((ch) => (
                 <div key={ch.channel} className="flex items-center justify-between">
-                  <span className="text-ink">{ch.channel} — v{ch.version} <span className="text-ink-muted">({formatDate(ch.publishedAt)})</span></span>
+                  <span className="text-ink">{ch.channel} - v{ch.version} <span className="text-ink-muted">({formatDate(ch.publishedAt)})</span></span>
                   {ch.downloadUrl && <a href={ch.downloadUrl} download className="text-brand hover:underline">הורדה</a>}
                 </div>
               ))}

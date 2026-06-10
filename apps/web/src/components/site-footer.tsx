@@ -9,7 +9,7 @@ export function SiteFooter() {
           <div>
             <Logo size={30} />
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-ink-muted">
-              הפצה, התקנה ועדכון אוטומטי של תוספי Chrome פרטיים — מחוץ לחנות, עם חתימה
+              הפצה, התקנה ועדכון אוטומטי של תוספי Chrome פרטיים - מחוץ לחנות, עם חתימה
               דיגיטלית ואבטחה מלאה.
             </p>
           </div>

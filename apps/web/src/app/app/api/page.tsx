@@ -32,7 +32,7 @@ export default function ApiTokensPage() {
         <Button onClick={() => create.mutate()} disabled={!name || create.isPending}>יצירה</Button>
         {created && (
           <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm">
-            <p className="font-medium text-amber-900">העתק עכשיו — הטוקן יוצג פעם אחת בלבד:</p>
+            <p className="font-medium text-amber-900">העתק עכשיו - הטוקן יוצג פעם אחת בלבד:</p>
             <code className="mt-1 block break-all text-amber-900">{created}</code>
           </div>
         )}

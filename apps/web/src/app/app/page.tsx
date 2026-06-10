@@ -51,7 +51,7 @@ export default function OverviewPage() {
               <Card className="flex items-center justify-between hover:border-brand">
                 <div>
                   <p className="font-medium text-ink">{p.name}</p>
-                  <p className="text-xs text-ink-muted">{p.extensionId ?? "—"}</p>
+                  <p className="text-xs text-ink-muted">{p.extensionId ?? "-"}</p>
                 </div>
                 <span className="text-sm text-ink-muted">{p.status}</span>
               </Card>

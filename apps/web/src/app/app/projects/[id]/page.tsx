@@ -31,7 +31,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         <h1 className="text-2xl font-semibold text-ink">{project.name}</h1>
         <Badge status={project.status}>{project.status}</Badge>
       </div>
-      <p className="mb-6 text-sm text-ink-muted">Extension ID: {project.extensionId ?? "—"}</p>
+      <p className="mb-6 text-sm text-ink-muted">Extension ID: {project.extensionId ?? "-"}</p>
 
       <div className="mb-6 flex gap-1 overflow-x-auto border-b border-line">
         {tabs.map((tb) => (
@@ -110,7 +110,7 @@ function OverviewTab({ project }: { project: Project }) {
         <p className="mt-3 text-xs text-ink-muted">
           {project.visibility === "public"
             ? "התוסף יופיע בגלריית התוספים הציבורית לאחר שתפרסם גרסה."
-            : "תוסף פרטי לא מופיע בחנות — שנה ל'ציבורי' כדי שיוצג."}
+            : "תוסף פרטי לא מופיע בחנות - שנה ל'ציבורי' כדי שיוצג."}
         </p>
       </Card>
       <Card>
@@ -253,7 +253,7 @@ function VersionsTab({ project }: { project: Project }) {
                 {r.permissionsChanged && <Badge>שינוי הרשאות</Badge>}
               </div>
               <p className="mt-1 text-xs text-ink-muted">
-                {formatDate(r.createdAt)} • סיכון {r.riskScore} • seq {r.sequence ?? "—"}
+                {formatDate(r.createdAt)} • סיכון {r.riskScore} • seq {r.sequence ?? "-"}
               </p>
             </div>
             <div className="flex gap-2">

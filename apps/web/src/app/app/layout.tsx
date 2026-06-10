@@ -21,7 +21,7 @@ function VerifyEmailBanner({ email }: { email: string }) {
   return (
     <div className="mb-4 flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
       <span>
-        כתובת המייל <b>{email}</b> עדיין לא אומתה — אימות נדרש כדי לפרסם לחנות.
+        כתובת המייל <b>{email}</b> עדיין לא אומתה - אימות נדרש כדי לפרסם לחנות.
         {state === "sent" && " ✓ נשלח מייל אימות, בדוק את תיבת הדואר."}
         {state === "error" && " (שליחה נכשלה, נסה שוב)"}
       </span>

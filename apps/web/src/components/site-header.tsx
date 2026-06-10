@@ -39,7 +39,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 border-b border-line/70 bg-surface/80 backdrop-blur-lg">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="flex items-center justify-between py-3">
-          <Link href="/" aria-label="ExtSync — דף הבית">
+          <Link href="/" aria-label="ExtSync - דף הבית">
             <Logo size={34} />
           </Link>
 

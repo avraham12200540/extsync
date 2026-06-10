@@ -42,7 +42,7 @@ export default function HomePage() {
               className="fade-up mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-ink-muted sm:text-xl"
               style={{ ["--d" as never]: "160ms" }}
             >
-              חנות לתוספי Chrome פרטיים — הורדה, התקנה ועדכון אוטומטי, בלי Chrome Web Store.
+              חנות לתוספי Chrome פרטיים - הורדה, התקנה ועדכון אוטומטי, בלי Chrome Web Store.
             </p>
             <div
               className="fade-up mt-9 flex flex-wrap items-center justify-center gap-3"
@@ -55,7 +55,7 @@ export default function HomePage() {
               </a>
               <Link href="/register">
                 <Button size="md" variant="secondary" className="px-6 py-2.5 text-base">
-                  אני מפתח — פתיחת חשבון
+                  אני מפתח - פתיחת חשבון
                 </Button>
               </Link>
             </div>
@@ -69,10 +69,10 @@ export default function HomePage() {
             <div className="pointer-events-none absolute -bottom-20 -right-10 h-56 w-56 rounded-full bg-brand-sky/20 blur-2xl" />
             <div className="relative flex flex-col items-center gap-5 text-center sm:flex-row sm:justify-between sm:text-right">
               <div>
-                <h2 className="text-xl font-bold sm:text-2xl">ExtSync Agent — תוכנת העדכון האוטומטי</h2>
+                <h2 className="text-xl font-bold sm:text-2xl">ExtSync Agent - תוכנת העדכון האוטומטי</h2>
                 <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-slate-300">
                   תוכנה קטנה ל-Windows שמתקינה תוספים מהגלרייה ומעדכנת אותם אוטומטית ברגע
-                  שהמפתח מפרסם גרסה חדשה — בלעדיה תצטרכו להוריד ולעדכן כל גרסה ידנית.
+                  שהמפתח מפרסם גרסה חדשה - בלעדיה תצטרכו להוריד ולעדכן כל גרסה ידנית.
                 </p>
               </div>
               <a href={DOWNLOAD_URL} className="shrink-0">
@@ -89,7 +89,7 @@ export default function HomePage() {
           <div className="mb-8 flex flex-col items-center text-center">
             <h2 className="text-3xl font-bold text-ink">גלריית התוספים</h2>
             <p className="mt-2 max-w-xl text-ink-muted">
-              תוספים ציבוריים מדורגים על-ידי הקהילה — מסודרים מהדירוג הגבוה לנמוך.
+              תוספים ציבוריים מדורגים על-ידי הקהילה - מסודרים מהדירוג הגבוה לנמוך.
             </p>
             <span className="mt-4 h-1 w-16 rounded-full bg-brand-gradient" />
           </div>
@@ -98,7 +98,7 @@ export default function HomePage() {
             <div className="flex justify-center py-16"><Spinner /></div>
           ) : items.length === 0 ? (
             <p className="rounded-xl border border-dashed border-line bg-surface p-10 text-center text-ink-muted">
-              עדיין אין תוספים ציבוריים — בקרוב 🙂
+              עדיין אין תוספים ציבוריים - בקרוב 🙂
             </p>
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -146,9 +146,9 @@ export default function HomePage() {
             <h2 className="mb-10 text-center text-3xl font-bold text-ink">איך זה עובד?</h2>
             <div className="grid gap-6 sm:grid-cols-3">
               {[
-                { icon: "⬇️", t: "מורידים את התוכנה", d: "מתקינים את ExtSync Agent פעם אחת — הוא ידאג לכל העדכונים." },
+                { icon: "⬇️", t: "מורידים את התוכנה", d: "מתקינים את ExtSync Agent פעם אחת - הוא ידאג לכל העדכונים." },
                 { icon: "🧩", t: "מתקינים תוסף", d: "בוחרים תוסף מהגלרייה ולוחצים התקנה. ההתקנה הראשונה מודרכת צעד-צעד." },
-                { icon: "🔄", t: "מתעדכנים אוטומטית", d: "כשהמפתח מפרסם גרסה — היא מותקנת ומופעלת אצלכם לבד, עם חתימה דיגיטלית." },
+                { icon: "🔄", t: "מתעדכנים אוטומטית", d: "כשהמפתח מפרסם גרסה - היא מותקנת ומופעלת אצלכם לבד, עם חתימה דיגיטלית." },
               ].map((s, i) => (
                 <div
                   key={s.t}
@@ -174,7 +174,7 @@ export default function HomePage() {
             <div className="relative">
               <h2 className="text-2xl font-extrabold sm:text-3xl">מפתחים תוסף? פרסמו אותו בדקות.</h2>
               <p className="mx-auto mt-3 max-w-xl text-white/90">
-                העלאה, חתימה אוטומטית, ועדכון-בְּמָקוֹם לכל המשתמשים — בלי לכתוב שורת אינטגרציה. חינם.
+                העלאה, חתימה אוטומטית, ועדכון-בְּמָקוֹם לכל המשתמשים - בלי לכתוב שורת אינטגרציה. חינם.
               </p>
               <div className="mt-6 flex flex-wrap justify-center gap-3">
                 <Link href="/register">

@@ -28,7 +28,7 @@ export default function StorePage() {
           <div className="fade-up">
             <h1 className="text-3xl font-bold text-ink">גלריית התוספים</h1>
             <p className="mt-1 text-ink-muted">
-              מסודרים לפי דירוג הקהילה — התקנה מנוהלת (עדכון אוטומטי) או הורדה ידנית.
+              מסודרים לפי דירוג הקהילה - התקנה מנוהלת (עדכון אוטומטי) או הורדה ידנית.
             </p>
             <span className="mt-3 block h-1 w-16 rounded-full bg-brand-gradient" />
           </div>

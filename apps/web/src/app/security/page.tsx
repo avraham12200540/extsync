@@ -6,7 +6,7 @@ const items = [
   { icon: "🔎", t: "שקיפות הרשאות", d: "שינויי הרשאות בין גרסאות מזוהים ומוצגים. הרשאות רגישות או גישה לכל האתרים דורשות אישור מפורש." },
   { icon: "🚫", t: "ללא קוד מרוחק", d: "כל קוד התוסף כלול בחבילה החתומה. אין הורדה או הרצה של JavaScript מהשרת." },
   { icon: "🔒", t: "פרטיות", d: "איסוף מינימלי: מזהה מכשיר אקראי, גרסה וסטטוס עדכון. ללא היסטוריית גלישה, תוכן דפים או סיסמאות. Telemetry הוא opt-in." },
-  { icon: "↩️", t: "Rollback אוטומטי", d: "עדכון שנכשל מתגלגל אוטומטית לגרסה הקודמת — שנשמרת תמיד." },
+  { icon: "↩️", t: "Rollback אוטומטי", d: "עדכון שנכשל מתגלגל אוטומטית לגרסה הקודמת - שנשמרת תמיד." },
 ];
 
 export default function SecurityPage() {
@@ -14,7 +14,7 @@ export default function SecurityPage() {
     <MarketingShell>
       <PageHero
         eyebrow="אבטחה"
-        title="אבטחה כברירת מחדל — לכל אורך השרשרת"
+        title="אבטחה כברירת מחדל - לכל אורך השרשרת"
         subtitle="כיצד ExtSync מגנה על המשתמשים והמפתחים מרגע ההעלאה ועד כל עדכון."
       />
 
@@ -37,9 +37,9 @@ export default function SecurityPage() {
 
         {/* trust statement */}
         <div className="mt-12 rounded-2xl border border-line bg-surface-2/50 p-8 text-center">
-          <h2 className="text-xl font-bold text-ink">קוד פתוח — אפשר לבדוק בעצמכם</h2>
+          <h2 className="text-xl font-bold text-ink">קוד פתוח - אפשר לבדוק בעצמכם</h2>
           <p className="mx-auto mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">
-            ExtSync היא כלי אבטחה, ולכן הקוד שלה גלוי לבדיקה. אתם לא צריכים לסמוך עלינו על המילה —
+            ExtSync היא כלי אבטחה, ולכן הקוד שלה גלוי לבדיקה. אתם לא צריכים לסמוך עלינו על המילה -
             אפשר לקרוא בדיוק מה הסוכן עושה במחשב שלכם.
           </p>
           <a

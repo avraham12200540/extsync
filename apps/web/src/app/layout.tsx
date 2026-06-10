@@ -3,7 +3,7 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 
 export const metadata: Metadata = {
-  title: "ExtSync — ניהול תוספי Chrome פרטיים",
+  title: "ExtSync - ניהול תוספי Chrome פרטיים",
   description:
     "פלטפורמה להפצה, התקנה, ניהול ועדכון של תוספי Chrome פרטיים מחוץ ל-Chrome Web Store.",
 };

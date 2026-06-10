@@ -65,7 +65,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
             חנות התוספים הפרטית<br />שמתעדכנת לבד.
           </h2>
           <p className="mt-4 max-w-sm text-slate-300">
-            הפצה, התקנה ועדכון אוטומטי של תוספי Chrome — מאובטח בחתימה דיגיטלית, מחוץ ל-Web Store.
+            הפצה, התקנה ועדכון אוטומטי של תוספי Chrome - מאובטח בחתימה דיגיטלית, מחוץ ל-Web Store.
           </p>
           <ul className="mt-6 space-y-2 text-sm text-slate-300">
             <li className="flex items-center gap-2">✅ עדכונים אוטומטיים עם Rollback</li>
