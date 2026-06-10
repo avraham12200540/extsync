@@ -14,7 +14,11 @@ public partial class SettingsWindow : Window
         _settings = settings;
         ChkStartup.IsChecked = settings.StartWithWindows;
         ChkAutoCheck.IsChecked = settings.AutoCheck;
-        TxtInterval.Text = settings.CheckIntervalHours.ToString();
+        TxtInterval.Text = settings.CheckIntervalValue.ToString();
+        CmbIntervalUnit.SelectedIndex = settings.CheckIntervalUnit switch
+        {
+            "seconds" => 0, "minutes" => 1, "days" => 3, _ => 2,
+        };
         ChkAutoUpdate.IsChecked = settings.AutoUpdate;
         ChkBackground.IsChecked = settings.DownloadInBackground;
         ChkNotify.IsChecked = settings.WindowsNotifications;
@@ -27,7 +31,11 @@ public partial class SettingsWindow : Window
     {
         _settings.StartWithWindows = ChkStartup.IsChecked == true;
         _settings.AutoCheck = ChkAutoCheck.IsChecked == true;
-        if (int.TryParse(TxtInterval.Text, out var h)) _settings.CheckIntervalHours = Math.Clamp(h, 1, 168);
+        if (int.TryParse(TxtInterval.Text, out var v)) _settings.CheckIntervalValue = Math.Clamp(v, 1, 100000);
+        _settings.CheckIntervalUnit = CmbIntervalUnit.SelectedIndex switch
+        {
+            0 => "seconds", 1 => "minutes", 3 => "days", _ => "hours",
+        };
         _settings.AutoUpdate = ChkAutoUpdate.IsChecked == true;
         _settings.DownloadInBackground = ChkBackground.IsChecked == true;
         _settings.WindowsNotifications = ChkNotify.IsChecked == true;

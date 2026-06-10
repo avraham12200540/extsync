@@ -9,7 +9,8 @@ public sealed class AgentSettings
     public string WsBaseUrl { get; set; } = "wss://api.extsync.com";
     public bool StartWithWindows { get; set; } = true;
     public bool AutoCheck { get; set; } = true;
-    public int CheckIntervalHours { get; set; } = 4;     // default: every 4 hours (§6)
+    public int CheckIntervalValue { get; set; } = 4;          // amount, in CheckIntervalUnit
+    public string CheckIntervalUnit { get; set; } = "hours";  // seconds|minutes|hours|days (§6)
     public bool AutoUpdate { get; set; } = true;
     public bool DownloadInBackground { get; set; } = true;
     public bool WindowsNotifications { get; set; } = true;
@@ -21,6 +22,26 @@ public sealed class AgentSettings
     public string? DeviceToken { get; set; }
     public string? UserDeviceToken { get; set; }         // set after account pairing
     public string AgentVersion { get; set; } = "1.0.0";
+
+    /// <summary>The check interval as a TimeSpan, floored at 30s so a tiny value
+    /// can't hammer the server (the WebSocket push already delivers updates the
+    /// moment a release is published, so a short poll interval is rarely needed).</summary>
+    public TimeSpan CheckInterval
+    {
+        get
+        {
+            var v = Math.Max(1, CheckIntervalValue);
+            var span = CheckIntervalUnit switch
+            {
+                "seconds" => TimeSpan.FromSeconds(v),
+                "minutes" => TimeSpan.FromMinutes(v),
+                "days" => TimeSpan.FromDays(v),
+                _ => TimeSpan.FromHours(v),
+            };
+            var floor = TimeSpan.FromSeconds(30);
+            return span < floor ? floor : span;
+        }
+    }
 
     private static string FilePath => Path.Combine(AgentPaths.DataDir, "settings.json");
 

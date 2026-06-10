@@ -89,8 +89,7 @@ public partial class App : Application
         {
             try
             {
-                var hours = Math.Max(1, _settings.CheckIntervalHours);
-                await Task.Delay(TimeSpan.FromHours(hours), _cts.Token);
+                await Task.Delay(_settings.CheckInterval, _cts.Token);
                 if (_settings.AutoCheck) await vm.CheckUpdatesAsync();
             }
             catch (OperationCanceledException) { break; }

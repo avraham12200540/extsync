@@ -12,9 +12,18 @@
             <CheckBox x:Name="ChkStartup" Content="הפעלה עם Windows" Margin="0,6"/>
             <CheckBox x:Name="ChkAutoCheck" Content="בדיקת עדכונים אוטומטית" Margin="0,6"/>
             <StackPanel Orientation="Horizontal" Margin="0,6">
-                <TextBlock Text="תדירות בדיקה (שעות):" VerticalAlignment="Center"/>
+                <TextBlock Text="תדירות בדיקת עדכונים:" VerticalAlignment="Center"/>
                 <TextBox x:Name="TxtInterval" Width="60" Margin="8,0" Padding="6"/>
+                <ComboBox x:Name="CmbIntervalUnit" Width="100" VerticalContentAlignment="Center">
+                    <ComboBoxItem Content="שניות"/>
+                    <ComboBoxItem Content="דקות"/>
+                    <ComboBoxItem Content="שעות"/>
+                    <ComboBoxItem Content="ימים"/>
+                </ComboBox>
             </StackPanel>
+            <TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6"
+                       Foreground="{StaticResource TextMuted}"
+                       Text="מינימום 30 שניות. ממילא עדכון מתקבל מיידית בעת פרסום (WebSocket), כך שאין צורך באינטרוול קצר."/>
             <CheckBox x:Name="ChkAutoUpdate" Content="התקנת עדכונים אוטומטית" Margin="0,6"/>
             <CheckBox x:Name="ChkBackground" Content="הורדת עדכונים ברקע" Margin="0,6"/>
             <CheckBox x:Name="ChkNotify" Content="הצגת התראות Windows" Margin="0,6"/>
