@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MonitorSmartphone, CircleCheck, CircleX } from "lucide-react";
 import { api, ApiError, type InstallLink, type Project, type Release } from "@/lib/api";
 import { Badge, Button, Card, Field, Input, Spinner } from "@/components/ui";
-import { StatCard } from "@/components/dashboard";
+import { StatCard, TrendChart, type TrendDay } from "@/components/dashboard";
 import { formatDate } from "@/lib/utils";
 
 type Tab = "overview" | "versions" | "links" | "analytics";
@@ -357,12 +357,24 @@ function AnalyticsTab({ projectId }: { projectId: string }) {
     queryKey: ["analytics", projectId],
     queryFn: () => api.get<any>(`/projects/${projectId}/analytics`),
   });
+  const { data: series } = useQuery({
+    queryKey: ["analytics-timeseries", projectId],
+    queryFn: () => api.get<{ days: TrendDay[] }>(`/projects/${projectId}/analytics/timeseries`),
+  });
   if (!data) return <Spinner />;
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
-      <StatCard icon={<MonitorSmartphone size={18} />} label="התקנות פעילות" value={data.activeInstallations} />
-      <StatCard icon={<CircleCheck size={18} />} label="עדכונים שהצליחו (24ש')" value={data.updates24h.success} tone="text-success" iconClass="bg-success" />
-      <StatCard icon={<CircleX size={18} />} label="כשלים (24ש')" value={data.updates24h.failed} tone="text-danger" iconClass="bg-danger" />
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard icon={<MonitorSmartphone size={18} />} label="התקנות פעילות" value={data.activeInstallations} />
+        <StatCard icon={<CircleCheck size={18} />} label="עדכונים שהצליחו (24ש')" value={data.updates24h.success} tone="text-success" iconClass="bg-success" />
+        <StatCard icon={<CircleX size={18} />} label="כשלים (24ש')" value={data.updates24h.failed} tone="text-danger" iconClass="bg-danger" />
+      </div>
+      {series && (
+        <Card>
+          <h3 className="mb-3 font-semibold text-ink">14 הימים האחרונים</h3>
+          <TrendChart days={series.days} />
+        </Card>
+      )}
     </div>
   );
 }

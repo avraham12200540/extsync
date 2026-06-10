@@ -5,19 +5,21 @@ import Link from "next/link";
 import { api, type CatalogItem } from "@/lib/api";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { ExtensionCard } from "@/components/extension-card";
+import { ExtensionCard, SkeletonCard, CatalogError } from "@/components/extension-card";
 import { SectionHeading, HeroArt } from "@/components/marketing";
 import { LogoIcon, Wordmark } from "@/components/logo";
-import { Button, Spinner } from "@/components/ui";
+import { Button } from "@/components/ui";
 
 const DOWNLOAD_URL =
   "https://github.com/avraham12200540/extsync/releases/latest/download/ExtSyncAgentSetup.exe";
 
 export default function HomePage() {
   const [items, setItems] = useState<CatalogItem[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    api.get<CatalogItem[]>("/catalog").then(setItems).catch(() => setItems([]));
+    api.get<CatalogItem[]>("/catalog").then(setItems)
+      .catch(() => { setLoadError(true); setItems([]); });
   }, []);
 
   return (
@@ -102,7 +104,11 @@ export default function HomePage() {
           </div>
 
           {items === null ? (
-            <div className="flex justify-center py-16"><Spinner /></div>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {[0, 1, 2].map((i) => <SkeletonCard key={i} delay={i * 90} />)}
+            </div>
+          ) : loadError ? (
+            <CatalogError />
           ) : items.length === 0 ? (
             <p className="rounded-xl border border-dashed border-line bg-surface p-10 text-center text-ink-muted">
               עדיין אין תוספים ציבוריים - בקרוב 🙂

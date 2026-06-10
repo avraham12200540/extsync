@@ -20,7 +20,7 @@ export function HeroArt({ className = "" }: { className?: string }) {
     <div aria-hidden className={`absolute inset-0 -z-10 ${className}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/reka.png"
+        src="/reka.webp"
         alt=""
         className="h-full w-full scale-105 object-cover object-[center_35%] blur-[3px]"
       />

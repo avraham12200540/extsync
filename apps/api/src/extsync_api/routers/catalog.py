@@ -39,6 +39,7 @@ class CatalogItem(CamelModel):
     extension_id: str | None = None
     latest_version: str | None = None
     category: str | None = None
+    published_at: str | None = None
     avg_rating: float = 0
     ratings_count: int = 0
     my_rating: int | None = None
@@ -148,7 +149,8 @@ async def list_catalog(db: DBSession, user: OptionalUser, q: str | None = None,
             slug=p.slug, name=p.name, short_description=p.short_description,
             icon_url=p.icon_url, developer_name=await _developer_name(db, p.owner_user_id),
             extension_id=p.extension_id, latest_version=rel.version if rel else None,
-            category=p.category, avg_rating=avg, ratings_count=cnt, my_rating=mine.get(p.id),
+            category=p.category, published_at=_iso(rel.published_at) if rel else None,
+            avg_rating=avg, ratings_count=cnt, my_rating=mine.get(p.id),
         ))
     # Highest-rated first; ties broken by number of ratings, then name.
     items.sort(key=lambda i: (-i.avg_rating, -i.ratings_count, i.name))

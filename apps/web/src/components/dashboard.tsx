@@ -40,6 +40,66 @@ export function StatCard({
   );
 }
 
+export interface TrendDay { date: string; success: number; failed: number; installs: number }
+
+/** Dependency-free SVG chart: stacked update bars (success/failed) + installs line. */
+export function TrendChart({ days }: { days: TrendDay[] }) {
+  const W = 560, H = 150, PX = 6, PT = 8, PB = 22;
+  const plotW = W - PX * 2, plotH = H - PT - PB;
+  const max = Math.max(1, ...days.map((d) => Math.max(d.success + d.failed, d.installs)));
+  const step = plotW / days.length;
+  const barW = Math.max(4, step * 0.55);
+  const y = (v: number) => PT + plotH - (v / max) * plotH;
+  const fmt = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+  const line = days
+    .map((d, i) => `${PX + i * step + step / 2},${y(d.installs)}`)
+    .join(" ");
+
+  return (
+    <div dir="ltr">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="גרף עדכונים והתקנות">
+        {/* baseline */}
+        <line x1={PX} y1={PT + plotH} x2={W - PX} y2={PT + plotH}
+              stroke="currentColor" strokeOpacity="0.15" />
+        {days.map((d, i) => {
+          const x = PX + i * step + (step - barW) / 2;
+          const hS = (d.success / max) * plotH;
+          const hF = (d.failed / max) * plotH;
+          return (
+            <g key={d.date}>
+              {hF > 0 && (
+                <rect x={x} y={y(d.success + d.failed)} width={barW} height={hF}
+                      rx="2" fill="#dc2626" opacity="0.9" />
+              )}
+              {hS > 0 && (
+                <rect x={x} y={y(d.success)} width={barW} height={hS}
+                      rx="2" fill="#16a34a" opacity="0.9" />
+              )}
+              <title>{`${fmt(d.date)}: ${d.success} הצליחו, ${d.failed} נכשלו, ${d.installs} התקנות`}</title>
+            </g>
+          );
+        })}
+        <polyline points={line} fill="none" stroke="#0FB5BA" strokeWidth="2"
+                  strokeLinejoin="round" strokeLinecap="round" />
+        {days.map((d, i) => (
+          d.installs > 0 ? (
+            <circle key={d.date} cx={PX + i * step + step / 2} cy={y(d.installs)} r="2.5" fill="#0FB5BA" />
+          ) : null
+        ))}
+        <text x={PX} y={H - 6} fontSize="10" fill="currentColor" opacity="0.55">{fmt(days[0]?.date ?? "")}</text>
+        <text x={W - PX} y={H - 6} fontSize="10" fill="currentColor" opacity="0.55" textAnchor="end">
+          {fmt(days[days.length - 1]?.date ?? "")}
+        </text>
+      </svg>
+      <div dir="rtl" className="mt-2 flex flex-wrap gap-4 text-xs text-ink-muted">
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-success" /> עדכונים שהצליחו</span>
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-danger" /> עדכונים שנכשלו</span>
+        <span className="flex items-center gap-1.5"><span className="h-0.5 w-3 rounded bg-brand-teal" /> התקנות חדשות</span>
+      </div>
+    </div>
+  );
+}
+
 /** Friendly empty state: soft brand chip + message + optional action. */
 export function EmptyState({
   icon, title, description, action,

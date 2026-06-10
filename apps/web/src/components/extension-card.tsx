@@ -3,6 +3,32 @@ import type { CatalogItem } from "@/lib/api";
 import { LogoIcon } from "@/components/logo";
 import { RatingDisplay } from "@/components/stars";
 
+/** Shimmering placeholder shown while the catalog loads. */
+export function SkeletonCard({ delay = 0 }: { delay?: number }) {
+  const bar = "animate-shimmer rounded bg-gradient-to-l from-surface-2 via-line/60 to-surface-2 bg-[length:200%_100%]";
+  return (
+    <div className="fade-up overflow-hidden rounded-xl border border-line bg-surface shadow-card"
+         style={{ ["--d" as never]: `${delay}ms` }} aria-hidden>
+      <div className={`aspect-[4/3] ${bar} !rounded-none`} />
+      <div className="space-y-2.5 p-4">
+        <div className={`h-4 w-2/3 ${bar}`} />
+        <div className={`h-3 w-full ${bar}`} />
+        <div className={`h-3 w-1/3 ${bar}`} />
+      </div>
+    </div>
+  );
+}
+
+/** Friendly load-failure notice (API unreachable ≠ empty catalog). */
+export function CatalogError() {
+  return (
+    <div className="rounded-xl border border-line bg-surface p-10 text-center">
+      <p className="font-medium text-ink">לא הצלחנו לטעון את הגלריה כרגע</p>
+      <p className="mt-1 text-sm text-ink-muted">בדקו את החיבור ונסו לרענן את הדף בעוד רגע.</p>
+    </div>
+  );
+}
+
 /** Store card: image fills most of the square; bottom row has the name on the
  *  right and the current version on the left (RTL layout), plus the rating. */
 export function ExtensionCard({ item, delay = 0 }: { item: CatalogItem; delay?: number }) {

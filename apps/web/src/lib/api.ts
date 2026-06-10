@@ -158,6 +158,7 @@ export interface CatalogItem {
   extensionId?: string | null;
   latestVersion?: string | null;
   category?: string | null;
+  publishedAt?: string | null;
   avgRating: number;
   ratingsCount: number;
   myRating?: number | null;
