@@ -42,6 +42,7 @@ public sealed class AgentWebSocket : IAsyncDisposable
                 await ws.ConnectAsync(uri, _cts.Token);
                 attempt = 0;
                 _log.Information("agent websocket connected");
+                _ = _onPush();  // catch up on anything published while we were offline
                 await ReceiveLoop(ws);
             }
             catch (OperationCanceledException) { break; }

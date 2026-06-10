@@ -81,6 +81,10 @@ public partial class App : Application
 
         // Background update scheduler (polling fallback, §6).
         _ = RunSchedulerAsync(vm);
+
+        // Catch up immediately on launch — don't wait for the first poll interval
+        // (covers versions published while the Agent was closed).
+        if (_settings.AutoCheck) _ = vm.CheckUpdatesAsync();
     }
 
     private async Task RunSchedulerAsync(MainViewModel vm)
