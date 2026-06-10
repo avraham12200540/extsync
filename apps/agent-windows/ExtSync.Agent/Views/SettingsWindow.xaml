@@ -47,6 +47,9 @@
                         Margin="0,0,8,0"/>
                 <Button Content="סגור" Click="OnClose" Style="{StaticResource SecondaryButton}"/>
             </StackPanel>
+
+            <TextBlock x:Name="TxtVersion" Margin="0,14,0,0" FontSize="11"
+                       Foreground="{StaticResource TextMuted}"/>
         </StackPanel>
     </ScrollViewer>
 </Window>

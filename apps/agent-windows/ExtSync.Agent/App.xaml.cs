@@ -21,6 +21,7 @@ public partial class App : Application
     private ILogger _log = null!;
     private TrayIcon? _tray;
     private AgentWebSocket? _ws;
+    private SelfUpdateService? _selfUpdate;
     private CancellationTokenSource _cts = new();
 
     protected override async void OnStartup(StartupEventArgs e)
@@ -60,12 +61,23 @@ public partial class App : Application
         var hostExe = Path.Combine(AgentPaths.NativeHostDir, "extsync-native-host.exe");
         var nmh = new NativeMessagingRegistrar(_log, hostExe);
         _controller = new AgentController(_settings, store, api, updates, pipe, nmh, _log);
+        _selfUpdate = new SelfUpdateService(_settings, verifier, _log,
+            (title, msg) => _tray?.ShowNotification(title, msg));
 
         var vm = new MainViewModel(_controller, _settings, _log);
         var window = new MainWindow { DataContext = vm };
         MainWindow = window;
 
         _tray = new TrayIcon(vm, window);
+
+        // First run after a self-update: confirm quietly via a tray balloon.
+        if (_settings.LastRunVersion != _settings.AgentVersion)
+        {
+            if (!string.IsNullOrEmpty(_settings.LastRunVersion))
+                _tray.ShowNotification("ExtSync Agent", $"עודכן לגרסה {_settings.AgentVersion} בהצלחה ✓");
+            _settings.LastRunVersion = _settings.AgentVersion;
+            _settings.Save();
+        }
 
         StartUiPipeListener();
 
@@ -82,9 +94,30 @@ public partial class App : Application
         // Background update scheduler (polling fallback, §6).
         _ = RunSchedulerAsync(vm);
 
+        // Agent self-update: shortly after launch, then every 6 hours (§28).
+        _ = RunSelfUpdateLoopAsync();
+
         // Catch up immediately on launch — don't wait for the first poll interval
         // (covers versions published while the Agent was closed).
         if (_settings.AutoCheck) _ = vm.CheckUpdatesAsync();
+    }
+
+    private async Task RunSelfUpdateLoopAsync()
+    {
+        try { await Task.Delay(TimeSpan.FromSeconds(20), _cts.Token); }
+        catch (OperationCanceledException) { return; }
+        while (!_cts.IsCancellationRequested)
+        {
+            try
+            {
+                if (_selfUpdate != null && await _selfUpdate.CheckAndApplyAsync(_cts.Token))
+                    return; // shutting down to apply the update
+            }
+            catch (OperationCanceledException) { return; }
+            catch (Exception ex) { _log.Warning(ex, "self-update check failed"); }
+            try { await Task.Delay(TimeSpan.FromHours(6), _cts.Token); }
+            catch (OperationCanceledException) { return; }
+        }
     }
 
     private async Task RunSchedulerAsync(MainViewModel vm)

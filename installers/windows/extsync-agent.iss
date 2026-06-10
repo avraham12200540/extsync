@@ -14,7 +14,10 @@
 ; Then: iscc installers/windows/extsync-agent.iss
 
 #define AppName "ExtSync Agent"
-#define AppVersion "1.0.0"
+; CI passes the real version with /DAppVersion=1.0.N (see build-agent.yml).
+#ifndef AppVersion
+  #define AppVersion "1.0.0"
+#endif
 #define AppPublisher "ExtSync"
 #define HostName "com.extsync.agent"
 

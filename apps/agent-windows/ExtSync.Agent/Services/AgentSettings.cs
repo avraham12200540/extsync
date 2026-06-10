@@ -22,6 +22,7 @@ public sealed class AgentSettings
     public string? DeviceToken { get; set; }
     public string? UserDeviceToken { get; set; }         // set after account pairing
     public string AgentVersion { get; set; } = "1.0.0";
+    public string LastRunVersion { get; set; } = "";    // for the "updated ✓" balloon after a self-update
 
     /// <summary>The check interval as a TimeSpan, floored at 30s so a tiny value
     /// can't hammer the server (the WebSocket push already delivers updates the

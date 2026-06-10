@@ -144,6 +144,61 @@ async def publish_agent_version(req: AgentVersionCreate, admin: AdminUser, db: D
     return OkResponse()
 
 
+class AgentVersionRegister(BaseModel):
+    """CI entry point: like AgentVersionCreate but the SERVER signs the build
+    (via the isolated signing service) so CI never holds a private key."""
+    version: str
+    channel: str = "stable"
+    download_url: str
+    sha256: str
+    release_notes: str | None = None
+    minimum_supported_version: str = "1.0.0"
+    required: bool = False
+    make_active: bool = True
+
+
+@router.post("/agent-versions/register", response_model=OkResponse)
+async def register_agent_version(req: AgentVersionRegister, admin: AdminUser, db: DBSession) -> OkResponse:
+    """Sign-and-publish an Agent build for self-update (§28). Idempotent per
+    (version, channel) so CI re-runs only re-activate the existing row."""
+    from ..config import settings
+    from ..models.agent_version import AgentUpdateChannel, AgentVersion
+    from ..services import signing_client
+
+    sha = req.sha256.lower()
+    av = await db.scalar(select(AgentVersion).where(
+        AgentVersion.version == req.version, AgentVersion.channel == req.channel))
+    if av is None:
+        # Signature covers the canonical JSON {keyId, sha256, type, version} -
+        # the Agent rebuilds this exact object and verifies with its baked-in keys.
+        unsigned = {
+            "keyId": settings.signing_active_key_id,
+            "sha256": sha,
+            "type": "agent-update",
+            "version": req.version,
+        }
+        signed = await signing_client.sign(unsigned)
+        av = AgentVersion(
+            version=req.version, channel=req.channel, download_url=req.download_url,
+            sha256=sha, signature=signed["signature"], key_id=signed["keyId"],
+            release_notes=req.release_notes,
+            minimum_supported_version=req.minimum_supported_version,
+            required=req.required, published_at=dt.datetime.now(dt.timezone.utc),
+        )
+        db.add(av)
+        await db.flush()
+    if req.make_active:
+        ch = await db.scalar(select(AgentUpdateChannel).where(AgentUpdateChannel.channel == req.channel))
+        if ch is None:
+            ch = AgentUpdateChannel(channel=req.channel)
+            db.add(ch)
+        ch.active_version_id = av.id
+    await record_audit(db, action="admin.agent_version_register", actor_user_id=admin.id,
+                       actor_type="admin", target_type="agent_version", target_id=av.id,
+                       extra={"version": req.version, "channel": req.channel, "sha256": sha})
+    return OkResponse()
+
+
 @router.get("/security-events")
 async def security_events(_: AdminUser, db: DBSession, limit: int = 100) -> list[dict]:
     rows = (await db.scalars(

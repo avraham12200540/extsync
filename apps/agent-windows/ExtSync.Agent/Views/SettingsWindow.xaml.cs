@@ -25,6 +25,7 @@ public partial class SettingsWindow : Window
         TxtRollback.Text = settings.RollbackVersionsToKeep.ToString();
         ChkBeta.IsChecked = settings.UseAgentBeta;
         ChkTelemetry.IsChecked = settings.OptInTelemetry;
+        TxtVersion.Text = $"גרסת התוכנה: {settings.AgentVersion} (מתעדכנת אוטומטית)";
     }
 
     private void OnSave(object sender, RoutedEventArgs e)

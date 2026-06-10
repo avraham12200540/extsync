@@ -15,6 +15,11 @@ on:
 permissions:
   contents: write
 
+env:
+  # Every build gets a real, increasing version so installed Agents can
+  # detect and self-update to it (§28).
+  AGENT_VERSION: 1.0.${{ github.run_number }}
+
 jobs:
   build:
     runs-on: windows-latest
@@ -35,6 +40,7 @@ jobs:
         run: >
           dotnet publish apps/agent-windows/ExtSync.Agent/ExtSync.Agent.csproj
           -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false
+          -p:Version=${{ env.AGENT_VERSION }}
           -o installers/windows/stage/agent
 
       - name: Embed platform public key (keys.json)
@@ -49,7 +55,7 @@ jobs:
       - name: Build installer
         shell: pwsh
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installers/windows/extsync-agent.iss
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=${{ env.AGENT_VERSION }} installers/windows/extsync-agent.iss
           if (-not (Test-Path installers/windows/Output/ExtSyncAgentSetup.exe)) {
             throw "installer was not produced"
           }
@@ -60,10 +66,39 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $tag = "agent-r${{ github.run_number }}"
-          gh release create $tag installers/windows/Output/ExtSyncAgentSetup.exe `
-            --title "ExtSync Agent (build ${{ github.run_number }})" `
-            --notes "Automated Windows Agent build. Targets api.extsync.com." `
-            --latest
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release $tag already exists (re-run) - replacing the asset."
+            gh release upload $tag installers/windows/Output/ExtSyncAgentSetup.exe --clobber
+          } else {
+            gh release create $tag installers/windows/Output/ExtSyncAgentSetup.exe `
+              --title "ExtSync Agent ${{ env.AGENT_VERSION }}" `
+              --notes "Automated Windows Agent build. Targets api.extsync.com." `
+              --latest
+          }
+
+      - name: Register for self-update (server signs the build)
+        shell: pwsh
+        env:
+          EXTSYNC_ADMIN_TOKEN: ${{ secrets.EXTSYNC_ADMIN_TOKEN }}
+        run: |
+          if (-not $env:EXTSYNC_ADMIN_TOKEN) {
+            Write-Warning "EXTSYNC_ADMIN_TOKEN secret not set - skipping self-update registration."
+            Write-Warning "Installed Agents will NOT see this build until it is registered."
+            exit 0
+          }
+          $sha = (Get-FileHash installers/windows/Output/ExtSyncAgentSetup.exe -Algorithm SHA256).Hash.ToLower()
+          $body = @{
+            version      = "${{ env.AGENT_VERSION }}"
+            channel      = "stable"
+            download_url = "https://github.com/${{ github.repository }}/releases/download/agent-r${{ github.run_number }}/ExtSyncAgentSetup.exe"
+            sha256       = $sha
+            make_active  = $true
+          } | ConvertTo-Json
+          Invoke-RestMethod -Method Post -Uri "https://api.extsync.com/admin/agent-versions/register" `
+            -Headers @{ Authorization = "Bearer $env:EXTSYNC_ADMIN_TOKEN" } `
+            -ContentType "application/json" -Body $body | Out-Null
+          Write-Host "Registered agent ${{ env.AGENT_VERSION }} (sha256=$sha) for self-update."
 
       - name: Upload build artifact (always)
         if: always()
