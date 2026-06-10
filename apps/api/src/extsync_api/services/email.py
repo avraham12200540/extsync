@@ -17,9 +17,14 @@ logger = get_logger("extsync.email")
 
 
 def _send_sync(msg: EmailMessage) -> None:
-    with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as smtp:
+    # Port 465 = implicit TLS (SMTP_SSL); 587/others = plaintext + optional STARTTLS.
+    if settings.smtp_port == 465:
+        smtp = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=10)
+    else:
+        smtp = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10)
         if settings.smtp_use_tls:
             smtp.starttls()
+    with smtp:
         if settings.smtp_username:
             smtp.login(settings.smtp_username, settings.smtp_password)
         smtp.send_message(msg)
