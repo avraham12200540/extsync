@@ -13,25 +13,43 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Shared darkened backdrop (the radar/shield art) behind every hero band.
+ *  Softened + dimmed so it reads as atmosphere, then faded into the page. */
+export function HeroArt({ className = "" }: { className?: string }) {
+  return (
+    <div aria-hidden className={`absolute inset-0 -z-10 ${className}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/reka.png"
+        alt=""
+        className="h-full w-full scale-105 object-cover object-[center_35%] blur-[3px]"
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-brand-navy/80 via-brand-navy/85 to-surface-2" />
+      <div className="absolute inset-0 bg-hero-radial opacity-70" />
+    </div>
+  );
+}
+
 /** Decorated hero band used at the top of every public page. */
 export function PageHero({
   eyebrow, title, subtitle,
 }: { eyebrow?: string; title: React.ReactNode; subtitle?: React.ReactNode }) {
   return (
-    <section className="relative overflow-hidden border-b border-line bg-hero-radial">
-      <div className="pointer-events-none absolute -left-24 top-0 h-64 w-64 animate-float rounded-full bg-brand-teal/10 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-12 -right-20 h-72 w-72 animate-float rounded-full bg-brand/10 blur-3xl [animation-delay:1.5s]" />
-      <div className="mx-auto max-w-4xl px-6 py-16 text-center sm:py-20">
+    <section className="relative isolate overflow-hidden">
+      <HeroArt />
+      <div className="pointer-events-none absolute -left-24 top-0 h-64 w-64 animate-float rounded-full bg-brand-teal/15 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-12 -right-20 h-72 w-72 animate-float rounded-full bg-brand-sky/15 blur-3xl [animation-delay:1.5s]" />
+      <div className="mx-auto max-w-4xl px-6 py-20 text-center sm:py-24">
         {eyebrow && (
-          <p className="fade-up mb-3 inline-block rounded-full bg-brand-muted px-3 py-1 text-xs font-semibold uppercase tracking-wider text-brand">
+          <p className="fade-up mb-4 inline-block rounded-full bg-white/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-white ring-1 ring-inset ring-white/20 backdrop-blur">
             {eyebrow}
           </p>
         )}
-        <h1 className="fade-up text-4xl font-extrabold text-ink sm:text-5xl" style={{ ["--d" as never]: "70ms" }}>
+        <h1 className="fade-up text-4xl font-extrabold text-white sm:text-5xl" style={{ ["--d" as never]: "70ms" }}>
           {title}
         </h1>
         {subtitle && (
-          <p className="fade-up mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-ink-muted"
+          <p className="fade-up mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-slate-200"
              style={{ ["--d" as never]: "150ms" }}>
             {subtitle}
           </p>
@@ -59,7 +77,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       <div className="relative hidden overflow-hidden bg-brand-navy p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="pointer-events-none absolute -left-16 -top-16 h-72 w-72 rounded-full bg-brand-teal/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -right-10 h-80 w-80 rounded-full bg-brand-sky/20 blur-3xl" />
-        <a href="/" className="relative"><Logo size={38} /></a>
+        <a href="/" className="relative"><Logo size={38} onDark /></a>
         <div className="relative">
           <h2 className="text-3xl font-extrabold leading-snug">
             חנות התוספים הפרטית<br />שמתעדכנת לבד.

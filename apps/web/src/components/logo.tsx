@@ -17,10 +17,10 @@ export function LogoIcon({ size = 36 }: { size?: number }) {
   );
 }
 
-export function Wordmark({ className = "text-2xl" }: { className?: string }) {
+export function Wordmark({ className = "text-2xl", onDark = false }: { className?: string; onDark?: boolean }) {
   return (
     <span className={`font-extrabold tracking-tight ${className}`} dir="ltr">
-      <span className="text-[#10243E] dark:text-white">Ext</span>
+      <span className={onDark ? "text-white" : "text-[#10243E] dark:text-white"}>Ext</span>
       <span className="bg-gradient-to-l from-[#0FB5BA] via-[#2B7DE9] to-[#2563EB] bg-clip-text text-transparent">
         Sync
       </span>
@@ -28,11 +28,11 @@ export function Wordmark({ className = "text-2xl" }: { className?: string }) {
   );
 }
 
-export function Logo({ size = 34, className = "" }: { size?: number; className?: string }) {
+export function Logo({ size = 34, className = "", onDark = false }: { size?: number; className?: string; onDark?: boolean }) {
   return (
     <span className={`inline-flex items-center gap-2.5 ${className}`}>
       <LogoIcon size={size} />
-      <Wordmark className="text-[1.35rem]" />
+      <Wordmark className="text-[1.35rem]" onDark={onDark} />
     </span>
   );
 }

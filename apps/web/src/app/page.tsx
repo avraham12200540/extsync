@@ -6,7 +6,7 @@ import { api, type CatalogItem } from "@/lib/api";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ExtensionCard } from "@/components/extension-card";
-import { SectionHeading } from "@/components/marketing";
+import { SectionHeading, HeroArt } from "@/components/marketing";
 import { LogoIcon, Wordmark } from "@/components/logo";
 import { Button, Spinner } from "@/components/ui";
 
@@ -26,20 +26,24 @@ export default function HomePage() {
 
       <main className="flex-1">
         {/* ============ Hero ============ */}
-        <section className="relative overflow-hidden bg-hero-radial">
-          {/* floating decorative blobs */}
-          <div className="pointer-events-none absolute -left-24 top-10 h-72 w-72 animate-float rounded-full bg-brand-teal/10 blur-3xl" />
-          <div className="pointer-events-none absolute -right-24 bottom-0 h-80 w-80 animate-float rounded-full bg-brand/10 blur-3xl [animation-delay:1.5s]" />
+        <section className="relative isolate overflow-hidden">
+          {/* background art: the radar/shield image, softened and dimmed so it
+              reads as atmosphere rather than a photo, then faded into the page */}
+          <HeroArt />
 
-          <div className="mx-auto max-w-6xl px-4 py-20 text-center sm:px-6 sm:py-24">
+          {/* floating decorative blobs */}
+          <div className="pointer-events-none absolute -left-24 top-10 h-72 w-72 animate-float rounded-full bg-brand-teal/15 blur-3xl" />
+          <div className="pointer-events-none absolute -right-24 bottom-0 h-80 w-80 animate-float rounded-full bg-brand-sky/15 blur-3xl [animation-delay:1.5s]" />
+
+          <div className="mx-auto max-w-6xl px-4 py-24 text-center sm:px-6 sm:py-32">
             <div className="fade-up mx-auto mb-6 w-fit animate-float">
-              <LogoIcon size={88} />
+              <LogoIcon size={92} />
             </div>
             <h1 className="fade-up" style={{ ["--d" as never]: "80ms" }}>
-              <Wordmark className="text-5xl sm:text-7xl" />
+              <Wordmark onDark className="text-5xl sm:text-7xl" />
             </h1>
             <p
-              className="fade-up mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-ink-muted sm:text-xl"
+              className="fade-up mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-slate-200 sm:text-xl"
               style={{ ["--d" as never]: "160ms" }}
             >
               חנות לתוספי Chrome פרטיים - הורדה, התקנה ועדכון אוטומטי, בלי Chrome Web Store.
@@ -54,7 +58,10 @@ export default function HomePage() {
                 </Button>
               </a>
               <Link href="/register">
-                <Button size="md" variant="secondary" className="px-6 py-2.5 text-base">
+                <Button
+                  size="md"
+                  className="border border-white/30 bg-white/10 px-6 py-2.5 text-base text-white backdrop-blur hover:bg-white/20"
+                >
                   אני מפתח - פתיחת חשבון
                 </Button>
               </Link>

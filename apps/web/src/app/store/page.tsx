@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, type CatalogItem } from "@/lib/api";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
+import { MarketingShell, PageHero } from "@/components/marketing";
 import { ExtensionCard } from "@/components/extension-card";
 import { Card, Input, Spinner } from "@/components/ui";
 
@@ -21,18 +20,19 @@ export default function StorePage() {
   );
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <SiteHeader />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6">
-        <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="fade-up">
-            <h1 className="text-3xl font-bold text-ink">גלריית התוספים</h1>
-            <p className="mt-1 text-ink-muted">
-              מסודרים לפי דירוג הקהילה - התקנה מנוהלת (עדכון אוטומטי) או הורדה ידנית.
-            </p>
-            <span className="mt-3 block h-1 w-16 rounded-full bg-brand-gradient" />
-          </div>
-          <Input placeholder="🔍 חיפוש תוסף…" value={q} onChange={(e) => setQ(e.target.value)} className="sm:w-64" />
+    <MarketingShell>
+      <PageHero
+        eyebrow="גלריה"
+        title="גלריית התוספים"
+        subtitle="מסודרים לפי דירוג הקהילה - התקנה מנוהלת (עדכון אוטומטי) או הורדה ידנית."
+      />
+
+      <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-ink-muted">
+            {items === null ? "טוען…" : `${filtered.length} תוספים${q ? " תואמים" : ""}`}
+          </p>
+          <Input placeholder="🔍 חיפוש תוסף…" value={q} onChange={(e) => setQ(e.target.value)} className="sm:w-72" />
         </div>
 
         {items === null ? (
@@ -48,8 +48,7 @@ export default function StorePage() {
             ))}
           </div>
         )}
-      </main>
-      <SiteFooter />
-    </div>
+      </section>
+    </MarketingShell>
   );
 }
