@@ -9,8 +9,14 @@
     <AssemblyName>ExtSyncAgent</AssemblyName>
     <RootNamespace>ExtSync.Agent</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\extsync.ico</ApplicationIcon>
     <Version>1.0.0</Version>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\logo.png" />
+    <Resource Include="Assets\extsync.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="BouncyCastle.Cryptography" Version="2.4.0" />

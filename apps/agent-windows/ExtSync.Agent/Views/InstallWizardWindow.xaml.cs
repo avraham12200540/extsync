@@ -33,7 +33,7 @@ public partial class InstallWizardWindow : Window
         TxtDeveloper.Text = $"מאת {Str("developerName")}";
         var version = Str("version");
         var channel = Str("channel");
-        TxtMeta.Text = $"גרסה {(string.IsNullOrEmpty(version) ? "—" : version)} • ערוץ {channel}";
+        TxtMeta.Text = $"גרסה {(string.IsNullOrEmpty(version) ? "-" : version)} • ערוץ {channel}";
         TxtDescription.Text = Str("shortDescription");
 
         if (_resolved.TryGetProperty("permissions", out var perms) &&
@@ -93,7 +93,7 @@ public partial class InstallWizardWindow : Window
     private void OnCopyUrl(object sender, RoutedEventArgs e)
     {
         ChromeHelper.CopyExtensionsUrl();
-        TxtGuideStatus.Text = "הכתובת chrome://extensions הועתקה — הדבק בשורת הכתובת של Chrome. " +
+        TxtGuideStatus.Text = "הכתובת chrome://extensions הועתקה - הדבק בשורת הכתובת של Chrome. " +
                               "לפני 'טען פריט לא ארוז' לחץ שוב 'העתק נתיב התיקייה'.";
     }
 

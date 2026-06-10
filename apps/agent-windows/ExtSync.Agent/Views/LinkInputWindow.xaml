@@ -1,21 +1,20 @@
 <Window x:Class="ExtSync.Agent.Views.LinkInputWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="הוספת תוסף מקישור" Height="220" Width="480"
+        Title="הוספת תוסף מקישור" Height="230" Width="480"
+        Icon="/Assets/logo.png"
         FlowDirection="RightToLeft" FontFamily="Segoe UI"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Background="{StaticResource SurfaceMuted}">
     <StackPanel Margin="24">
         <TextBlock Text="הדבק כאן קישור התקנה שקיבלת מהמפתח:" FontSize="14"
                    Foreground="{StaticResource TextPrimary}"/>
-        <TextBox x:Name="InputBox" Margin="0,12" Padding="10" FontSize="13"
-                 Background="{StaticResource Surface}"/>
-        <TextBlock Text="לדוגמה: https://extsync.local/install/abc123 או extsync://install?token=abc123"
+        <TextBox x:Name="InputBox" Margin="0,12" Padding="10" FontSize="13"/>
+        <TextBlock Text="לדוגמה: https://extsync.com/install/abc123 או extsync://install?token=abc123"
                    FontSize="11" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,16,0,0">
             <Button Content="המשך" Click="OnOk" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
-            <Button Content="ביטול" Click="OnCancel" Style="{StaticResource PrimaryButton}"
-                    Background="{StaticResource TextMuted}"/>
+            <Button Content="ביטול" Click="OnCancel" Style="{StaticResource SecondaryButton}"/>
         </StackPanel>
     </StackPanel>
 </Window>

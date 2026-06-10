@@ -16,7 +16,11 @@ public sealed class ExtensionItemViewModel : ObservableObject
     public ExtensionItemViewModel(LocalInstallation inst, AgentController controller, ILogger log)
     {
         _inst = inst; _controller = controller; _log = log;
-        CheckCommand = new RelayCommand(_ => _controller.CheckUpdatesAsync(false));
+        CheckCommand = new RelayCommand(async _ =>
+        {
+            try { await _controller.CheckUpdatesAsync(false); }
+            catch (Exception ex) { _log.Warning(ex, "per-item check failed"); }
+        });
         PauseCommand = new RelayCommand(_ => { _controller.SetPaused(_inst.ProjectId, !_inst.UpdatesPaused); return Task.CompletedTask; });
         OpenFolderCommand = new RelayCommand(_ => { ChromeHelper.OpenFolder(_inst.ActivePath); return Task.CompletedTask; });
         OpenExtensionsCommand = new RelayCommand(_ => { ChromeHelper.OpenExtensionsPage(); return Task.CompletedTask; });
@@ -26,11 +30,12 @@ public sealed class ExtensionItemViewModel : ObservableObject
 
     public string Name => string.IsNullOrEmpty(_inst.Name) ? _inst.ProjectId : _inst.Name;
     public string DeveloperName => _inst.DeveloperName;
-    public string Version => string.IsNullOrEmpty(_inst.CurrentVersion) ? "—" : $"v{_inst.CurrentVersion}";
+    public string Version => string.IsNullOrEmpty(_inst.CurrentVersion) ? "-" : $"v{_inst.CurrentVersion}";
     public string Channel => _inst.Channel;
     public string ExtensionId => _inst.ExtensionId;
     public bool UpdatesPaused => _inst.UpdatesPaused;
-    public string LastUpdatedText => _inst.LastUpdatedAt is { } t ? t.ToLocalTime().ToString("dd/MM HH:mm") : "—";
+    public string PauseText => _inst.UpdatesPaused ? "חידוש עדכונים" : "השהיה";
+    public string LastUpdatedText => _inst.LastUpdatedAt is { } t ? t.ToLocalTime().ToString("dd/MM HH:mm") : "-";
 
     public string StatusText => _inst.Status switch
     {
@@ -82,16 +87,16 @@ public sealed class ExtensionItemViewModel : ObservableObject
 
     private async Task RemoveAsync()
     {
+        // One dialog instead of two: Yes = remove + delete files, No = remove only.
         var result = MessageBox.Show(
-            $"להפסיק לנהל את {Name}?\n\nלחיצה על 'כן' תפסיק את הניהול אך תשאיר את קבצי התוסף.\n" +
-            "כדי למחוק גם את הקבצים, נשמח שתאשר בנפרד לאחר מכן.",
-            "הסרה", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (result != MessageBoxResult.Yes) return;
+            $"להסיר את {Name} מהניהול?\n\n" +
+            "כן - הסרה ומחיקת קבצי התוסף מהמחשב\n" +
+            "לא - הסרה מהניהול בלבד (הקבצים יישארו)\n" +
+            "ביטול - לא להסיר\n\n" +
+            "שימו לב: התוסף לא יוסר אוטומטית מ-Chrome.",
+            "הסרת תוסף", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+        if (result == MessageBoxResult.Cancel || result == MessageBoxResult.None) return;
 
-        var deleteFiles = MessageBox.Show(
-            "למחוק גם את קבצי התוסף מהמחשב? (התוסף לא יוסר אוטומטית מ-Chrome)",
-            "מחיקת קבצים", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
-
-        await _controller.RemoveAsync(_inst.ProjectId, deleteFiles);
+        await _controller.RemoveAsync(_inst.ProjectId, deleteFiles: result == MessageBoxResult.Yes);
     }
 }

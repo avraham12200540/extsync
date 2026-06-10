@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows;
+using System.Windows.Media;
 using ExtSync.Agent.Models;
 using ExtSync.Agent.Mvvm;
 using ExtSync.Agent.Services;
@@ -26,14 +28,30 @@ public sealed class MainViewModel : ObservableObject
         CheckUpdatesCommand = new RelayCommand(_ => CheckUpdatesAsync());
         AddByLinkCommand = new RelayCommand(_ => AddByLinkAsync());
         OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
+        OpenStoreCommand = new RelayCommand(_ => OpenStore());
     }
+
+    public const string StoreUrl = "https://extsync.com/store";
 
     public RelayCommand CheckUpdatesCommand { get; }
     public RelayCommand AddByLinkCommand { get; }
     public RelayCommand OpenSettingsCommand { get; }
+    public RelayCommand OpenStoreCommand { get; }
 
     private bool _busy;
-    public bool IsBusy { get => _busy; set => SetField(ref _busy, value); }
+    public bool IsBusy
+    {
+        get => _busy;
+        set { SetField(ref _busy, value); OnPropertyChanged(nameof(BusyVisibility)); }
+    }
+
+    public Visibility BusyVisibility => IsBusy ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility EmptyVisibility => Extensions.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility ListVisibility => Extensions.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+
+    public Brush ConnectionColor => _controller.ServerConnected
+        ? (Brush)Application.Current.Resources["Success"]
+        : (Brush)Application.Current.Resources["Warning"];
 
     private string _connectionStatus = "מתחבר…";
     public string ConnectionStatus { get => _connectionStatus; set => SetField(ref _connectionStatus, value); }
@@ -54,10 +72,19 @@ public sealed class MainViewModel : ObservableObject
         Extensions.Clear();
         foreach (var inst in _controller.Installations)
             Extensions.Add(new ExtensionItemViewModel(inst, _controller, _log));
-        ConnectionStatus = _controller.ServerConnected ? "מחובר לשרת" : "לא מחובר (מצב לא־מקוון)";
+        ConnectionStatus = _controller.ServerConnected ? "מחובר לשרת" : "לא מחובר (מצב לא-מקוון)";
         LastCheckText = _controller.LastCheck is { } t
             ? $"בדיקה אחרונה: {t.ToLocalTime():HH:mm}" : "טרם נבדק";
         OnPropertyChanged(nameof(ManagedCountText));
+        OnPropertyChanged(nameof(ConnectionColor));
+        OnPropertyChanged(nameof(EmptyVisibility));
+        OnPropertyChanged(nameof(ListVisibility));
+    }
+
+    private void OpenStore()
+    {
+        try { Process.Start(new ProcessStartInfo(StoreUrl) { UseShellExecute = true }); }
+        catch (Exception ex) { _log.Warning(ex, "open store failed"); }
     }
 
     public async Task CheckUpdatesAsync()

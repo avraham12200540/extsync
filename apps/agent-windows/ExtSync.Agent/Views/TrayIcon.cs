@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media.Imaging;
 using ExtSync.Agent.ViewModels;
 using Hardcodet.Wpf.TaskbarNotification;
 
@@ -20,6 +21,10 @@ public sealed class TrayIcon : IDisposable
         {
             ToolTipText = "ExtSync Agent",
             Visibility = Visibility.Visible,
+            // Without an explicit icon the tray entry is invisible and the app
+            // becomes unreachable after the window is closed to tray.
+            IconSource = BitmapFrame.Create(
+                new Uri("pack://application:,,,/Assets/extsync.ico", UriKind.Absolute)),
         };
         _icon.TrayMouseDoubleClick += (_, _) => ShowWindow();
         _icon.ContextMenu = BuildMenu();
@@ -30,6 +35,7 @@ public sealed class TrayIcon : IDisposable
         var menu = new ContextMenu { FlowDirection = FlowDirection.RightToLeft };
         menu.Items.Add(MenuItem("פתח ExtSync", (_, _) => ShowWindow()));
         menu.Items.Add(MenuItem("בדוק עדכונים", async (_, _) => await _vm.CheckUpdatesAsync()));
+        menu.Items.Add(MenuItem("גלריית התוספים", (_, _) => _vm.OpenStoreCommand.Execute(null)));
         menu.Items.Add(new Separator());
         menu.Items.Add(MenuItem("יציאה", (_, _) => Application.Current.Shutdown()));
         return menu;
