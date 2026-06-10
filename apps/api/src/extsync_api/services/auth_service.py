@@ -285,6 +285,13 @@ async def verify_email(db: AsyncSession, token: str) -> User:
     return user
 
 
+async def resend_verification(db: AsyncSession, user: User) -> None:
+    """Re-issue and resend the verification email (no-op if already verified)."""
+    if user.email_verified:
+        return
+    await _issue_email_verification(db, user)
+
+
 # --------------------------------------------------------------------------- password reset
 async def start_password_reset(db: AsyncSession, email: str) -> None:
     email = email.strip().lower()

@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_use_tls: bool = False
     email_from: str = "ExtSync <no-reply@extsync.local>"
+    # When true, a developer must verify their email before publishing to the
+    # public store. Keep false until real email delivery is configured.
+    enforce_email_verification: bool = False
 
     # upload / validation limits
     max_upload_zip_bytes: int = 52_428_800

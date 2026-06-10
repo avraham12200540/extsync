@@ -2,9 +2,37 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/components/providers";
+import { api, ApiError } from "@/lib/api";
 import { Button, Spinner } from "@/components/ui";
+
+function VerifyEmailBanner({ email }: { email: string }) {
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const resend = async () => {
+    setState("sending");
+    try {
+      await api.post("/auth/resend-verification");
+      setState("sent");
+    } catch (e) {
+      setState(e instanceof ApiError && e.status === 429 ? "sent" : "error");
+    }
+  };
+  return (
+    <div className="mb-4 flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+      <span>
+        כתובת המייל <b>{email}</b> עדיין לא אומתה — אימות נדרש כדי לפרסם לחנות.
+        {state === "sent" && " ✓ נשלח מייל אימות, בדוק את תיבת הדואר."}
+        {state === "error" && " (שליחה נכשלה, נסה שוב)"}
+      </span>
+      {state !== "sent" && (
+        <Button size="sm" variant="warning" disabled={state === "sending"} onClick={resend}>
+          {state === "sending" ? "שולח…" : "שלח מייל אימות"}
+        </Button>
+      )}
+    </div>
+  );
+}
 
 const nav = [
   { href: "/app", label: "סקירה" },
@@ -69,7 +97,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto p-4 sm:p-6 md:p-8">{children}</main>
+      <main className="flex-1 overflow-auto p-4 sm:p-6 md:p-8">
+        {!user.emailVerified && <VerifyEmailBanner email={user.email} />}
+        {children}
+      </main>
     </div>
   );
 }

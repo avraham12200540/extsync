@@ -114,6 +114,13 @@ async def verify_email(req: VerifyEmailRequest, db: DBSession) -> OkResponse:
     return OkResponse()
 
 
+@router.post("/resend-verification", response_model=OkResponse)
+async def resend_verification(user: CurrentUser, db: DBSession) -> OkResponse:
+    await enforce_rate_limit(f"resend-verify:{user.id}", limit=5, window_seconds=3600)
+    await svc.resend_verification(db, user)
+    return OkResponse()
+
+
 @router.post("/forgot-password", response_model=OkResponse)
 async def forgot_password(req: ForgotPasswordRequest, request: Request, db: DBSession) -> OkResponse:
     await enforce_rate_limit(f"forgot:{client_ip(request)}", limit=10, window_seconds=3600)

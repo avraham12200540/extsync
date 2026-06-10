@@ -9,6 +9,7 @@ from fastapi import Depends, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .config import settings
 from .db import get_session
 from .errors import ErrorCode, forbidden, unauthorized
 from .models.api_token import ApiToken
@@ -94,6 +95,17 @@ def require_verified_email(user: CurrentUser) -> User:
     if not user.email_verified:
         raise unauthorized("יש לאמת את כתובת האימייל לפני ביצוע הפעולה")
     return user
+
+
+def require_verified_for_publish(user: CurrentUser) -> User:
+    """Gate publishing to the public store on a verified email — but only when the
+    platform enables it (so nothing breaks before email delivery is configured)."""
+    if settings.enforce_email_verification and not user.email_verified:
+        raise forbidden("יש לאמת את כתובת האימייל לפני פרסום לחנות הציבורית")
+    return user
+
+
+PublisherUser = Annotated[User, Depends(require_verified_for_publish)]
 
 
 # ---- Agent (device) authentication --------------------------------------

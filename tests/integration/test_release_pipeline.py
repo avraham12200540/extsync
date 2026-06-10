@@ -231,6 +231,43 @@ def test_delete_release(client):
     assert client.delete(f"/projects/{project_id}/releases/{rid2}", headers=h).status_code == 200
 
 
+def test_publish_blocked_until_email_verified_when_enforced(client, monkeypatch):
+    from extsync_api.config import settings as _settings
+    monkeypatch.setattr(_settings, "enforce_email_verification", True)
+
+    h = _auth(client, email="unverified@example.com")  # registers unverified
+    project_id = client.post("/projects", headers=h, json={"name": "Gated Ext"}).json()["id"]
+    up = client.post(f"/projects/{project_id}/releases", headers=h,
+                     files={"file": ("v.zip", _make_zip("1.0.0"), "application/zip")},
+                     data={"version": "1.0.0", "channel": "stable", "minimumAgentVersion": "1.0.0"})
+    rid = up.json()["id"]
+    _run_worker(rid)
+
+    # publishing is forbidden until the email is verified
+    blocked = client.post(f"/projects/{project_id}/releases/{rid}/publish",
+                          headers=h, json={"rolloutPercentage": 100})
+    assert blocked.status_code == 403, blocked.text
+
+    # resend endpoint works (no email backend in tests, but must not error)
+    assert client.post("/auth/resend-verification", headers=h).status_code == 200
+
+    # verify the user directly, then publishing succeeds
+    async def _verify():
+        from sqlalchemy import select
+        from extsync_api.db import get_sessionmaker
+        from extsync_api.models.user import User
+        sm = get_sessionmaker()
+        async with sm() as s:
+            u = await s.scalar(select(User).where(User.email == "unverified@example.com"))
+            u.email_verified = True
+            await s.commit()
+    asyncio.run(_verify())
+
+    ok = client.post(f"/projects/{project_id}/releases/{rid}/publish",
+                     headers=h, json={"rolloutPercentage": 100})
+    assert ok.status_code == 200, ok.text
+
+
 def test_cannot_delete_published_release(client):
     h = _auth(client, email="delpub@example.com")
     project_id = client.post("/projects", headers=h, json={"name": "DelPub Ext"}).json()["id"]

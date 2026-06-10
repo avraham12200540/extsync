@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, File, Form, Request, UploadFile, status
 
-from ..deps import CurrentUser, DBSession
+from ..deps import CurrentUser, DBSession, PublisherUser
 from ..models.enums import Channel
 from ..models.release import Release
 from ..rbac import Permission
@@ -93,7 +93,7 @@ async def delete_release(project_id: str, release_id: str,
 
 @router.post("/{release_id}/publish", response_model=ReleaseResponse)
 async def publish_release(project_id: str, release_id: str, req: PublishRequest,
-                          request: Request, user: CurrentUser, db: DBSession) -> ReleaseResponse:
+                          request: Request, user: PublisherUser, db: DBSession) -> ReleaseResponse:
     project, perms = await load_project_for_user(db, project_id, user, Permission.PROJECT_READ)
     ensure_project_active(project)
     release = await svc.get_release(db, project_id, release_id)
@@ -126,7 +126,7 @@ async def revoke_release(project_id: str, release_id: str, req: RevokeRequest,
 
 @router.post("/{release_id}/rollback", response_model=ReleaseResponse)
 async def rollback_release(project_id: str, release_id: str, req: RollbackRequest,
-                           request: Request, user: CurrentUser, db: DBSession) -> ReleaseResponse:
+                           request: Request, user: PublisherUser, db: DBSession) -> ReleaseResponse:
     project, perms = await load_project_for_user(db, project_id, user, Permission.RELEASE_ROLLBACK)
     # `release_id` in the path is the target to roll back TO.
     target = await svc.get_release(db, project_id, release_id)
