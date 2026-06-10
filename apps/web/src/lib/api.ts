@@ -131,6 +131,8 @@ export interface Release {
   riskScore: number;
   releaseNotes?: string | null;
   validationReport?: any;
+  validationError?: string | null;
+  warningsCount?: number;
   publishedAt?: string | null;
   createdAt?: string | null;
 }

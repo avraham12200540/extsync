@@ -214,3 +214,36 @@ def test_bad_zip():
     res = validate_extension_zip(b"this is not a zip file at all")
     assert "INVALID_ARCHIVE" in _codes(res)
     assert not res.ok
+
+
+# ---- fast threat heuristics ----
+def test_encoded_eval_is_blocked():
+    z = _zip({"manifest.json": _manifest(background={"service_worker": "sw.js"}),
+              "sw.js": "const p = eval(atob('YWxlcnQoMSk='));"})
+    r = validate_extension_zip(z)
+    assert "OBFUSCATED_EVAL" in _codes(r)
+    assert not r.ok  # error severity blocks publish
+
+
+def test_crypto_miner_is_blocked():
+    z = _zip({"manifest.json": _manifest(background={"service_worker": "sw.js"}),
+              "sw.js": "import CoinHive from 'coinhive'; new CoinHive.Anonymous('x');"})
+    r = validate_extension_zip(z)
+    assert "CRYPTO_MINER" in _codes(r)
+    assert not r.ok
+
+
+def test_document_write_warns_but_passes():
+    z = _zip({"manifest.json": _manifest(background={"service_worker": "sw.js"}),
+              "sw.js": "document.write('<b>hi</b>');"})
+    r = validate_extension_zip(z)
+    assert "DOC_WRITE" in _codes(r)
+    assert r.ok  # warning only
+
+
+def test_clean_extension_has_no_threat_findings():
+    z = _zip({"manifest.json": _manifest(background={"service_worker": "sw.js"}),
+              "sw.js": "console.log('hello');", "icon16.png": b"\x89PNG\r\n"})
+    r = validate_extension_zip(z)
+    assert r.ok
+    assert not ({"OBFUSCATED_EVAL", "CRYPTO_MINER", "REMOTE_CODE"} & _codes(r))

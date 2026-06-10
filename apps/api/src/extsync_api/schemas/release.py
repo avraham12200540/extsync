@@ -82,3 +82,5 @@ class ReleaseListItem(CamelModel):
     risk_score: int
     created_at: str | None = None
     published_at: str | None = None
+    validation_error: str | None = None  # first error message when validation_failed
+    warnings_count: int = 0

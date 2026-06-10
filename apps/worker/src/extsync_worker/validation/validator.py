@@ -37,6 +37,20 @@ _REMOTE_IMPORT_RE = re.compile(r"""importScripts\s*\(\s*['"]https?://""", re.IGN
 _REMOTE_SCRIPT_RE = re.compile(
     r"""<script[^>]+src\s*=\s*['"](?:https?:)?//""", re.IGNORECASE
 )
+# Fast threat heuristics (high-signal patterns common in malicious extensions).
+# Encoded dynamic execution, e.g. eval(atob(...)) / Function(unescape(...)).
+_ENCODED_EVAL_RE = re.compile(
+    r"""(?:eval|Function)\s*\(\s*(?:atob|unescape|decodeURIComponent|String\.fromCharCode)\s*\(""",
+    re.IGNORECASE,
+)
+# Fetch-then-eval the response (downloading and running code).
+_FETCH_EVAL_RE = re.compile(r"""\.then\s*\(\s*[\w$]*\s*=>\s*eval\b""", re.IGNORECASE)
+# Known crypto-miner libraries / keywords.
+_MINER_RE = re.compile(
+    r"\b(coinhive|cryptonight|webminerpool|deepminer|coinimp|minero|jsecoin|crypto-?loot)\b",
+    re.IGNORECASE,
+)
+_DOC_WRITE_RE = re.compile(r"document\.write\s*\(")
 
 
 @dataclass
@@ -286,12 +300,27 @@ def _static_analysis(zf: zipfile.ZipFile, infos: list[zipfile.ZipInfo], prefix: 
         if _REMOTE_IMPORT_RE.search(text) or _REMOTE_SCRIPT_RE.search(text):
             result.add(Finding("REMOTE_CODE", Severity.error,
                                "התוסף מנסה לטעון קוד מכתובת חיצונית — אסור.", file=info.filename))
+        # ---- fast threat heuristics ----
+        if _ENCODED_EVAL_RE.search(text) or _FETCH_EVAL_RE.search(text):
+            result.add(Finding("OBFUSCATED_EVAL", Severity.error,
+                               "זוהתה הרצת קוד מוצפן/מפוענח דינמית (eval על atob/unescape או fetch) — "
+                               "דפוס נפוץ בתוכנות זדוניות.", file=info.filename))
+        if _MINER_RE.search(text):
+            result.add(Finding("CRYPTO_MINER", Severity.error,
+                               "זוהו דפוסי כריית-מטבעות (crypto miner) — אסור.", file=info.filename))
         if _EVAL_RE.search(text):
             result.add(Finding("EVAL_USAGE", Severity.warning,
                                "שימוש ב-eval() — מהווה סיכון אבטחה.", file=info.filename))
         if _NEW_FUNCTION_RE.search(text):
             result.add(Finding("NEW_FUNCTION", Severity.warning,
                                "שימוש ב-new Function() — מהווה סיכון אבטחה.", file=info.filename))
+        if _DOC_WRITE_RE.search(text):
+            result.add(Finding("DOC_WRITE", Severity.warning,
+                               "שימוש ב-document.write() — מומלץ להימנע.", file=info.filename))
+        longest_line = max((len(ln) for ln in text.splitlines()), default=0)
+        if longest_line > 40_000 or (text.count("\\x") + text.count("\\u")) > 2_000:
+            result.add(Finding("POSSIBLE_OBFUSCATION", Severity.warning,
+                               "הקוד נראה מעורפל מאוד (obfuscated) — ודא שזה לגיטימי.", file=info.filename))
 
 
 def _detect_bridge(infos: list[zipfile.ZipInfo], manifest: dict) -> bool:

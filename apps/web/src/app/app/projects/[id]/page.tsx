@@ -173,12 +173,16 @@ function OverviewTab({ project }: { project: Project }) {
   );
 }
 
+const SCANNING = new Set(["uploaded", "validating"]);
+
 function VersionsTab({ project }: { project: Project }) {
   const qc = useQueryClient();
   const { data: releases } = useQuery({
     queryKey: ["releases", project.id],
     queryFn: () => api.get<Release[]>(`/projects/${project.id}/releases`),
-    refetchInterval: 4000, // reflect worker validation progress
+    // Poll fast while a release is being scanned, then back off.
+    refetchInterval: (q) =>
+      (q.state.data as Release[] | undefined)?.some((r) => SCANNING.has(r.status)) ? 1500 : false,
   });
 
   const [file, setFile] = useState<File | null>(null);
@@ -242,42 +246,72 @@ function VersionsTab({ project }: { project: Project }) {
         </Button>
       </Card>
 
-      <div className="space-y-2">
-        {(releases ?? []).map((r) => (
-          <Card key={r.id} className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-ink">v{r.version}</span>
-                <Badge>{r.channel}</Badge>
-                <Badge status={r.status}>{r.status}</Badge>
-                {r.permissionsChanged && <Badge>שינוי הרשאות</Badge>}
+      <div className="space-y-3">
+        {(releases ?? []).map((r) => {
+          const scanning = SCANNING.has(r.status);
+          const riskColor = r.riskScore >= 60 ? "text-danger" : r.riskScore >= 30 ? "text-warning" : "text-success";
+          return (
+            <Card key={r.id} className="lift">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-ink" dir="ltr">v{r.version}</span>
+                    <Badge>{r.channel}</Badge>
+                    <Badge status={r.status}>{r.status}</Badge>
+                    {r.permissionsChanged && <Badge>שינוי הרשאות</Badge>}
+                    {!scanning && (
+                      <span className={`text-xs font-medium ${riskColor}`}>סיכון {r.riskScore}</span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-ink-muted">
+                    {formatDate(r.createdAt)} · seq {r.sequence ?? "-"}
+                    {!!r.warningsCount && r.status !== "validation_failed" && (
+                      <span className="text-warning"> · {r.warningsCount} אזהרות</span>
+                    )}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  {r.status === "ready" && (
+                    <Button size="sm" onClick={() => publish.mutate(r.id)} disabled={publish.isPending}>פרסום</Button>
+                  )}
+                  {(r.status === "superseded" || r.status === "published") && (
+                    <Button size="sm" variant="warning" onClick={() => rollback.mutate(r.id)}>Rollback לכאן</Button>
+                  )}
+                  {r.status !== "published" && !scanning && (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      disabled={remove.isPending}
+                      onClick={() => {
+                        if (confirm(`למחוק את גרסה ${r.version}? פעולה זו בלתי הפיכה.`)) remove.mutate(r.id);
+                      }}
+                    >
+                      מחק
+                    </Button>
+                  )}
+                </div>
               </div>
-              <p className="mt-1 text-xs text-ink-muted">
-                {formatDate(r.createdAt)} • סיכון {r.riskScore} • seq {r.sequence ?? "-"}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              {r.status === "ready" && (
-                <Button size="sm" onClick={() => publish.mutate(r.id)} disabled={publish.isPending}>פרסום</Button>
+
+              {/* live scan progress */}
+              {scanning && (
+                <div className="mt-3">
+                  <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-brand">
+                    <span className="animate-spin">🔍</span>
+                    {r.status === "uploaded" ? "בתור לסריקת אבטחה…" : "סורק אבטחה: manifest, הרשאות, קוד מרוחק, ZIP-bomb…"}
+                  </p>
+                  <div className="scan-track" />
+                </div>
               )}
-              {(r.status === "superseded" || r.status === "published") && (
-                <Button size="sm" variant="warning" onClick={() => rollback.mutate(r.id)}>Rollback לכאן</Button>
+
+              {/* failure reason */}
+              {r.status === "validation_failed" && r.validationError && (
+                <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-danger">
+                  <span>⛔</span><p>{r.validationError}</p>
+                </div>
               )}
-              {r.status !== "published" && (
-                <Button
-                  size="sm"
-                  variant="danger"
-                  disabled={remove.isPending}
-                  onClick={() => {
-                    if (confirm(`למחוק את גרסה ${r.version}? פעולה זו בלתי הפיכה.`)) remove.mutate(r.id);
-                  }}
-                >
-                  מחק
-                </Button>
-              )}
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

@@ -40,10 +40,14 @@ def _response(r: Release) -> ReleaseResponse:
 
 
 def _list_item(r: Release) -> ReleaseListItem:
+    report = r.validation_report or {}
+    errors = report.get("errors") or []
     return ReleaseListItem(
         id=r.id, version=r.version, channel=r.channel, status=r.status, sequence=r.sequence,
         rollout_percentage=r.rollout_percentage, permissions_changed=r.permissions_changed,
         risk_score=r.risk_score, created_at=_iso(r.created_at), published_at=_iso(r.published_at),
+        validation_error=(errors[0].get("message") if errors else None),
+        warnings_count=len(report.get("warnings") or []),
     )
 
 

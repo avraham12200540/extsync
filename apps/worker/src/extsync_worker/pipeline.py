@@ -117,7 +117,8 @@ async def process_validation_job(db: AsyncSession, release_id: str) -> str:
     if result.manifest.version and result.manifest.version != release.version:
         await _fail(
             db, release, "VERSION_MISMATCH",
-            f"גרסת ה-manifest ({result.manifest.version}) שונה מגרסת ההפצה ({release.version})",
+            f"מספר הגרסה שהזנת ({release.version}) אינו תואם למספר הגרסה שבקובץ manifest.json "
+            f"({result.manifest.version}). ודא ששדה \"version\" ב-manifest זהה למספר שאתה מעלה.",
         )
         return release.status.value
 
