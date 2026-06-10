@@ -25,6 +25,7 @@ export default function StoreDetailPage({ params }: { params: { slug: string } }
 
   return (
     <Shell>
+      <Link href="/store" className="mb-4 inline-block text-sm text-ink-muted hover:text-brand">חזרה לגלריה</Link>
       <Card>
         <div className="flex items-center gap-4">
           {d.iconUrl ? (

@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { MonitorSmartphone, CircleCheck, CircleX } from "lucide-react";
 import { api, ApiError, type InstallLink, type Project, type Release } from "@/lib/api";
 import { Badge, Button, Card, Field, Input, Spinner } from "@/components/ui";
+import { StatCard } from "@/components/dashboard";
 import { formatDate } from "@/lib/utils";
 
 type Tab = "overview" | "versions" | "links" | "analytics";
@@ -27,11 +30,12 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
 
   return (
     <div>
+      <Link href="/app/projects" className="mb-3 inline-block text-sm text-ink-muted hover:text-brand">חזרה לתוספים שלי</Link>
       <div className="mb-2 flex items-center gap-3">
-        <h1 className="text-2xl font-semibold text-ink">{project.name}</h1>
+        <h1 className="text-2xl font-bold text-ink">{project.name}</h1>
         <Badge status={project.status}>{project.status}</Badge>
       </div>
-      <p className="mb-6 text-sm text-ink-muted">Extension ID: {project.extensionId ?? "-"}</p>
+      <p className="mb-6 text-sm text-ink-muted" dir="ltr">Extension ID: {project.extensionId ?? "-"}</p>
 
       <div className="mb-6 flex gap-1 overflow-x-auto border-b border-line">
         {tabs.map((tb) => (
@@ -356,9 +360,9 @@ function AnalyticsTab({ projectId }: { projectId: string }) {
   if (!data) return <Spinner />;
   return (
     <div className="grid gap-4 sm:grid-cols-3">
-      <Card><p className="text-sm text-ink-muted">התקנות פעילות</p><p className="text-2xl font-semibold text-ink">{data.activeInstallations}</p></Card>
-      <Card><p className="text-sm text-ink-muted">עדכונים שהצליחו (24ש')</p><p className="text-2xl font-semibold text-success">{data.updates24h.success}</p></Card>
-      <Card><p className="text-sm text-ink-muted">כשלים (24ש')</p><p className="text-2xl font-semibold text-danger">{data.updates24h.failed}</p></Card>
+      <StatCard icon={<MonitorSmartphone size={18} />} label="התקנות פעילות" value={data.activeInstallations} />
+      <StatCard icon={<CircleCheck size={18} />} label="עדכונים שהצליחו (24ש')" value={data.updates24h.success} tone="text-success" iconClass="bg-success" />
+      <StatCard icon={<CircleX size={18} />} label="כשלים (24ש')" value={data.updates24h.failed} tone="text-danger" iconClass="bg-danger" />
     </div>
   );
 }

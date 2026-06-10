@@ -42,6 +42,13 @@ export function SiteFooter() {
                   GitHub
                 </a>
               </li>
+              <li>
+                <a className="transition-colors hover:text-white"
+                   href="https://mitmachim.top/user/%D7%90%D7%91%D7%A8%D7%94%D7%9D-%D7%92%D7%9C%D7%A1%D7%A8"
+                   target="_blank" rel="noreferrer">
+                  מתמחים טופ
+                </a>
+              </li>
             </ul>
           </div>
         </div>

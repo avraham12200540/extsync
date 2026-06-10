@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api, ApiError, type InstallPage } from "@/lib/api";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 import { Badge, Button, Card, Spinner } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 
@@ -18,9 +19,9 @@ export default function InstallTokenPage({ params }: { params: { token: string }
   }, [params.token]);
 
   return (
-    <div className="min-h-screen">
+    <div className="flex min-h-screen flex-col">
       <SiteHeader />
-      <main className="mx-auto max-w-2xl px-6 py-12">
+      <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-12">
         {!data && !error && <div className="flex justify-center py-20"><Spinner /></div>}
         {error && (
           <Card className="text-center">
@@ -30,6 +31,7 @@ export default function InstallTokenPage({ params }: { params: { token: string }
         )}
         {data && <InstallContent data={data} />}
       </main>
+      <SiteFooter />
     </div>
   );
 }

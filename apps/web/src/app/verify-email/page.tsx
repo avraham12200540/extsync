@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
+import { AuthShell } from "@/components/marketing";
 import { Card, Spinner } from "@/components/ui";
 
 function VerifyInner() {
@@ -17,18 +18,20 @@ function VerifyInner() {
   }, [token]);
 
   return (
-    <Card className="w-full max-w-md text-center">
-      {state === "loading" && <div className="flex justify-center"><Spinner /></div>}
+    <Card className="w-full text-center shadow-lift">
+      {state === "loading" && <div className="flex justify-center py-6"><Spinner /></div>}
       {state === "ok" && (
         <>
-          <h1 className="mb-2 text-2xl font-semibold text-ink">האימייל אומת ✓</h1>
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-gradient text-2xl shadow-glow">✅</div>
+          <h1 className="mb-2 text-2xl font-bold text-ink">האימייל אומת</h1>
           <p className="text-ink-muted">החשבון פעיל. אפשר להתחבר.</p>
           <Link href="/login" className="mt-4 inline-block text-brand hover:underline">להתחברות</Link>
         </>
       )}
       {state === "error" && (
         <>
-          <h1 className="mb-2 text-2xl font-semibold text-ink">הקישור אינו תקין</h1>
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-2xl">⚠️</div>
+          <h1 className="mb-2 text-2xl font-bold text-ink">הקישור אינו תקין</h1>
           <p className="text-ink-muted">קישור האימות פג תוקף או כבר נוצל.</p>
           <Link href="/login" className="mt-4 inline-block text-brand hover:underline">חזרה</Link>
         </>
@@ -39,10 +42,10 @@ function VerifyInner() {
 
 export default function VerifyEmailPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center px-6">
-      <Suspense fallback={<Spinner />}>
+    <AuthShell>
+      <Suspense fallback={<div className="flex justify-center py-6"><Spinner /></div>}>
         <VerifyInner />
       </Suspense>
-    </div>
+    </AuthShell>
   );
 }
