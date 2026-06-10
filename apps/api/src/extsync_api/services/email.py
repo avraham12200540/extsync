@@ -7,13 +7,43 @@ the message body or any token.
 from __future__ import annotations
 
 import asyncio
+import json
 import smtplib
+import urllib.error
+import urllib.request
 from email.message import EmailMessage
 
 from ..config import settings
 from ..logging import get_logger
 
 logger = get_logger("extsync.email")
+
+
+def _send_via_resend_http(to: str, subject: str, text_body: str, html_body: str | None) -> None:
+    """Send through Resend's HTTPS API (port 443) — bypasses SMTP port blocks."""
+    payload: dict = {
+        "from": settings.email_from,
+        "to": [to],
+        "subject": subject,
+        "text": text_body,
+    }
+    if html_body:
+        payload["html"] = html_body
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {settings.resend_api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            if resp.status >= 300:
+                raise RuntimeError(f"resend api returned status {resp.status}")
+    except urllib.error.HTTPError as e:  # surface the API error body for diagnosis
+        raise RuntimeError(f"resend api error {e.code}: {e.read().decode('utf-8', 'replace')[:300]}") from e
 
 
 def _send_sync(msg: EmailMessage) -> None:
@@ -39,7 +69,10 @@ async def send_email(to: str, subject: str, text_body: str, html_body: str | Non
     if html_body:
         msg.add_alternative(html_body, subtype="html")
     try:
-        await asyncio.to_thread(_send_sync, msg)
+        if settings.resend_api_key:
+            await asyncio.to_thread(_send_via_resend_http, to, subject, text_body, html_body)
+        else:
+            await asyncio.to_thread(_send_sync, msg)
         logger.info("email sent to=%s subject=%s", to, subject)
     except Exception:
         # Never crash the request because email failed; surface in logs + retry later.

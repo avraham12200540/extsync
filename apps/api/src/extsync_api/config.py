@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_use_tls: bool = False
     email_from: str = "ExtSync <no-reply@extsync.local>"
+    # If set, send via the Resend HTTPS API (port 443) instead of SMTP — robust
+    # against VPS providers that block outbound SMTP ports (25/465/587).
+    resend_api_key: str = ""
     # When true, a developer must verify their email before publishing to the
     # public store. Keep false until real email delivery is configured.
     enforce_email_verification: bool = False
