@@ -35,6 +35,9 @@ def _send_via_resend_http(to: str, subject: str, text_body: str, html_body: str 
         headers={
             "Authorization": f"Bearer {settings.resend_api_key}",
             "Content-Type": "application/json",
+            # Cloudflare (in front of api.resend.com) returns 403/1010 for the default
+            # "Python-urllib" UA, so send an explicit one.
+            "User-Agent": "ExtSync/1.0 (+https://extsync.com)",
         },
         method="POST",
     )
