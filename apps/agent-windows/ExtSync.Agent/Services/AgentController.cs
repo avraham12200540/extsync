@@ -224,7 +224,7 @@ public sealed class AgentController
         _store.Upsert(inst);
         var failed = Path.Combine(inst.FolderPath, "failed");
         var ok = FolderSwap.RestoreFromRollback(inst.ActivePath, inst.RollbackPath, failed, _log);
-        if (ok && inst.HasBridge && _pipe.IsBridgeConnected(projectId))
+        if (ok && inst.HasBridge)
             await _pipe.RequestReloadAsync(projectId, inst.CurrentVersion, TimeSpan.FromSeconds(15));
         inst.Status = ok ? InstallationStatus.UpToDate : InstallationStatus.Broken;
         inst.LastError = ok ? null : "rollback failed";
@@ -244,6 +244,7 @@ public sealed class AgentController
 
         inst.Status = InstallationStatus.Removed;
         _store.Upsert(inst);
+        _pipe.ClearPendingReload(projectId);
         // Deleting files requires explicit user opt-in (§45 #20).
         if (deleteFiles && Directory.Exists(inst.FolderPath))
         {

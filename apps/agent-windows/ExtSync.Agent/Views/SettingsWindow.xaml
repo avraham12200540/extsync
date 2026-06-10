@@ -25,6 +25,9 @@
                        Foreground="{StaticResource TextMuted}"
                        Text="מינימום 30 שניות. ממילא עדכון מתקבל מיידית בעת פרסום (WebSocket), כך שאין צורך באינטרוול קצר."/>
             <CheckBox x:Name="ChkAutoUpdate" Content="התקנת עדכונים אוטומטית" Margin="0,6"/>
+            <TextBlock FontSize="11" TextWrapping="Wrap" Margin="22,0,0,6"
+                       Foreground="{StaticResource TextMuted}"
+                       Text="מוריד ומתקין גרסאות חדשות לבד, ומרענן את התוסף ב-Chrome (מומלץ). אם כבוי — נסמן רק 'עדכון זמין' בלי להתקין."/>
             <CheckBox x:Name="ChkBackground" Content="הורדת עדכונים ברקע" Margin="0,6"/>
             <CheckBox x:Name="ChkNotify" Content="הצגת התראות Windows" Margin="0,6"/>
             <StackPanel Orientation="Horizontal" Margin="0,6">

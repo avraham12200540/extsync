@@ -161,8 +161,10 @@ public sealed class UpdateService
 
             // (15-16) request a verified reload via the Bridge
             bool reloaded = false;
-            if (swap == UpdateStepResult.Success && inst.HasBridge && _pipe.IsBridgeConnected(inst.ProjectId))
+            if (swap == UpdateStepResult.Success && inst.HasBridge)
             {
+                // Reloads now if the Bridge is connected; otherwise queues the reload
+                // to fire the moment the Bridge reconnects (MV3 SWs idle out).
                 reloaded = await _pipe.RequestReloadAsync(inst.ProjectId, meta.Version, TimeSpan.FromSeconds(15));
             }
 

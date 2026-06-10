@@ -25,6 +25,9 @@ public sealed class PipeServer : IAsyncDisposable
     private readonly CancellationTokenSource _cts = new();
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<BridgeConnection, byte>> _byProject = new();
     private readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _pendingReloads = new();
+    // Desired version per project for a Bridge that was asleep when the update was
+    // applied — delivered the moment it reconnects (MV3 SWs idle out frequently).
+    private readonly ConcurrentDictionary<string, PendingReload> _pendingByProject = new();
 
     public event Action<string, string>? BridgeConnected;     // (projectId, extensionId)
     public event Action<string>? BridgeDisconnected;          // (projectId) — last instance gone
@@ -121,6 +124,9 @@ public sealed class PipeServer : IAsyncDisposable
                         _log.Information("bridge connected project={Project} ext={Ext} instances={Count}",
                             pid, extId, set.Count);
                     BridgeConnected?.Invoke(pid, extId ?? "");
+                    var runningVersion = msg.TryGetProperty("payload", out var rp) &&
+                                         rp.TryGetProperty("version", out var rv) ? rv.GetString() : null;
+                    TryFlushPendingReload(pid, runningVersion);
                 }
                 return pid;
 
@@ -147,9 +153,35 @@ public sealed class PipeServer : IAsyncDisposable
     /// </summary>
     public async Task<bool> RequestReloadAsync(string projectId, string version, TimeSpan timeout)
     {
+        // Remember the desired version so a Bridge that is asleep right now still
+        // reloads the moment it reconnects. Cleared on ack or when the target
+        // version re-registers (see TryFlushPendingReload).
+        _pendingByProject[projectId] = new PendingReload(version);
         if (!_byProject.TryGetValue(projectId, out var set) || set.IsEmpty)
-            return false; // no Bridge connected -> caller marks Pending Restart
+            return false; // no Bridge connected -> Pending Restart; flushed on reconnect
+        return await BroadcastReloadAsync(projectId, version, set, timeout);
+    }
 
+    /// <summary>Forget any queued reload for a project (e.g. on removal).</summary>
+    public void ClearPendingReload(string projectId) => _pendingByProject.TryRemove(projectId, out _);
+
+    private void TryFlushPendingReload(string projectId, string? runningVersion)
+    {
+        if (!_pendingByProject.TryGetValue(projectId, out var pend)) return;
+        if (runningVersion != null && runningVersion == pend.Version)
+        {
+            _pendingByProject.TryRemove(projectId, out _); // already on the target version
+            return;
+        }
+        if (DateTime.UtcNow - pend.LastAttempt < TimeSpan.FromSeconds(15)) return; // throttle retries
+        if (!_byProject.TryGetValue(projectId, out var set) || set.IsEmpty) return;
+        pend.LastAttempt = DateTime.UtcNow;
+        _ = BroadcastReloadAsync(projectId, pend.Version, set, TimeSpan.FromSeconds(15));
+    }
+
+    private async Task<bool> BroadcastReloadAsync(string projectId, string version,
+        ConcurrentDictionary<BridgeConnection, byte> set, TimeSpan timeout)
+    {
         var nonce = Guid.NewGuid().ToString("N");
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingReloads[nonce] = tcs;
@@ -190,6 +222,7 @@ public sealed class PipeServer : IAsyncDisposable
         await using var reg = timeoutCts.Token.Register(() => tcs.TrySetResult(false));
         var acked = await tcs.Task;
         _pendingReloads.TryRemove(nonce, out _);
+        if (acked) _pendingByProject.TryRemove(projectId, out _);
         return acked;
     }
 
@@ -197,6 +230,13 @@ public sealed class PipeServer : IAsyncDisposable
     {
         _cts.Cancel();
         await Task.CompletedTask;
+    }
+
+    private sealed class PendingReload
+    {
+        public string Version { get; }
+        public DateTime LastAttempt { get; set; } = DateTime.UtcNow;
+        public PendingReload(string version) => Version = version;
     }
 
     private sealed class BridgeConnection
