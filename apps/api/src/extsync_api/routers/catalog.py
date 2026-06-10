@@ -7,17 +7,20 @@ extsync:// install URI for the managed (auto-updating) install path.
 from __future__ import annotations
 
 from fastapi import APIRouter
-from sqlalchemy import select
+from pydantic import Field
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
+from ..deps import CurrentUser, OptionalUser
 from ..errors import not_found
 from ..models.enums import Channel, ProjectStatus, ProjectVisibility, ReleaseStatus
 from ..models.install_link import InstallLink
 from ..models.project import Project
+from ..models.rating import ProjectRating
 from ..models.release import ChannelState, Release, ReleaseArtifact, ReleasePermissionSnapshot
 from ..models.user import DeveloperProfile
-from ..schemas.common import CamelModel
+from ..schemas.common import CamelModel, OkResponse
 from ..storage import storage
 from typing import Annotated
 from fastapi import Depends
@@ -35,6 +38,13 @@ class CatalogItem(CamelModel):
     extension_id: str | None = None
     latest_version: str | None = None
     category: str | None = None
+    avg_rating: float = 0
+    ratings_count: int = 0
+    my_rating: int | None = None
+
+
+class RateRequest(CamelModel):
+    stars: int = Field(ge=1, le=5)
 
 
 class CatalogChannelInfo(CamelModel):
@@ -64,6 +74,9 @@ class CatalogDetail(CamelModel):
     host_permissions: list[str] = []
     uses_native_messaging: bool = False
     install_uri: str | None = None       # extsync://install?token=... (managed install)
+    avg_rating: float = 0
+    ratings_count: int = 0
+    my_rating: int | None = None
 
 
 def _iso(v) -> str | None:
@@ -77,8 +90,30 @@ async def _developer_name(db: AsyncSession, owner_user_id: str) -> str:
     return (profile.org_name if profile and profile.org_name else None) or "מפתח ExtSync"
 
 
+async def _ratings_map(db: AsyncSession, project_ids: list[str]) -> dict[str, tuple[float, int]]:
+    if not project_ids:
+        return {}
+    rows = (await db.execute(
+        select(ProjectRating.project_id, func.avg(ProjectRating.stars), func.count())
+        .where(ProjectRating.project_id.in_(project_ids))
+        .group_by(ProjectRating.project_id)
+    )).all()
+    return {pid: (round(float(avg), 2), int(cnt)) for pid, avg, cnt in rows}
+
+
+async def _my_ratings(db: AsyncSession, user_id: str | None, project_ids: list[str]) -> dict[str, int]:
+    if not user_id or not project_ids:
+        return {}
+    rows = (await db.execute(
+        select(ProjectRating.project_id, ProjectRating.stars)
+        .where(ProjectRating.user_id == user_id, ProjectRating.project_id.in_(project_ids))
+    )).all()
+    return dict(rows)
+
+
 @router.get("", response_model=list[CatalogItem])
-async def list_catalog(db: DBSession, q: str | None = None, category: str | None = None) -> list[CatalogItem]:
+async def list_catalog(db: DBSession, user: OptionalUser, q: str | None = None,
+                       category: str | None = None) -> list[CatalogItem]:
     # Public projects that have at least one published release (an active channel).
     stmt = (
         select(Project)
@@ -99,17 +134,49 @@ async def list_catalog(db: DBSession, q: str | None = None, category: str | None
         ql = q.lower()
         projects = [p for p in projects if ql in p.name.lower() or ql in (p.short_description or "").lower()]
 
+    ids = [p.id for p in projects]
+    ratings = await _ratings_map(db, ids)
+    mine = await _my_ratings(db, user.id if user else None, ids)
+
     items: list[CatalogItem] = []
     for p in projects:
         # latest stable (or any) published release version
         rel = await _latest_release(db, p.id)
+        avg, cnt = ratings.get(p.id, (0.0, 0))
         items.append(CatalogItem(
             slug=p.slug, name=p.name, short_description=p.short_description,
             icon_url=p.icon_url, developer_name=await _developer_name(db, p.owner_user_id),
             extension_id=p.extension_id, latest_version=rel.version if rel else None,
-            category=p.category,
+            category=p.category, avg_rating=avg, ratings_count=cnt, my_rating=mine.get(p.id),
         ))
+    # Highest-rated first; ties broken by number of ratings, then name.
+    items.sort(key=lambda i: (-i.avg_rating, -i.ratings_count, i.name))
     return items
+
+
+@router.put("/{slug}/rating", response_model=OkResponse)
+async def rate_project(slug: str, req: RateRequest, user: CurrentUser, db: DBSession) -> OkResponse:
+    """One rating per signed-in user per extension; calling again updates it."""
+    project = await db.scalar(
+        select(Project).where(
+            Project.slug == slug,
+            Project.visibility == ProjectVisibility.public,
+            Project.deleted_at.is_(None),
+        )
+    )
+    if project is None:
+        raise not_found("התוסף לא נמצא")
+    existing = await db.scalar(
+        select(ProjectRating).where(
+            ProjectRating.project_id == project.id, ProjectRating.user_id == user.id
+        )
+    )
+    if existing:
+        existing.stars = req.stars
+    else:
+        db.add(ProjectRating(project_id=project.id, user_id=user.id, stars=req.stars))
+    await db.commit()
+    return OkResponse()
 
 
 async def _latest_release(db: AsyncSession, project_id: str) -> Release | None:
@@ -127,7 +194,7 @@ async def _latest_release(db: AsyncSession, project_id: str) -> Release | None:
 
 
 @router.get("/{slug}", response_model=CatalogDetail)
-async def catalog_detail(slug: str, db: DBSession) -> CatalogDetail:
+async def catalog_detail(slug: str, db: DBSession, user: OptionalUser) -> CatalogDetail:
     project = await db.scalar(
         select(Project).where(
             Project.slug == slug,
@@ -184,6 +251,10 @@ async def catalog_detail(slug: str, db: DBSession) -> CatalogDetail:
     )
     install_uri = f"extsync://install?token={link.token}" if link else None
 
+    ratings = await _ratings_map(db, [project.id])
+    mine = await _my_ratings(db, user.id if user else None, [project.id])
+    avg, cnt = ratings.get(project.id, (0.0, 0))
+
     return CatalogDetail(
         slug=project.slug, name=project.name, short_description=project.short_description,
         full_description=project.full_description, icon_url=project.icon_url,
@@ -192,4 +263,5 @@ async def catalog_detail(slug: str, db: DBSession) -> CatalogDetail:
         privacy_policy_url=project.privacy_policy_url, extension_id=project.extension_id,
         category=project.category, channels=channels, permissions=perms,
         host_permissions=host_perms, uses_native_messaging=native, install_uri=install_uri,
+        avg_rating=avg, ratings_count=cnt, my_rating=mine.get(project.id),
     )

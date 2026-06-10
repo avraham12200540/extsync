@@ -79,6 +79,7 @@ export const api = {
   get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
   patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body),
+  put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body),
   del: <T>(path: string) => request<T>("DELETE", path),
   async upload<T>(path: string, formData: FormData): Promise<T> {
     let res = await rawFetch(path, { method: "POST", body: formData });
@@ -155,6 +156,9 @@ export interface CatalogItem {
   extensionId?: string | null;
   latestVersion?: string | null;
   category?: string | null;
+  avgRating: number;
+  ratingsCount: number;
+  myRating?: number | null;
 }
 
 export interface CatalogChannelInfo {
@@ -184,6 +188,9 @@ export interface CatalogDetail {
   hostPermissions: string[];
   usesNativeMessaging: boolean;
   installUri?: string | null;
+  avgRating: number;
+  ratingsCount: number;
+  myRating?: number | null;
 }
 
 export interface InstallPage {

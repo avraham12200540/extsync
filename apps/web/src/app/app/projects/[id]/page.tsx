@@ -54,6 +54,18 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
 }
 
 function OverviewTab({ project }: { project: Project }) {
+  const qc = useQueryClient();
+  const [iconErr, setIconErr] = useState<string | null>(null);
+  const uploadIcon = useMutation({
+    mutationFn: async (file: File) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      return api.upload<Project>(`/projects/${project.id}/icon`, fd);
+    },
+    onSuccess: () => { setIconErr(null); qc.invalidateQueries({ queryKey: ["project", project.id] }); },
+    onError: (e) => setIconErr(e instanceof ApiError ? e.message : "ההעלאה נכשלה"),
+  });
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <Card>
@@ -67,6 +79,32 @@ function OverviewTab({ project }: { project: Project }) {
       <Card>
         <h3 className="mb-2 font-semibold text-ink">{project.shortDescription || "אין תיאור"}</h3>
         <p className="text-sm text-ink-muted">{project.fullDescription}</p>
+      </Card>
+      <Card className="sm:col-span-2">
+        <h3 className="mb-2 font-semibold text-ink">תמונת התוסף בחנות (אופציונלי)</h3>
+        <div className="flex flex-wrap items-center gap-4">
+          {project.iconUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={project.iconUrl} alt="" className="h-20 w-28 rounded-lg border border-line object-cover" />
+          ) : (
+            <div className="flex h-20 w-28 items-center justify-center rounded-lg border border-dashed border-line text-xs text-ink-muted">
+              אין תמונה
+            </div>
+          )}
+          <div>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadIcon.mutate(f); }}
+              className="block text-sm text-ink-muted"
+            />
+            <p className="mt-1 text-xs text-ink-muted">
+              PNG / JPG / WebP / SVG עד 2MB. מוצגת בכרטיס התוסף בגלרייה.
+              {uploadIcon.isPending && " מעלה…"}
+            </p>
+            {iconErr && <p className="mt-1 text-xs text-danger">{iconErr}</p>}
+          </div>
+        </div>
       </Card>
     </div>
   );

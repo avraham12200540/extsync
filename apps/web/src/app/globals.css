@@ -28,3 +28,72 @@ body {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Staggered entrance for lists/grids: style="--d: 120ms" sets the delay. */
+.fade-up {
+  animation: fade-up 0.7s cubic-bezier(0.21, 0.8, 0.35, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Card hover lift used across the store. */
+.lift {
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 30px -8px rgba(16, 36, 62, 0.18), 0 4px 12px -4px rgba(16, 36, 62, 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up, .lift { animation: none; transition: none; }
+}
+
+/* ---- Frosted glass (iOS-style) ---- */
+.glass {
+  background: rgb(var(--surface) / 0.6);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgb(var(--ink) / 0.08);
+  box-shadow: 0 8px 32px -12px rgba(16, 36, 62, 0.25), inset 0 1px 0 rgb(255 255 255 / 0.25);
+}
+.glass-dark {
+  background: rgba(16, 36, 62, 0.55);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px -12px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+/* translucent button with a glossy sheen */
+.glass-btn {
+  position: relative;
+  background: linear-gradient(120deg, rgba(37, 99, 235, 0.92), rgba(15, 181, 186, 0.92));
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 8px 24px -8px rgba(43, 125, 233, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  color: #fff;
+  overflow: hidden;
+}
+.glass-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 50% 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent);
+  pointer-events: none;
+}
+.glass-btn:hover { filter: brightness(1.06); }
+
+.gradient-text {
+  background-image: linear-gradient(120deg, #2563eb, #2b7de9, #0fb5ba);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

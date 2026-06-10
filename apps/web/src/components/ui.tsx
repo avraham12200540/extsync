@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 export function Button({
   className, variant = "primary", size = "md", ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "ghost" | "danger" | "warning";
+  variant?: "primary" | "secondary" | "ghost" | "danger" | "warning" | "glass";
   size?: "sm" | "md";
 }) {
   const variants: Record<string, string> = {
@@ -13,6 +13,7 @@ export function Button({
     ghost: "bg-transparent text-ink hover:bg-surface-2",
     danger: "bg-danger text-white hover:bg-red-700",
     warning: "bg-warning text-white hover:bg-amber-700",
+    glass: "glass-btn",
   };
   const sizes: Record<string, string> = {
     sm: "px-3 py-1.5 text-sm",
@@ -21,7 +22,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+        "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-all duration-200 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed",
         variants[variant], sizes[size], className,
       )}
       {...props}

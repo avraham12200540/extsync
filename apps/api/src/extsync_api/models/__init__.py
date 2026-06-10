@@ -26,6 +26,7 @@ from .device import (
 from .install_link import InstallLink
 from .notification import Notification
 from .project import Project, ProjectKey
+from .rating import ProjectRating
 from .release import (
     ChannelAssignment,
     ChannelState,

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api, ApiError, type CatalogDetail } from "@/lib/api";
 import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
+import { RateWidget, RatingDisplay } from "@/components/stars";
 import { Badge, Button, Card, Spinner } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 
@@ -38,6 +40,12 @@ export default function StoreDetailPage({ params }: { params: { slug: string } }
               {d.usesNativeMessaging && <Badge>עדכון אוטומטי</Badge>}
             </div>
           </div>
+        </div>
+
+        {/* ratings */}
+        <div className="mt-4 flex flex-col gap-2 rounded-lg border border-line bg-surface-2/50 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <RatingDisplay avg={d.avgRating} count={d.ratingsCount} />
+          <RateWidget slug={d.slug} myRating={d.myRating ?? null} />
         </div>
 
         {d.shortDescription && <p className="mt-4 text-ink">{d.shortDescription}</p>}
@@ -101,9 +109,10 @@ export default function StoreDetailPage({ params }: { params: { slug: string } }
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen">
+    <div className="flex min-h-screen flex-col">
       <SiteHeader />
-      <main className="mx-auto max-w-2xl px-6 py-10">{children}</main>
+      <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">{children}</main>
+      <SiteFooter />
     </div>
   );
 }
