@@ -82,9 +82,27 @@ def test_injects_bridge_as_service_worker_when_no_background():
     assert manifest["background"]["service_worker"] == "extsync-bridge.js"
     assert "nativeMessaging" in manifest["permissions"]
     assert "storage" in manifest["permissions"]
-    # projectId + channel baked into the bridge; talks to the local Agent only
-    assert "ext_xyz" in read("extsync-bridge.js")
-    assert "com.extsync.agent" in read("extsync-bridge.js")
+    # content scripts -> scripting permission for the refresh toast + baked matches
+    assert "scripting" in manifest["permissions"]
+    bridge_src = read("extsync-bridge.js")
+    assert "ext_xyz" in bridge_src                 # projectId baked in
+    assert "com.extsync.agent" in bridge_src       # local Agent only
+    assert "https://x.com/*" in bridge_src         # toast targets the content-script hosts
+
+
+def test_no_scripting_permission_without_content_scripts():
+    files = {
+        "manifest.json": json.dumps({
+            "manifest_version": 3, "name": "PopupOnly", "version": "1.0.0",
+            "action": {"default_popup": "p.html"},
+        }),
+        "p.html": "<html></html>",
+    }
+    _names, manifest, injected, read = _build(files)
+    assert injected is True
+    assert "nativeMessaging" in manifest["permissions"]
+    assert "scripting" not in manifest["permissions"]   # nothing to refresh
+    assert "var MATCHES = []" in read("extsync-bridge.js")
 
 
 def test_injects_bridge_into_existing_module_service_worker():
