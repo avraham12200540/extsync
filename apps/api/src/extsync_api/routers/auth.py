@@ -53,7 +53,7 @@ def _clear_refresh_cookie(response: Response) -> None:
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=OkResponse)
 async def register(req: RegisterRequest, request: Request, db: DBSession) -> OkResponse:
     ip = client_ip(request)
-    await enforce_rate_limit(f"register:{ip}", limit=10, window_seconds=3600)
+    await enforce_rate_limit(f"register:{ip}", limit=settings.rate_limit_register_per_hour, window_seconds=3600)
     try:
         await svc.register_user(
             db, email=req.email, password=req.password,
@@ -116,7 +116,7 @@ async def verify_email(req: VerifyEmailRequest, db: DBSession) -> OkResponse:
 
 @router.post("/resend-verification", response_model=OkResponse)
 async def resend_verification(user: CurrentUser, db: DBSession) -> OkResponse:
-    await enforce_rate_limit(f"resend-verify:{user.id}", limit=5, window_seconds=3600)
+    await enforce_rate_limit(f"resend-verify:{user.id}", limit=settings.rate_limit_resend_verify_per_hour, window_seconds=3600)
     await svc.resend_verification(db, user)
     return OkResponse()
 

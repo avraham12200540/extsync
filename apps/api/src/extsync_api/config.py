@@ -78,9 +78,11 @@ class Settings(BaseSettings):
     max_dir_depth: int = 20
     validation_timeout_seconds: int = 120
 
-    # rate limits
+    # rate limits (anti-abuse; generous defaults, tunable via env)
     rate_limit_login_per_min: int = 10
     rate_limit_upload_per_hour: int = 60
+    rate_limit_register_per_hour: int = 50        # per IP — lets many people sign up
+    rate_limit_resend_verify_per_hour: int = 20   # per user — only caps resend spam
 
     # google oauth
     google_oauth_client_id: str = ""
