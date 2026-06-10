@@ -41,7 +41,12 @@ export function ExtensionCard({ item, delay = 0 }: { item: CatalogItem; delay?: 
               v{item.latestVersion ?? "—"}
             </span>
           </div>
-          <p className="mt-1 truncate text-xs text-ink-muted">{item.developerName}</p>
+          {item.shortDescription && (
+            <p className="mt-1.5 line-clamp-2 min-h-[2.5rem] text-sm leading-snug text-ink-muted">
+              {item.shortDescription}
+            </p>
+          )}
+          <p className="mt-1.5 truncate text-xs text-ink-muted">מאת {item.developerName}</p>
           <div className="mt-2">
             <RatingDisplay avg={item.avgRating} count={item.ratingsCount} />
           </div>
