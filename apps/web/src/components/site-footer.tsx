@@ -22,7 +22,7 @@ export function SiteFooter() {
             <ul className="space-y-2 text-sm text-slate-400">
               <li><Link className="transition-colors hover:text-white" href="/store">גלריית התוספים</Link></li>
               <li><Link className="transition-colors hover:text-white" href="/download">הורדת ExtSync Agent</Link></li>
-              <li><Link className="transition-colors hover:text-white" href="/docs">תיעוד למפתחים</Link></li>
+              <li><Link className="transition-colors hover:text-white" href="/docs">המדריך המהיר</Link></li>
               <li><Link className="transition-colors hover:text-white" href="/security">אבטחה</Link></li>
             </ul>
           </div>

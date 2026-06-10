@@ -85,7 +85,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
   }));
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
       <QueryClientProvider client={client}>
         <AuthProvider>{children}</AuthProvider>
       </QueryClientProvider>

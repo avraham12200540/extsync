@@ -30,7 +30,7 @@ function VerifyInner() {
       )}
       {state === "error" && (
         <>
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-2xl">⚠️</div>
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-400/15 text-2xl">⚠️</div>
           <h1 className="mb-2 text-2xl font-bold text-ink">הקישור אינו תקין</h1>
           <p className="text-ink-muted">קישור האימות פג תוקף או כבר נוצל.</p>
           <Link href="/login" className="mt-4 inline-block text-brand hover:underline">חזרה</Link>

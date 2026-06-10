@@ -51,7 +51,7 @@ export default function SettingsPage() {
 
       <Card className="mb-4">
         <h2 className="mb-2 font-semibold text-ink">אימות דו-שלבי (2FA)</h2>
-        {error && <p className="mb-3 rounded-md bg-red-50 p-2 text-sm text-danger">{error}</p>}
+        {error && <p className="mb-3 rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-danger dark:text-red-400">{error}</p>}
         {user?.twoFactorEnabled ? (
           <p className="text-sm text-success">אימות דו-שלבי מופעל ✓</p>
         ) : recovery ? (

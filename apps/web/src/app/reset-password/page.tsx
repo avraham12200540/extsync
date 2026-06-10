@@ -54,7 +54,7 @@ function ResetForm() {
   return (
     <Card className="w-full shadow-lift">
       <h1 className="mb-6 text-2xl font-bold text-ink">בחירת סיסמה חדשה</h1>
-      {error && <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-danger">{error}</p>}
+      {error && <p className="mb-4 rounded-md bg-red-50 dark:bg-red-500/10 p-3 text-sm text-danger dark:text-red-400">{error}</p>}
       <Field label="סיסמה חדשה (לפחות 10 תווים)">
         <Input type="password" autoComplete="new-password" value={password}
                onChange={(e) => setPassword(e.target.value)} autoFocus />

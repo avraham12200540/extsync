@@ -11,7 +11,7 @@ const links = [
   { href: "/", label: "בית" },
   { href: "/store", label: "גלריית תוספים" },
   { href: "/download", label: "הורדת התוכנה" },
-  { href: "/docs", label: "תיעוד" },
+  { href: "/docs", label: "מדריך" },
   { href: "/security", label: "אבטחה" },
 ];
 
@@ -90,7 +90,7 @@ export function SiteHeader() {
                 href={l.href}
                 onClick={() => setOpen(false)}
                 className={`rounded-md px-3 py-2 text-sm ${
-                  pathname === l.href ? "bg-brand-muted font-medium text-brand" : "text-ink-muted hover:bg-surface-2 hover:text-ink"
+                  pathname === l.href ? "bg-brand-muted dark:bg-brand/20 font-medium text-brand" : "text-ink-muted hover:bg-surface-2 hover:text-ink"
                 }`}
               >
                 {l.label}

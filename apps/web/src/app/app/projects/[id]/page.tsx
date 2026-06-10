@@ -229,7 +229,7 @@ function VersionsTab({ project }: { project: Project }) {
     <div className="space-y-6">
       <Card>
         <h3 className="mb-4 font-semibold text-ink">העלאת גרסה</h3>
-        {error && <p className="mb-3 rounded-md bg-red-50 p-2 text-sm text-danger">{error}</p>}
+        {error && <p className="mb-3 rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-danger dark:text-red-400">{error}</p>}
         <Field label="קובץ ZIP של התוסף">
           <input type="file" accept=".zip" onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                  className="block w-full text-sm text-ink-muted" />
@@ -309,7 +309,7 @@ function VersionsTab({ project }: { project: Project }) {
 
               {/* failure reason */}
               {r.status === "validation_failed" && r.validationError && (
-                <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-danger">
+                <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 p-3 text-sm text-danger dark:text-red-400">
                   <span>⛔</span><p>{r.validationError}</p>
                 </div>
               )}

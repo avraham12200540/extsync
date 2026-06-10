@@ -71,7 +71,7 @@ function NewProjectForm({ onClose, onCreated }: { onClose: () => void; onCreated
   return (
     <Card className="mb-6">
       <h2 className="mb-4 text-lg font-semibold text-ink">תוסף חדש</h2>
-      {error && <p className="mb-3 rounded-md bg-red-50 p-2 text-sm text-danger">{error}</p>}
+      {error && <p className="mb-3 rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-danger dark:text-red-400">{error}</p>}
       <Field label="שם התוסף">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="למשל: My Cool Extension" />
       </Field>

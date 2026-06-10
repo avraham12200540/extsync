@@ -37,7 +37,7 @@ export default function DownloadPage() {
           </div>
         </div>
 
-        <div className="mt-6 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="mt-6 flex items-start gap-3 rounded-xl border border-amber-300 dark:border-amber-400/30 bg-amber-50 dark:bg-amber-400/10 p-4 text-sm text-amber-900 dark:text-amber-200">
           <span className="text-lg">⚠️</span>
           <p>
             בהפעלה הראשונה Windows עשוי להציג אזהרת <b>SmartScreen</b> (התוכנה עדיין לא חתומה ברישיון

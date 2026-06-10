@@ -40,11 +40,11 @@ export default function ActivatePage() {
             <h1 className="mb-2 text-2xl font-bold text-ink">אישור מכשיר</h1>
             <p className="mb-4 text-sm text-ink-muted">הזן את הקוד שמוצג בטרמינל (CLI) כדי לאשר את ההתחברות.</p>
             {!loading && !user && (
-              <p className="mb-4 rounded-md bg-amber-50 p-3 text-sm text-amber-900">
+              <p className="mb-4 rounded-md bg-amber-50 dark:bg-amber-400/10 p-3 text-sm text-amber-900 dark:text-amber-200">
                 צריך להתחבר קודם - <Link href="/login" className="font-medium text-brand hover:underline">להתחברות</Link>, ואז לחזור לכאן.
               </p>
             )}
-            {error && <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-danger">{error}</p>}
+            {error && <p className="mb-4 rounded-md bg-red-50 dark:bg-red-500/10 p-3 text-sm text-danger dark:text-red-400">{error}</p>}
             <Field label="קוד אימות">
               <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="XXXX-XXXX"
                      className="text-center text-lg tracking-widest" dir="ltr" autoFocus

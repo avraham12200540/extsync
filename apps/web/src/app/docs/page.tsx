@@ -39,14 +39,14 @@ function Timeline({ steps }: { steps: Step[] }) {
           </div>
           <div className="lift rounded-xl border border-line bg-surface p-5 shadow-card">
             <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-muted text-xs font-bold text-brand">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-muted dark:bg-brand/20 text-xs font-bold text-brand">
                 {i + 1}
               </span>
               <h3 className="font-semibold text-ink">{s.title}</h3>
             </div>
             <p className="mt-2 text-sm leading-relaxed text-ink-muted">{s.body}</p>
             {s.tip && (
-              <p className="mt-2 rounded-lg bg-brand-muted/60 px-3 py-1.5 text-xs text-brand">💡 {s.tip}</p>
+              <p className="mt-2 rounded-lg bg-brand-muted/60 dark:bg-brand/15 px-3 py-1.5 text-xs text-brand">💡 {s.tip}</p>
             )}
           </div>
         </li>

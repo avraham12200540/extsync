@@ -53,7 +53,7 @@ export default function LoginPage() {
     <AuthShell>
       <Card className="w-full shadow-lift">
         <h1 className="mb-6 text-2xl font-bold text-ink">התחברות</h1>
-        {serverError && <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-danger">{serverError}</p>}
+        {serverError && <p className="mb-4 rounded-md bg-red-50 dark:bg-red-500/10 p-3 text-sm text-danger dark:text-red-400">{serverError}</p>}
 
         {!challenge ? (
           <form onSubmit={handleSubmit(onSubmit)} noValidate>

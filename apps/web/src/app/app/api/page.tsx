@@ -33,9 +33,9 @@ export default function ApiTokensPage() {
         <Field label="שם הטוקן"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="CI publish" /></Field>
         <Button onClick={() => create.mutate()} disabled={!name || create.isPending}>יצירה</Button>
         {created && (
-          <div className="mt-4 rounded-md bg-amber-50 p-3 text-sm">
-            <p className="font-medium text-amber-900">העתק עכשיו - הטוקן יוצג פעם אחת בלבד:</p>
-            <code className="mt-1 block break-all text-amber-900">{created}</code>
+          <div className="mt-4 rounded-md bg-amber-50 dark:bg-amber-400/10 p-3 text-sm">
+            <p className="font-medium text-amber-900 dark:text-amber-200">העתק עכשיו - הטוקן יוצג פעם אחת בלבד:</p>
+            <code className="mt-1 block break-all text-amber-900 dark:text-amber-200">{created}</code>
           </div>
         )}
       </Card>

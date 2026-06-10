@@ -31,7 +31,7 @@ export default function StoreDetailPage({ params }: { params: { slug: string } }
           {d.iconUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={d.iconUrl} alt="" className="h-16 w-16 rounded-lg" />
-          ) : <div className="h-16 w-16 rounded-lg bg-brand-muted" />}
+          ) : <div className="h-16 w-16 rounded-lg bg-brand-muted dark:bg-brand/20" />}
           <div>
             <h1 className="text-2xl font-semibold text-ink">{d.name}</h1>
             <p className="text-sm text-ink-muted">מאת {d.developerName}</p>

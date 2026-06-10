@@ -49,7 +49,7 @@ function InstallContent({ data }: { data: InstallPage }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={data.iconUrl} alt="" className="h-16 w-16 rounded-lg" />
         ) : (
-          <div className="h-16 w-16 rounded-lg bg-brand-muted" />
+          <div className="h-16 w-16 rounded-lg bg-brand-muted dark:bg-brand/20" />
         )}
         <div>
           <h1 className="text-2xl font-semibold text-ink">{data.name}</h1>
@@ -87,7 +87,7 @@ function InstallContent({ data }: { data: InstallPage }) {
       </div>
 
       {!data.usable ? (
-        <div className="mt-6 rounded-md bg-amber-50 p-4 text-sm text-amber-800">
+        <div className="mt-6 rounded-md bg-amber-50 dark:bg-amber-400/10 p-4 text-sm text-amber-800 dark:text-amber-200">
           קישור ההתקנה אינו זמין יותר ({data.reason === "expired" ? "פג תוקף" : data.reason === "limit_reached" ? "נוצלה מכסת השימושים" : "הושבת"}).
         </div>
       ) : (

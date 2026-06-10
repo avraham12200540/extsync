@@ -69,23 +69,25 @@ export function Field({ label, error, children }: { label: string; error?: strin
 }
 
 const statusStyles: Record<string, string> = {
-  published: "bg-green-100 text-green-800",
-  ready: "bg-blue-100 text-blue-800",
-  paused: "bg-amber-100 text-amber-800",
-  validation_failed: "bg-red-100 text-red-800",
-  revoked: "bg-red-100 text-red-800",
-  uploaded: "bg-gray-100 text-gray-700",
-  validating: "bg-gray-100 text-gray-700",
-  superseded: "bg-gray-100 text-gray-600",
-  active: "bg-green-100 text-green-800",
-  draft: "bg-gray-100 text-gray-700",
+  published: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
+  ready: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+  paused: "bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300",
+  validation_failed: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
+  revoked: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
+  uploaded: "bg-gray-100 text-gray-700 dark:bg-slate-500/15 dark:text-slate-300",
+  validating: "bg-gray-100 text-gray-700 dark:bg-slate-500/15 dark:text-slate-300",
+  superseded: "bg-gray-100 text-gray-600 dark:bg-slate-500/15 dark:text-slate-400",
+  active: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
+  draft: "bg-gray-100 text-gray-700 dark:bg-slate-500/15 dark:text-slate-300",
 };
 
 export function Badge({ children, status }: { children: React.ReactNode; status?: string }) {
   return (
     <span className={cn(
       "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-      status ? (statusStyles[status] ?? "bg-gray-100 text-gray-700") : "bg-surface-2 text-ink-muted",
+      status
+        ? (statusStyles[status] ?? "bg-gray-100 text-gray-700 dark:bg-slate-500/15 dark:text-slate-300")
+        : "bg-surface-2 text-ink-muted",
     )}>
       {children}
     </span>

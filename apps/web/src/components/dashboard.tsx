@@ -46,7 +46,7 @@ export function EmptyState({
 }: { icon: React.ReactNode; title: string; description?: string; action?: React.ReactNode }) {
   return (
     <div className="flex flex-col items-center rounded-2xl border border-dashed border-line bg-surface-2/40 px-6 py-14 text-center">
-      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-muted text-brand">
+      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-muted dark:bg-brand/20 text-brand">
         {icon}
       </div>
       <h3 className="font-semibold text-ink">{title}</h3>
