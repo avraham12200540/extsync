@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     )
 
     environment: Literal["development", "staging", "production"] = "development"
+    # Interactive API docs (/docs, /redoc, /openapi.json). Off in production by
+    # default to reduce reconnaissance; set true to force-enable.
+    enable_api_docs: bool = False
     log_level: str = "info"
     public_web_url: str = "http://localhost:3000"
     public_api_url: str = "http://localhost:8000"

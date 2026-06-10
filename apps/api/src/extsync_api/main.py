@@ -42,6 +42,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    # Expose interactive docs only outside production (or when explicitly enabled).
+    docs_enabled = settings.enable_api_docs or settings.environment != "production"
     app = FastAPI(
         title="ExtSync API",
         version="0.1.0",
@@ -50,8 +52,9 @@ def create_app() -> FastAPI:
             "מחוץ ל-Chrome Web Store."
         ),
         lifespan=lifespan,
-        docs_url="/docs",
-        openapi_url="/openapi.json",
+        docs_url="/docs" if docs_enabled else None,
+        redoc_url="/redoc" if docs_enabled else None,
+        openapi_url="/openapi.json" if docs_enabled else None,
     )
 
     app.add_middleware(RequestContextMiddleware)
