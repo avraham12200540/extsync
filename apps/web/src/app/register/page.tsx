@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { api, ApiError } from "@/lib/api";
+import { AuthShell } from "@/components/marketing";
 import { Button, Card, Field, Input } from "@/components/ui";
 
 const schema = z.object({
@@ -36,22 +37,23 @@ export default function RegisterPage() {
 
   if (done) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-6">
-        <Card className="w-full max-w-md text-center">
-          <h1 className="mb-2 text-2xl font-semibold text-ink">כמעט סיימנו 🎉</h1>
+      <AuthShell>
+        <Card className="w-full text-center shadow-lift">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-gradient text-2xl shadow-glow">🎉</div>
+          <h1 className="mb-2 text-2xl font-bold text-ink">כמעט סיימנו</h1>
           <p className="text-ink-muted">
             שלחנו אליך אימייל לאימות הכתובת. פתח את הקישור שבמייל כדי להפעיל את החשבון.
           </p>
           <Link href="/login" className="mt-4 inline-block text-brand hover:underline">חזרה להתחברות</Link>
         </Card>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-6 py-10">
-      <Card className="w-full max-w-md">
-        <h1 className="mb-6 text-2xl font-semibold text-ink">פתיחת חשבון מפתח</h1>
+    <AuthShell>
+      <Card className="w-full shadow-lift">
+        <h1 className="mb-6 text-2xl font-bold text-ink">פתיחת חשבון מפתח</h1>
         {serverError && <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-danger">{serverError}</p>}
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <Field label="שם תצוגה" error={errors.displayName?.message}>
@@ -79,6 +81,6 @@ export default function RegisterPage() {
           כבר יש חשבון? <Link href="/login" className="text-brand hover:underline">התחברות</Link>
         </p>
       </Card>
-    </div>
+    </AuthShell>
   );
 }

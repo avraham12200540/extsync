@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/components/providers";
+import { AuthShell } from "@/components/marketing";
 import { Button, Card, Field, Input } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 
@@ -49,9 +50,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-6">
-      <Card className="w-full max-w-md">
-        <h1 className="mb-6 text-2xl font-semibold text-ink">התחברות ל-ExtSync</h1>
+    <AuthShell>
+      <Card className="w-full shadow-lift">
+        <h1 className="mb-6 text-2xl font-bold text-ink">התחברות</h1>
         {serverError && <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-danger">{serverError}</p>}
 
         {!challenge ? (
@@ -81,6 +82,6 @@ export default function LoginPage() {
           <Link href="/register" className="text-brand hover:underline">פתיחת חשבון</Link>
         </div>
       </Card>
-    </div>
+    </AuthShell>
   );
 }
