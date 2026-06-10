@@ -66,15 +66,39 @@ function OverviewTab({ project }: { project: Project }) {
     onError: (e) => setIconErr(e instanceof ApiError ? e.message : "ההעלאה נכשלה"),
   });
 
+  const setVisibility = useMutation({
+    mutationFn: (visibility: "public" | "private") =>
+      api.patch<Project>(`/projects/${project.id}`, { visibility }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["project", project.id] }),
+  });
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <Card>
-        <h3 className="mb-2 font-semibold text-ink">פרטים</h3>
-        <dl className="space-y-1 text-sm">
-          <div className="flex justify-between"><dt className="text-ink-muted">Slug</dt><dd className="text-ink">{project.slug}</dd></div>
-          <div className="flex justify-between"><dt className="text-ink-muted">נראות</dt><dd className="text-ink">{project.visibility}</dd></div>
-          <div className="flex justify-between"><dt className="text-ink-muted">מצב Bridge</dt><dd className="text-ink">{project.bridgeMode}</dd></div>
+        <h3 className="mb-3 font-semibold text-ink">פרטים</h3>
+        <dl className="space-y-2 text-sm">
+          <div className="flex items-center justify-between">
+            <dt className="text-ink-muted">Slug</dt><dd className="text-ink">{project.slug}</dd>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <dt className="text-ink-muted">נראות</dt>
+            <select
+              value={project.visibility}
+              disabled={setVisibility.isPending}
+              onChange={(e) => setVisibility.mutate(e.target.value as "public" | "private")}
+              className="rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink"
+            >
+              <option value="private">פרטי</option>
+              <option value="public">ציבורי (מוצג בחנות)</option>
+            </select>
+          </div>
+          <div className="flex items-center justify-between"><dt className="text-ink-muted">מצב Bridge</dt><dd className="text-ink">{project.bridgeMode}</dd></div>
         </dl>
+        <p className="mt-3 text-xs text-ink-muted">
+          {project.visibility === "public"
+            ? "התוסף יופיע בגלריית התוספים הציבורית לאחר שתפרסם גרסה."
+            : "תוסף פרטי לא מופיע בחנות — שנה ל'ציבורי' כדי שיוצג."}
+        </p>
       </Card>
       <Card>
         <h3 className="mb-2 font-semibold text-ink">{project.shortDescription || "אין תיאור"}</h3>
