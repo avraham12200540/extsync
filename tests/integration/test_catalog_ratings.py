@@ -75,3 +75,16 @@ def test_rating_one_per_user_changeable_and_sorted(client):
     # detail carries my rating too
     detail = client.get(f"/catalog/{low}", headers=u1).json()
     assert detail["myRating"] == 3 and detail["avgRating"] == 3
+
+
+def test_public_extension_gets_managed_install_uri_automatically(client):
+    dev = _auth(client, "autolink@example.com")
+    slug = _publish(client, dev, "Auto Link Ext")
+    # no install link was created manually, but the store detail must still offer
+    # the managed (auto-updating) install path
+    detail = client.get(f"/catalog/{slug}").json()
+    assert detail["installUri"], "public published extension must have an install URI"
+    assert detail["installUri"].startswith("extsync://install?token=")
+    # idempotent: a second view reuses the same link (doesn't pile up)
+    again = client.get(f"/catalog/{slug}").json()
+    assert again["installUri"] == detail["installUri"]

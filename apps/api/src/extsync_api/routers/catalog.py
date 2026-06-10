@@ -14,7 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..db import get_session
 from ..deps import CurrentUser, OptionalUser
 from ..errors import not_found
-from ..models.enums import Channel, ProjectStatus, ProjectVisibility, ReleaseStatus
+from ..ids import secret_token
+from ..models.enums import Channel, InstallLinkType, ProjectStatus, ProjectVisibility, ReleaseStatus
 from ..models.install_link import InstallLink
 from ..models.project import Project
 from ..models.rating import ProjectRating
@@ -243,12 +244,25 @@ async def catalog_detail(slug: str, db: DBSession, user: OptionalUser) -> Catalo
                 host_perms = snap.host_permissions
                 native = snap.uses_native_messaging
 
-    # A public install link (for the managed / auto-updating path).
+    # A public install link (for the managed / auto-updating path). Every public
+    # store extension with a published release should be installable via the Agent,
+    # so if the developer never created a link, make one automatically (owned by them).
     link = await db.scalar(
         select(InstallLink).where(
             InstallLink.project_id == project.id, InstallLink.disabled_at.is_(None)
         ).order_by(InstallLink.created_at.asc())
     )
+    if link is None and channels:
+        link = InstallLink(
+            project_id=project.id,
+            token=secret_token(32),
+            label="התקנה מהחנות",
+            link_type=InstallLinkType.public,
+            channel=Channel.stable,
+            created_by_user_id=project.owner_user_id,
+        )
+        db.add(link)
+        await db.commit()
     install_uri = f"extsync://install?token={link.token}" if link else None
 
     ratings = await _ratings_map(db, [project.id])
