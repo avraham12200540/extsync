@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { KeyRound } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button, Card, Field, Input, Spinner } from "@/components/ui";
+import { DashHeader } from "@/components/dashboard";
 import { formatDate } from "@/lib/utils";
 
 interface TokenInfo { id: string; name: string; tokenPrefix: string; lastUsedAt?: string | null; createdAt?: string | null; }
@@ -25,7 +27,7 @@ export default function ApiTokensPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold text-ink">API Tokens</h1>
+      <DashHeader icon={<KeyRound size={20} />} title="API Tokens" subtitle="טוקנים לפרסום אוטומטי מ-CLI או CI." />
       <Card className="mb-6">
         <h2 className="mb-3 font-semibold text-ink">יצירת טוקן חדש (ל-CLI / CI)</h2>
         <Field label="שם הטוקן"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="CI publish" /></Field>

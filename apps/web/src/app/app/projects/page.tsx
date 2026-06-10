@@ -3,8 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Puzzle, Plus } from "lucide-react";
 import { api, ApiError, type Project } from "@/lib/api";
 import { Badge, Button, Card, Field, Input, Spinner } from "@/components/ui";
+import { DashHeader, EmptyState } from "@/components/dashboard";
 
 export default function ProjectsPage() {
   const qc = useQueryClient();
@@ -16,17 +18,24 @@ export default function ProjectsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-ink">התוספים שלי</h1>
-        <Button onClick={() => setShowNew(true)}>תוסף חדש</Button>
-      </div>
+      <DashHeader
+        icon={<Puzzle size={20} />}
+        title="התוספים שלי"
+        subtitle="ניהול התוספים, הגרסאות והפרסום."
+        action={<Button onClick={() => setShowNew(true)} className="gap-1.5"><Plus size={16} /> תוסף חדש</Button>}
+      />
 
       {showNew && <NewProjectForm onClose={() => setShowNew(false)} onCreated={() => qc.invalidateQueries({ queryKey: ["projects"] })} />}
 
       {isLoading ? (
         <div className="flex justify-center py-20"><Spinner /></div>
       ) : !data || data.length === 0 ? (
-        <Card className="text-center text-ink-muted">אין תוספים עדיין.</Card>
+        <EmptyState
+          icon={<Puzzle size={30} />}
+          title="אין תוספים עדיין"
+          description="צור תוסף חדש כדי להתחיל - תוכל להעלות ZIP, לחתום ולפרסם בלחיצה."
+          action={<Button onClick={() => setShowNew(true)} className="gap-1.5"><Plus size={16} /> תוסף חדש</Button>}
+        />
       ) : (
         <div className="space-y-2">
           {data.map((p) => (

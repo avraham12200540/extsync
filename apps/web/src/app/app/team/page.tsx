@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { Badge, Button, Card, Field, Input, Spinner } from "@/components/ui";
+import { DashHeader, EmptyState } from "@/components/dashboard";
 
 interface Member { id: string; userId: string; email: string; displayName: string; role: string; }
 interface Team { id: string; name: string; slug: string; members: Member[]; }
@@ -20,14 +22,14 @@ export default function TeamPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold text-ink">צוותים</h1>
+      <DashHeader icon={<Users size={20} />} title="צוותים" subtitle="שיתוף תוספים וניהול הרשאות עם חברי צוות." />
       <Card className="mb-6">
         <Field label="צוות חדש"><Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="שם הצוות" /></Field>
         <Button onClick={() => createTeam.mutate()} disabled={!newName || createTeam.isPending}>יצירת צוות</Button>
       </Card>
 
       {isLoading ? <Spinner /> : (data ?? []).length === 0 ? (
-        <Card className="text-center text-ink-muted">אינך חבר בצוות עדיין.</Card>
+        <EmptyState icon={<Users size={30} />} title="אינך חבר בצוות עדיין" description="צור צוות למעלה כדי לשתף תוספים ולנהל הרשאות עם אחרים." />
       ) : (
         <div className="space-y-4">
           {(data ?? []).map((team) => <TeamCard key={team.id} team={team} />)}

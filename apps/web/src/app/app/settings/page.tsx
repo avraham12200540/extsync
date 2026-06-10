@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { useTheme } from "next-themes";
+import { Settings as SettingsIcon } from "lucide-react";
 import { useAuth } from "@/components/providers";
 import { api, ApiError } from "@/lib/api";
 import { Button, Card, Field, Input } from "@/components/ui";
+import { DashHeader } from "@/components/dashboard";
 
 export default function SettingsPage() {
   const { user, refreshMe } = useAuth();
@@ -31,7 +33,7 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="mb-6 text-2xl font-semibold text-ink">הגדרות חשבון</h1>
+      <DashHeader icon={<SettingsIcon size={20} />} title="הגדרות חשבון" subtitle="פרטי חשבון, מראה ואבטחה." />
 
       <Card className="mb-4">
         <h2 className="mb-2 font-semibold text-ink">פרטי חשבון</h2>
