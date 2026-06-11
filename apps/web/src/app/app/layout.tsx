@@ -5,12 +5,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LayoutDashboard, Puzzle, Users, KeyRound, Settings as SettingsIcon, LogOut } from "lucide-react";
 import { useAuth } from "@/components/providers";
+import { useLocale } from "@/components/locale-context";
+import { LocaleToggle } from "@/components/locale-toggle";
 import { api, ApiError } from "@/lib/api";
 import { Logo } from "@/components/logo";
 import { Button, Spinner } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
 function VerifyEmailBanner({ email }: { email: string }) {
+  const { t } = useLocale();
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const resend = async () => {
     setState("sending");
@@ -24,13 +27,13 @@ function VerifyEmailBanner({ email }: { email: string }) {
   return (
     <div className="mb-4 flex flex-col gap-2 rounded-lg border border-amber-300 dark:border-amber-400/30 bg-amber-50 dark:bg-amber-400/10 p-3 text-sm text-amber-900 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between">
       <span>
-        כתובת המייל <b>{email}</b> עדיין לא אומתה - אימות נדרש כדי לפרסם לחנות.
-        {state === "sent" && " ✓ נשלח מייל אימות, בדוק את תיבת הדואר."}
-        {state === "error" && " (שליחה נכשלה, נסה שוב)"}
+        {t("dash.verify.pre")} <b>{email}</b> {t("dash.verify.post")}
+        {state === "sent" && ` ${t("dash.verify.sent")}`}
+        {state === "error" && ` ${t("dash.verify.failed")}`}
       </span>
       {state !== "sent" && (
         <Button size="sm" variant="warning" disabled={state === "sending"} onClick={resend}>
-          {state === "sending" ? "שולח…" : "שלח מייל אימות"}
+          {state === "sending" ? t("dash.verify.sending") : t("dash.verify.send")}
         </Button>
       )}
     </div>
@@ -38,15 +41,16 @@ function VerifyEmailBanner({ email }: { email: string }) {
 }
 
 const nav = [
-  { href: "/app", label: "סקירה", icon: LayoutDashboard },
-  { href: "/app/projects", label: "תוספים", icon: Puzzle },
-  { href: "/app/team", label: "צוות", icon: Users },
-  { href: "/app/api", label: "API", icon: KeyRound },
-  { href: "/app/settings", label: "הגדרות", icon: SettingsIcon },
+  { href: "/app", key: "dash.nav.overview", icon: LayoutDashboard },
+  { href: "/app/projects", key: "dash.nav.extensions", icon: Puzzle },
+  { href: "/app/team", key: "dash.nav.team", icon: Users },
+  { href: "/app/api", key: "dash.nav.api", icon: KeyRound },
+  { href: "/app/settings", key: "dash.nav.settings", icon: SettingsIcon },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
+  const { t } = useLocale();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -73,7 +77,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         )}
       >
         <Icon size={17} className="shrink-0" />
-        {item.label}
+        {t(item.key)}
       </Link>
     );
   });
@@ -84,11 +88,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen flex-col md:flex-row">
       {/* Sidebar (desktop) / top bar (mobile) */}
       <aside className="shrink-0 border-b border-line bg-surface p-3 md:w-60 md:border-b-0 md:border-l md:p-4">
-        <div className="flex items-center justify-between md:mb-6 md:block">
+        <div className="flex items-center justify-between gap-2 md:mb-6 md:block">
           <Link href="/app" className="flex items-center"><Logo size={28} /></Link>
-          <Button variant="ghost" size="sm" className="md:hidden" onClick={() => logout().then(() => router.push("/"))}>
-            התנתקות
-          </Button>
+          <div className="flex items-center gap-2 md:hidden">
+            <LocaleToggle />
+            <Button variant="ghost" size="sm" onClick={() => logout().then(() => router.push("/"))}>
+              {t("dash.logout")}
+            </Button>
+          </div>
         </div>
 
         {/* horizontal scroll on mobile, vertical on desktop */}
@@ -103,9 +110,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </span>
             <p className="truncate text-xs text-ink-muted">{user.email}</p>
           </div>
-          <Button variant="ghost" size="sm" className="mt-3 w-full justify-start gap-2" onClick={() => logout().then(() => router.push("/"))}>
-            <LogOut size={15} /> התנתקות
-          </Button>
+          <div className="mt-3 flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="flex-1 justify-start gap-2" onClick={() => logout().then(() => router.push("/"))}>
+              <LogOut size={15} /> {t("dash.logout")}
+            </Button>
+            <LocaleToggle />
+          </div>
         </div>
       </aside>
 

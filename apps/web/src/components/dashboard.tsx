@@ -1,4 +1,7 @@
+"use client";
+
 import * as React from "react";
+import { useLocale } from "@/components/locale-context";
 import { cn } from "@/lib/utils";
 
 /** Consistent dashboard page header: gradient icon chip + title + optional action. */
@@ -44,6 +47,7 @@ export interface TrendDay { date: string; success: number; failed: number; insta
 
 /** Dependency-free SVG chart: stacked update bars (success/failed) + installs line. */
 export function TrendChart({ days }: { days: TrendDay[] }) {
+  const { t } = useLocale();
   const W = 560, H = 150, PX = 6, PT = 8, PB = 22;
   const plotW = W - PX * 2, plotH = H - PT - PB;
   const max = Math.max(1, ...days.map((d) => Math.max(d.success + d.failed, d.installs)));
@@ -91,10 +95,10 @@ export function TrendChart({ days }: { days: TrendDay[] }) {
           {fmt(days[days.length - 1]?.date ?? "")}
         </text>
       </svg>
-      <div dir="rtl" className="mt-2 flex flex-wrap gap-4 text-xs text-ink-muted">
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-success" /> עדכונים שהצליחו</span>
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-danger" /> עדכונים שנכשלו</span>
-        <span className="flex items-center gap-1.5"><span className="h-0.5 w-3 rounded bg-brand-teal" /> התקנות חדשות</span>
+      <div className="mt-2 flex flex-wrap gap-4 text-xs text-ink-muted">
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-success" /> {t("dash.trend.ok")}</span>
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-danger" /> {t("dash.trend.fail")}</span>
+        <span className="flex items-center gap-1.5"><span className="h-0.5 w-3 rounded bg-brand-teal" /> {t("dash.trend.installs")}</span>
       </div>
     </div>
   );

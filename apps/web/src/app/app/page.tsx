@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { LayoutDashboard, Puzzle, MonitorSmartphone, CircleCheck, CircleX } from "lucide-react";
 import { api } from "@/lib/api";
+import { useLocale } from "@/components/locale-context";
 import { Card, Spinner } from "@/components/ui";
 import { DashHeader, StatCard, EmptyState, TrendChart, type TrendDay } from "@/components/dashboard";
 
@@ -15,6 +16,7 @@ interface Dashboard {
 }
 
 export default function OverviewPage() {
+  const { t } = useLocale();
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard"],
     queryFn: () => api.get<Dashboard>("/dashboard"),
@@ -28,29 +30,29 @@ export default function OverviewPage() {
 
   return (
     <div>
-      <DashHeader icon={<LayoutDashboard size={20} />} title="סקירה" subtitle="מבט-על על התוספים והעדכונים שלך." />
+      <DashHeader icon={<LayoutDashboard size={20} />} title={t("dash.ov.title")} subtitle={t("dash.ov.sub")} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={<Puzzle size={18} />} label="תוספים" value={data.projectCount} />
-        <StatCard icon={<MonitorSmartphone size={18} />} label="התקנות פעילות" value={data.activeInstallations} />
-        <StatCard icon={<CircleCheck size={18} />} label="עדכונים שהצליחו (24ש')" value={data.updates24h.success} tone="text-success" iconClass="bg-success" />
-        <StatCard icon={<CircleX size={18} />} label="עדכונים שנכשלו (24ש')" value={data.updates24h.failed} tone="text-danger" iconClass="bg-danger" />
+        <StatCard icon={<Puzzle size={18} />} label={t("dash.ov.ext")} value={data.projectCount} />
+        <StatCard icon={<MonitorSmartphone size={18} />} label={t("dash.ov.installs")} value={data.activeInstallations} />
+        <StatCard icon={<CircleCheck size={18} />} label={t("dash.ov.ok24")} value={data.updates24h.success} tone="text-success" iconClass="bg-success" />
+        <StatCard icon={<CircleX size={18} />} label={t("dash.ov.fail24")} value={data.updates24h.failed} tone="text-danger" iconClass="bg-danger" />
       </div>
 
       {series && series.days.some((d) => d.success || d.failed || d.installs) && (
         <>
-          <h2 className="mb-3 mt-10 text-lg font-semibold text-ink">14 הימים האחרונים</h2>
+          <h2 className="mb-3 mt-10 text-lg font-semibold text-ink">{t("dash.ov.trend")}</h2>
           <Card><TrendChart days={series.days} /></Card>
         </>
       )}
 
-      <h2 className="mb-3 mt-10 text-lg font-semibold text-ink">התוספים שלי</h2>
+      <h2 className="mb-3 mt-10 text-lg font-semibold text-ink">{t("dash.ov.mine")}</h2>
       {data.projects.length === 0 ? (
         <EmptyState
           icon={<Puzzle size={30} />}
-          title="עדיין אין תוספים"
-          description="צור את התוסף הראשון שלך כדי להעלות גרסאות, לחתום ולפרסם."
-          action={<Link href="/app/projects" className="text-sm font-medium text-brand hover:underline">צור את הראשון ←</Link>}
+          title={t("dash.ov.empty.t")}
+          description={t("dash.ov.empty.d")}
+          action={<Link href="/app/projects" className="text-sm font-medium text-brand hover:underline">{t("dash.ov.empty.cta")}</Link>}
         />
       ) : (
         <div className="space-y-2">

@@ -2,6 +2,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { Logo, LogoIcon } from "@/components/logo";
 import { AuthBrandPanel } from "@/components/auth-brand-panel";
+import { LocaleToggle } from "@/components/locale-toggle";
 
 /** Standard public-page shell: header + animated content + footer. */
 export function MarketingShell({ children }: { children: React.ReactNode }) {
@@ -84,7 +85,8 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* form side */}
-      <div className="flex items-center justify-center bg-surface-2 px-6 py-12">
+      <div className="relative flex items-center justify-center bg-surface-2 px-6 py-12">
+        <div className="absolute left-4 top-4"><LocaleToggle /></div>
         <div className="fade-up w-full max-w-md">
           <a href="/" className="mb-8 inline-flex lg:hidden"><Logo size={34} /></a>
           {children}

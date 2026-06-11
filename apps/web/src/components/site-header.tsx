@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/providers";
 import { useLocale } from "@/components/locale-context";
+import { LocaleToggle } from "@/components/locale-toggle";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui";
 
@@ -15,20 +16,6 @@ const links = [
   { href: "/docs", key: "nav.docs" },
   { href: "/security", key: "nav.security" },
 ];
-
-function LocaleToggle({ className = "" }: { className?: string }) {
-  const { locale, setLocale } = useLocale();
-  const next = locale === "he" ? "en" : "he";
-  return (
-    <button
-      onClick={() => setLocale(next)}
-      aria-label={next === "en" ? "Switch to English" : "מעבר לעברית"}
-      className={`rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink-muted transition-colors hover:border-brand/50 hover:text-ink ${className}`}
-    >
-      {next === "en" ? "EN" : "עב"}
-    </button>
-  );
-}
 
 export function SiteHeader() {
   const { user, loading } = useAuth();
