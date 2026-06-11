@@ -89,7 +89,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Sidebar (desktop) / top bar (mobile) */}
       <aside className="shrink-0 border-b border-line bg-surface p-3 md:w-60 md:border-b-0 md:border-l md:p-4">
         <div className="flex items-center justify-between gap-2 md:mb-6 md:block">
-          <Link href="/app" className="flex items-center"><Logo size={28} /></Link>
+          <Link href="/" className="flex items-center"><Logo size={28} /></Link>
           <div className="flex items-center gap-2 md:hidden">
             <LocaleToggle />
             <Button variant="ghost" size="sm" onClick={() => logout().then(() => router.push("/"))}>
