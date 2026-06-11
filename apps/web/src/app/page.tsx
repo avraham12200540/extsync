@@ -8,12 +8,14 @@ import { SiteFooter } from "@/components/site-footer";
 import { ExtensionCard, SkeletonCard, CatalogError } from "@/components/extension-card";
 import { SectionHeading, HeroArt } from "@/components/marketing";
 import { LogoIcon, Wordmark } from "@/components/logo";
+import { useLocale } from "@/components/locale-context";
 import { Button } from "@/components/ui";
 
 const DOWNLOAD_URL =
   "https://github.com/avraham12200540/extsync/releases/latest/download/ExtSyncAgentSetup.exe";
 
 export default function HomePage() {
+  const { t } = useLocale();
   const [items, setItems] = useState<CatalogItem[] | null>(null);
   const [loadError, setLoadError] = useState(false);
 
@@ -21,6 +23,18 @@ export default function HomePage() {
     api.get<CatalogItem[]>("/catalog").then(setItems)
       .catch(() => { setLoadError(true); setItems([]); });
   }, []);
+
+  const securityItems = [
+    { i: "🔏", t: t("home.sec1.t"), d: t("home.sec1.d") },
+    { i: "🧪", t: t("home.sec2.t"), d: t("home.sec2.d") },
+    { i: "🚫", t: t("home.sec3.t"), d: t("home.sec3.d") },
+    { i: "↩️", t: t("home.sec4.t"), d: t("home.sec4.d") },
+  ];
+  const howItems = [
+    { icon: "⬇️", t: t("home.how1.t"), d: t("home.how1.d") },
+    { icon: "🧩", t: t("home.how2.t"), d: t("home.how2.d") },
+    { icon: "🔄", t: t("home.how3.t"), d: t("home.how3.d") },
+  ];
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -48,7 +62,7 @@ export default function HomePage() {
               className="fade-up mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-slate-200 sm:text-xl"
               style={{ ["--d" as never]: "160ms" }}
             >
-              חנות לתוספי Chrome פרטיים - הורדה, התקנה ועדכון אוטומטי, בלי Chrome Web Store.
+              {t("home.tagline")}
             </p>
             <div
               className="fade-up mt-9 flex flex-wrap items-center justify-center gap-3"
@@ -56,7 +70,7 @@ export default function HomePage() {
             >
               <a href="#extensions">
                 <Button size="md" variant="glass" className="px-6 py-2.5 text-base">
-                  עיון בתוספים
+                  {t("home.cta.browse")}
                 </Button>
               </a>
               <Link href="/register">
@@ -64,7 +78,7 @@ export default function HomePage() {
                   size="md"
                   className="border border-white/30 bg-white/10 px-6 py-2.5 text-base text-white backdrop-blur hover:bg-white/20"
                 >
-                  אני מפתח - פתיחת חשבון
+                  {t("home.cta.dev")}
                 </Button>
               </Link>
             </div>
@@ -76,17 +90,16 @@ export default function HomePage() {
           <div className="fade-up relative -mt-2 overflow-hidden rounded-2xl bg-brand-navy p-6 text-white shadow-lift sm:p-8">
             <div className="pointer-events-none absolute -left-16 -top-16 h-56 w-56 rounded-full bg-brand-teal/20 blur-2xl" />
             <div className="pointer-events-none absolute -bottom-20 -right-10 h-56 w-56 rounded-full bg-brand-sky/20 blur-2xl" />
-            <div className="relative flex flex-col items-center gap-5 text-center sm:flex-row sm:justify-between sm:text-right">
+            <div className="relative flex flex-col items-center gap-5 text-center sm:flex-row sm:justify-between sm:text-start">
               <div>
-                <h2 className="text-xl font-bold sm:text-2xl">ExtSync Agent - תוכנת העדכון האוטומטי</h2>
+                <h2 className="text-xl font-bold sm:text-2xl">{t("home.agent.title")}</h2>
                 <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-slate-300">
-                  תוכנה קטנה ל-Windows שמתקינה תוספים מהגלרייה ומעדכנת אותם אוטומטית ברגע
-                  שהמפתח מפרסם גרסה חדשה - בלעדיה תצטרכו להוריד ולעדכן כל גרסה ידנית.
+                  {t("home.agent.body")}
                 </p>
               </div>
               <a href={DOWNLOAD_URL} className="shrink-0">
                 <Button size="md" variant="glass" className="px-6 py-3 text-base">
-                  ⬇️ הורדה חינם ל-Windows
+                  {t("home.agent.cta")}
                 </Button>
               </a>
             </div>
@@ -96,9 +109,9 @@ export default function HomePage() {
         {/* ============ Extensions grid ============ */}
         <section id="extensions" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-16 sm:px-6">
           <div className="mb-8 flex flex-col items-center text-center">
-            <h2 className="text-3xl font-bold text-ink">גלריית התוספים</h2>
+            <h2 className="text-3xl font-bold text-ink">{t("home.gallery.title")}</h2>
             <p className="mt-2 max-w-xl text-ink-muted">
-              תוספים ציבוריים מדורגים על-ידי הקהילה - מסודרים מהדירוג הגבוה לנמוך.
+              {t("home.gallery.sub")}
             </p>
             <span className="mt-4 h-1 w-16 rounded-full bg-brand-gradient" />
           </div>
@@ -111,7 +124,7 @@ export default function HomePage() {
             <CatalogError />
           ) : items.length === 0 ? (
             <p className="rounded-xl border border-dashed border-line bg-surface p-10 text-center text-ink-muted">
-              עדיין אין תוספים ציבוריים - בקרוב 🙂
+              {t("home.gallery.empty")}
             </p>
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -123,7 +136,7 @@ export default function HomePage() {
 
           <div className="mt-10 text-center">
             <Link href="/store" className="text-sm font-medium text-brand hover:underline">
-              לכל התוספים בגלרייה ←
+              {t("home.gallery.all")}
             </Link>
           </div>
         </section>
@@ -131,14 +144,9 @@ export default function HomePage() {
         {/* ============ Security strip ============ */}
         <section className="border-t border-line bg-surface py-14">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <SectionHeading title="בנוי על אבטחה" subtitle="כל גרסה חתומה, נבדקת ומאומתת לפני שהיא נוגעת ב-Chrome שלך." />
+            <SectionHeading title={t("home.security.title")} subtitle={t("home.security.sub")} />
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                { i: "🔏", t: "חתימת Ed25519", d: "על כל גרסה" },
-                { i: "🧪", t: "ניתוח מבודד", d: "ZIP bomb, קוד מרוחק ועוד" },
-                { i: "🚫", t: "ללא קוד מרוחק", d: "הכל בחבילה החתומה" },
-                { i: "↩️", t: "Rollback", d: "חזרה אוטומטית בכישלון" },
-              ].map((s, i) => (
+              {securityItems.map((s, i) => (
                 <div key={s.t} className="fade-up rounded-xl border border-line bg-surface-2/40 p-5 text-center"
                      style={{ ["--d" as never]: `${i * 90}ms` }}>
                   <div className="mb-2 text-3xl">{s.i}</div>
@@ -148,7 +156,7 @@ export default function HomePage() {
               ))}
             </div>
             <div className="mt-6 text-center">
-              <Link href="/security" className="text-sm font-medium text-brand hover:underline">עוד על האבטחה ←</Link>
+              <Link href="/security" className="text-sm font-medium text-brand hover:underline">{t("home.security.more")}</Link>
             </div>
           </div>
         </section>
@@ -156,13 +164,9 @@ export default function HomePage() {
         {/* ============ How it works ============ */}
         <section className="border-t border-line bg-surface-2/40 py-16">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <h2 className="mb-10 text-center text-3xl font-bold text-ink">איך זה עובד?</h2>
+            <h2 className="mb-10 text-center text-3xl font-bold text-ink">{t("home.how.title")}</h2>
             <div className="grid gap-6 sm:grid-cols-3">
-              {[
-                { icon: "⬇️", t: "מורידים את התוכנה", d: "מתקינים את ExtSync Agent פעם אחת - הוא ידאג לכל העדכונים." },
-                { icon: "🧩", t: "מתקינים תוסף", d: "בוחרים תוסף מהגלרייה ולוחצים התקנה. ההתקנה הראשונה מודרכת צעד-צעד." },
-                { icon: "🔄", t: "מתעדכנים אוטומטית", d: "כשהמפתח מפרסם גרסה - היא מותקנת ומופעלת אצלכם לבד, עם חתימה דיגיטלית." },
-              ].map((s, i) => (
+              {howItems.map((s, i) => (
                 <div
                   key={s.t}
                   className="fade-up rounded-xl border border-line bg-surface-2/50 p-6 text-center"
@@ -185,17 +189,17 @@ export default function HomePage() {
             <div className="pointer-events-none absolute -left-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
             <div className="pointer-events-none absolute -bottom-12 -right-8 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
             <div className="relative">
-              <h2 className="text-2xl font-extrabold sm:text-3xl">מפתחים תוסף? פרסמו אותו בדקות.</h2>
+              <h2 className="text-2xl font-extrabold sm:text-3xl">{t("home.devcta.title")}</h2>
               <p className="mx-auto mt-3 max-w-xl text-white/90">
-                העלאה, חתימה אוטומטית, ועדכון-בְּמָקוֹם לכל המשתמשים - בלי לכתוב שורת אינטגרציה. חינם.
+                {t("home.devcta.body")}
               </p>
               <div className="mt-6 flex flex-wrap justify-center gap-3">
                 <Link href="/register">
-                  <Button size="md" variant="glass" className="border-white/40 px-6 py-2.5 text-base">פתיחת חשבון מפתח</Button>
+                  <Button size="md" variant="glass" className="border-white/40 px-6 py-2.5 text-base">{t("home.devcta.register")}</Button>
                 </Link>
                 <Link href="/docs">
                   <Button size="md" className="border border-white/40 bg-white/10 px-6 py-2.5 text-base text-white hover:bg-white/20">
-                    למדריך המהיר
+                    {t("home.devcta.docs")}
                   </Button>
                 </Link>
               </div>

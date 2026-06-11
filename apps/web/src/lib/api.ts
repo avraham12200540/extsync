@@ -172,6 +172,7 @@ export interface CatalogChannelInfo {
   downloadUrl?: string | null;
   size?: number | null;
   sha256?: string | null;
+  releaseNotes?: string | null;
 }
 
 export interface CatalogDetail {

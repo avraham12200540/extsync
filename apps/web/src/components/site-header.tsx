@@ -4,31 +4,47 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/providers";
+import { useLocale } from "@/components/locale-context";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui";
 
 const links = [
-  { href: "/", label: "בית" },
-  { href: "/store", label: "גלריית תוספים" },
-  { href: "/download", label: "הורדת התוכנה" },
-  { href: "/docs", label: "מדריך" },
-  { href: "/security", label: "אבטחה" },
+  { href: "/", key: "nav.home" },
+  { href: "/store", key: "nav.store" },
+  { href: "/download", key: "nav.download" },
+  { href: "/docs", key: "nav.docs" },
+  { href: "/security", key: "nav.security" },
 ];
+
+function LocaleToggle({ className = "" }: { className?: string }) {
+  const { locale, setLocale } = useLocale();
+  const next = locale === "he" ? "en" : "he";
+  return (
+    <button
+      onClick={() => setLocale(next)}
+      aria-label={next === "en" ? "Switch to English" : "מעבר לעברית"}
+      className={`rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink-muted transition-colors hover:border-brand/50 hover:text-ink ${className}`}
+    >
+      {next === "en" ? "EN" : "עב"}
+    </button>
+  );
+}
 
 export function SiteHeader() {
   const { user, loading } = useAuth();
+  const { t } = useLocale();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   const authButtons = (
     <>
       {!loading && (user ? (
-        <Link href="/app" onClick={() => setOpen(false)}><Button size="sm">לוח הבקרה</Button></Link>
+        <Link href="/app" onClick={() => setOpen(false)}><Button size="sm">{t("nav.dashboard")}</Button></Link>
       ) : (
         <>
-          <Link href="/login" onClick={() => setOpen(false)}><Button size="sm" variant="ghost">התחברות</Button></Link>
+          <Link href="/login" onClick={() => setOpen(false)}><Button size="sm" variant="ghost">{t("nav.login")}</Button></Link>
           <Link href="/register" onClick={() => setOpen(false)}>
-            <Button size="sm" className="bg-brand-gradient border-0 shadow-glow">הרשמת מפתחים</Button>
+            <Button size="sm" className="bg-brand-gradient border-0 shadow-glow">{t("nav.register")}</Button>
           </Link>
         </>
       ))}
@@ -39,7 +55,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 border-b border-line/70 bg-surface/80 backdrop-blur-lg">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="flex items-center justify-between py-3">
-          <Link href="/" aria-label="ExtSync - דף הבית">
+          <Link href="/" aria-label="ExtSync">
             <Logo size={34} />
           </Link>
 
@@ -55,23 +71,25 @@ export function SiteHeader() {
                     active ? "font-semibold text-brand" : "text-ink-muted hover:text-ink"
                   }`}
                 >
-                  {l.label}
+                  {t(l.key)}
                   {active && (
                     <span className="absolute inset-x-3 -bottom-[13px] h-0.5 rounded-full bg-brand-gradient" />
                   )}
                 </Link>
               );
             })}
+            <LocaleToggle className="mx-1" />
             <span className="mx-2 h-5 w-px bg-line" />
             {authButtons}
           </nav>
 
           {/* Mobile */}
           <div className="flex items-center gap-2 md:hidden">
+            <LocaleToggle />
             {authButtons}
             <button
               onClick={() => setOpen((v) => !v)}
-              aria-label="תפריט"
+              aria-label={t("nav.menu")}
               aria-expanded={open}
               className="rounded-md p-2 text-ink hover:bg-surface-2"
             >
@@ -93,7 +111,7 @@ export function SiteHeader() {
                   pathname === l.href ? "bg-brand-muted dark:bg-brand/20 font-medium text-brand" : "text-ink-muted hover:bg-surface-2 hover:text-ink"
                 }`}
               >
-                {l.label}
+                {t(l.key)}
               </Link>
             ))}
           </nav>

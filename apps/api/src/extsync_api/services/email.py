@@ -109,6 +109,19 @@ async def send_verification_email(to: str, verify_url: str) -> None:
     await send_email(to, "אימות כתובת האימייל ב-ExtSync", text, html)
 
 
+async def send_notification_email(to: str, title: str, body: str) -> None:
+    """Critical developer alert (validation failed / rollback / rollout paused) -
+    mirrors the in-app notification so problems are seen without opening the site."""
+    text = f"{title}\n\n{body}\n\nלפרטים המלאים: https://extsync.com/app"
+    html = _layout(
+        title,
+        f"<p>{body}</p>"
+        f'<p><a href="https://extsync.com/app" style="background:#2563eb;color:#fff;'
+        f'padding:10px 18px;border-radius:8px;text-decoration:none">לדשבורד</a></p>',
+    )
+    await send_email(to, f"ExtSync - {title}", text, html)
+
+
 async def send_password_reset_email(to: str, reset_url: str) -> None:
     text = (
         f"קיבלנו בקשה לאיפוס סיסמה.\n\n"

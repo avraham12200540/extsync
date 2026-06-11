@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/providers";
+import { useLocale } from "@/components/locale-context";
 
 function Star({ fill }: { fill: number }) {
   // fill: 0..1 (supports half stars for averages)
@@ -26,13 +27,14 @@ function Star({ fill }: { fill: number }) {
 
 /** Read-only average display: ★★★★☆ 4.3 (12) */
 export function RatingDisplay({ avg, count, className = "" }: { avg: number; count: number; className?: string }) {
+  const { t } = useLocale();
   return (
-    <span className={`inline-flex items-center gap-1 ${className}`} dir="ltr" title={`${avg} מתוך 5`}>
+    <span className={`inline-flex items-center gap-1 ${className}`} dir="ltr" title={`${avg}/5`}>
       {[1, 2, 3, 4, 5].map((i) => (
         <Star key={i} fill={Math.min(1, Math.max(0, avg - (i - 1)))} />
       ))}
       <span className="ms-1 text-xs text-ink-muted">
-        {count > 0 ? `${avg.toFixed(1)} (${count})` : "אין דירוגים"}
+        {count > 0 ? `${avg.toFixed(1)} (${count})` : t("store.norat")}
       </span>
     </span>
   );
@@ -43,6 +45,7 @@ export function RateWidget({
   slug, myRating, onRated,
 }: { slug: string; myRating: number | null; onRated?: (stars: number) => void }) {
   const { user } = useAuth();
+  const { t } = useLocale();
   const router = useRouter();
   const [hover, setHover] = useState(0);
   const [mine, setMine] = useState(myRating ?? 0);
@@ -83,7 +86,7 @@ export function RateWidget({
         ))}
       </div>
       <span className="text-xs text-ink-muted">
-        {user ? (mine ? "הדירוג שלך נשמר - אפשר לשנות" : "דרג את התוסף") : "התחבר כדי לדרג"}
+        {user ? (mine ? t("detail.rated") : t("detail.rate")) : t("detail.ratelogin")}
       </span>
     </div>
   );

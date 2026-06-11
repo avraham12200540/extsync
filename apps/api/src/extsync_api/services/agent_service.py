@@ -342,6 +342,6 @@ async def _check_auto_stop(db: AsyncSession, project_id: str, release_id: str) -
         await notify_owner(db, project_id, NotificationKind.rollout_paused,
                            title="ההפצה נעצרה אוטומטית",
                            body=f"שיעור הכשלים בגרסה גבוה ({failed}/{total}). ההפצה הושהתה.",
-                           data={"releaseId": release_id})
+                           data={"releaseId": release_id}, email=True)
         await emit_event(db, project_id, "rollout.paused",
                          {"releaseId": release_id, "failed": failed, "total": total})

@@ -57,6 +57,7 @@ class CatalogChannelInfo(CamelModel):
     download_url: str | None = None      # direct ZIP (manual download)
     size: int | None = None
     sha256: str | None = None
+    release_notes: str | None = None     # developer's "what's new" line
 
 
 class CatalogDetail(CamelModel):
@@ -234,6 +235,7 @@ async def catalog_detail(slug: str, db: DBSession, user: OptionalUser) -> Catalo
             published_at=_iso(rel.published_at), download_url=download,
             size=artifact.size if artifact else None,
             sha256=artifact.sha256 if artifact else None,
+            release_notes=rel.release_notes,
         ))
         if ch == Channel.stable or not perms:
             snap = await db.scalar(

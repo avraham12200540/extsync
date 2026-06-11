@@ -321,7 +321,7 @@ async def rollback_release(db: AsyncSession, project: Project, channel: Channel,
     await notify_owner(db, project.id, NotificationKind.rollback_done,
                        title="בוצע Rollback",
                        body=f"הערוץ {channel.value} הוחזר לגרסה {target.version}.",
-                       data={"releaseId": target.id})
+                       data={"releaseId": target.id}, email=True)
     await emit_event(db, project.id, "rollback.completed",
                      {"releaseId": target.id, "version": target.version, "channel": channel.value})
     await notify_project_update(project.id, channel.value, event="rollback")

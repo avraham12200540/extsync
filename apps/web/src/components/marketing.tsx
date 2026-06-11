@@ -1,6 +1,7 @@
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { Logo, LogoIcon } from "@/components/logo";
+import { AuthBrandPanel } from "@/components/auth-brand-panel";
 
 /** Standard public-page shell: header + animated content + footer. */
 export function MarketingShell({ children }: { children: React.ReactNode }) {
@@ -78,19 +79,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
         <div className="pointer-events-none absolute -left-16 -top-16 h-72 w-72 rounded-full bg-brand-teal/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -right-10 h-80 w-80 rounded-full bg-brand-sky/20 blur-3xl" />
         <a href="/" className="relative"><Logo size={38} onDark /></a>
-        <div className="relative">
-          <h2 className="text-3xl font-extrabold leading-snug">
-            חנות התוספים הפרטית<br />שמתעדכנת לבד.
-          </h2>
-          <p className="mt-4 max-w-sm text-slate-300">
-            הפצה, התקנה ועדכון אוטומטי של תוספי Chrome - מאובטח בחתימה דיגיטלית, מחוץ ל-Web Store.
-          </p>
-          <ul className="mt-6 space-y-2 text-sm text-slate-300">
-            <li className="flex items-center gap-2">✅ עדכונים אוטומטיים עם Rollback</li>
-            <li className="flex items-center gap-2">✅ חתימת Ed25519 על כל גרסה</li>
-            <li className="flex items-center gap-2">✅ גלריה ציבורית עם דירוגים</li>
-          </ul>
-        </div>
+        <AuthBrandPanel />
         <p className="relative text-xs text-slate-400">© {new Date().getFullYear()} ExtSync</p>
       </div>
 

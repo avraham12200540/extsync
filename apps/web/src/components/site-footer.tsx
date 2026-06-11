@@ -1,7 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import { Logo } from "@/components/logo";
+import { useLocale } from "@/components/locale-context";
 
 export function SiteFooter() {
+  const { t } = useLocale();
   return (
     <footer className="relative overflow-hidden border-t border-white/10 bg-brand-navy text-slate-300">
       {/* subtle brand glow to match the hero */}
@@ -12,25 +16,24 @@ export function SiteFooter() {
           <div>
             <Logo size={30} onDark />
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-slate-400">
-              הפצה, התקנה ועדכון אוטומטי של תוספי Chrome פרטיים - מחוץ לחנות, עם חתימה
-              דיגיטלית ואבטחה מלאה.
+              {t("footer.tagline")}
             </p>
           </div>
 
           <div>
-            <h3 className="mb-3 text-sm font-semibold text-white">ניווט</h3>
+            <h3 className="mb-3 text-sm font-semibold text-white">{t("footer.nav")}</h3>
             <ul className="space-y-2 text-sm text-slate-400">
-              <li><Link className="transition-colors hover:text-white" href="/store">גלריית התוספים</Link></li>
-              <li><Link className="transition-colors hover:text-white" href="/download">הורדת ExtSync Agent</Link></li>
-              <li><Link className="transition-colors hover:text-white" href="/docs">המדריך המהיר</Link></li>
-              <li><Link className="transition-colors hover:text-white" href="/security">אבטחה</Link></li>
+              <li><Link className="transition-colors hover:text-white" href="/store">{t("footer.store")}</Link></li>
+              <li><Link className="transition-colors hover:text-white" href="/download">{t("footer.download")}</Link></li>
+              <li><Link className="transition-colors hover:text-white" href="/docs">{t("footer.docs")}</Link></li>
+              <li><Link className="transition-colors hover:text-white" href="/security">{t("footer.security")}</Link></li>
             </ul>
           </div>
 
           <div>
-            <h3 className="mb-3 text-sm font-semibold text-white">מפתח ויצירת קשר</h3>
+            <h3 className="mb-3 text-sm font-semibold text-white">{t("footer.contact")}</h3>
             <ul className="space-y-2 text-sm text-slate-400">
-              <li>פותח ע&quot;י אברהם גלסר</li>
+              <li>{t("footer.by")}</li>
               <li>
                 <a className="transition-colors hover:text-white" href="mailto:glasser.avraham@gmail.com" dir="ltr">
                   glasser.avraham@gmail.com
@@ -46,7 +49,7 @@ export function SiteFooter() {
                 <a className="transition-colors hover:text-white"
                    href="https://mitmachim.top/user/%D7%90%D7%91%D7%A8%D7%94%D7%9D-%D7%92%D7%9C%D7%A1%D7%A8"
                    target="_blank" rel="noreferrer">
-                  מתמחים טופ
+                  {t("footer.mitmachim")}
                 </a>
               </li>
             </ul>
@@ -54,8 +57,8 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-8 flex flex-col items-center justify-between gap-2 border-t border-white/10 pt-6 text-xs text-slate-500 sm:flex-row">
-          <span>© {new Date().getFullYear()} ExtSync. כל הזכויות שמורות.</span>
-          <span>אינה תחליף רשמי ל-Chrome Web Store.</span>
+          <span>© {new Date().getFullYear()} ExtSync. {t("footer.rights")}</span>
+          <span>{t("footer.disclaimer")}</span>
         </div>
       </div>
     </footer>

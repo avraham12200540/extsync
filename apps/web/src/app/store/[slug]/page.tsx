@@ -1,119 +1,150 @@
-"use client";
-
-import { useEffect, useState } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { api, ApiError, type CatalogDetail } from "@/lib/api";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
-import { RateWidget, RatingDisplay } from "@/components/stars";
-import { Badge, Button, Card, Spinner } from "@/components/ui";
+import { notFound } from "next/navigation";
+import type { CatalogDetail } from "@/lib/api";
+import { MarketingShell } from "@/components/marketing";
+import { RatingSection } from "@/components/rating-section";
+import { Badge } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
+import { getLocale } from "@/lib/locale-server";
+import { t as tr } from "@/lib/i18n";
 
-export default function StoreDetailPage({ params }: { params: { slug: string } }) {
-  const [d, setD] = useState<CatalogDetail | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-  useEffect(() => {
-    api.get<CatalogDetail>(`/catalog/${params.slug}`).then(setD)
-      .catch((e) => setErr(e instanceof ApiError ? e.message : "שגיאה"));
-  }, [params.slug]);
+/** Server-side fetch so every public extension is a real, indexable page
+ *  (the old client-only fetch rendered an empty shell for crawlers). */
+async function getDetail(slug: string): Promise<CatalogDetail | null> {
+  try {
+    const res = await fetch(`${API_URL}/catalog/${encodeURIComponent(slug)}`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as CatalogDetail;
+  } catch {
+    return null;
+  }
+}
 
-  if (err) return <Shell><Card className="text-center"><h1 className="text-xl font-semibold text-ink">לא נמצא</h1><p className="mt-2 text-ink-muted">{err}</p></Card></Shell>;
-  if (!d) return <Shell><div className="flex justify-center py-20"><Spinner /></div></Shell>;
+export async function generateMetadata(
+  { params }: { params: { slug: string } },
+): Promise<Metadata> {
+  const d = await getDetail(params.slug);
+  if (!d) return { title: "Not found" };
+  const description = d.shortDescription || `${d.developerName} | ExtSync`;
+  return {
+    title: d.name,
+    description,
+    openGraph: {
+      title: `${d.name} | ExtSync`,
+      description,
+      images: [{ url: d.iconUrl || "/og.jpg" }],
+    },
+  };
+}
+
+export default async function StoreDetailPage({ params }: { params: { slug: string } }) {
+  const locale = getLocale();
+  const t = (k: string) => tr(k, locale);
+  const d = await getDetail(params.slug);
+  if (!d) notFound();
 
   const stable = d.channels.find((c) => c.channel === "stable") ?? d.channels[0];
 
   return (
-    <Shell>
-      <Link href="/store" className="mb-4 inline-block text-sm text-ink-muted hover:text-brand">חזרה לגלריה</Link>
-      <Card>
-        <div className="flex items-center gap-4">
-          {d.iconUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={d.iconUrl} alt="" className="h-16 w-16 rounded-lg" />
-          ) : <div className="h-16 w-16 rounded-lg bg-brand-muted dark:bg-brand/20" />}
-          <div>
-            <h1 className="text-2xl font-semibold text-ink">{d.name}</h1>
-            <p className="text-sm text-ink-muted">מאת {d.developerName}</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {stable && <Badge>גרסה {stable.version}</Badge>}
-              {d.category && <Badge>{d.category}</Badge>}
-              {d.usesNativeMessaging && <Badge>עדכון אוטומטי</Badge>}
+    <MarketingShell>
+      <main className="mx-auto w-full max-w-2xl px-6 py-10">
+        <Link href="/store" className="mb-4 inline-block text-sm text-ink-muted hover:text-brand">{t("detail.back")}</Link>
+        <div className="rounded-lg border border-line bg-surface p-5 shadow-card">
+          <div className="flex items-center gap-4">
+            {d.iconUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={d.iconUrl} alt="" className="h-16 w-16 rounded-lg" />
+            ) : <div className="h-16 w-16 rounded-lg bg-brand-muted dark:bg-brand/20" />}
+            <div>
+              <h1 className="text-2xl font-semibold text-ink">{d.name}</h1>
+              <p className="text-sm text-ink-muted">
+                {t("detail.by")}{" "}
+                <Link href={`/dev/${encodeURIComponent(d.developerName)}`}
+                      className="text-brand hover:underline">
+                  {d.developerName}
+                </Link>
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {stable && <Badge>{t("detail.version")} {stable.version}</Badge>}
+                {d.category && <Badge>{d.category}</Badge>}
+                {d.usesNativeMessaging && <Badge>{t("detail.autoupdate")}</Badge>}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* ratings */}
-        <div className="mt-4 flex flex-col gap-2 rounded-lg border border-line bg-surface-2/50 p-3 sm:flex-row sm:items-center sm:justify-between">
-          <RatingDisplay avg={d.avgRating} count={d.ratingsCount} />
-          <RateWidget slug={d.slug} myRating={d.myRating ?? null} />
-        </div>
+          {/* ratings (client island: live average + voting) */}
+          <RatingSection slug={d.slug} initialAvg={d.avgRating} initialCount={d.ratingsCount} />
 
-        {d.shortDescription && <p className="mt-4 text-ink">{d.shortDescription}</p>}
-        {d.fullDescription && <p className="mt-2 whitespace-pre-line text-sm text-ink-muted">{d.fullDescription}</p>}
+          {d.shortDescription && <p className="mt-4 text-ink">{d.shortDescription}</p>}
+          {d.fullDescription && <p className="mt-2 whitespace-pre-line text-sm text-ink-muted">{d.fullDescription}</p>}
 
-        {/* Install / download */}
-        <div className="mt-6 flex flex-wrap gap-3">
-          {d.installUri && (
-            <a href={d.installUri}>
-              <Button>התקנה מנוהלת (עדכון אוטומטי)</Button>
-            </a>
+          {/* what's new */}
+          {stable?.releaseNotes && (
+            <div className="mt-4 rounded-lg border border-line bg-surface-2/50 p-3">
+              <h2 className="text-sm font-semibold text-ink">{t("detail.whatsnew")} {stable.version}</h2>
+              <p className="mt-1 whitespace-pre-line text-sm text-ink-muted">{stable.releaseNotes}</p>
+            </div>
           )}
-          {stable?.downloadUrl && (
-            <a href={stable.downloadUrl} download>
-              <Button variant="secondary">הורדת ZIP ידנית (v{stable.version})</Button>
-            </a>
-          )}
-        </div>
-        <p className="mt-2 text-xs text-ink-muted">
-          התקנה מנוהלת דורשת את <Link href="/download" className="text-brand hover:underline">ExtSync Agent</Link> (עדכונים אוטומטיים).
-          הורדה ידנית = קובץ ה-ZIP לטעינה עצמית ב-chrome://extensions.
-        </p>
 
-        {/* permissions */}
-        <div className="mt-6">
-          <h2 className="mb-2 text-sm font-semibold text-ink">הרשאות</h2>
-          {d.permissions.length === 0 && d.hostPermissions.length === 0 ? (
-            <p className="text-sm text-ink-muted">אין הרשאות מיוחדות.</p>
-          ) : (
-            <ul className="space-y-1 text-sm text-ink-muted">
-              {d.permissions.map((p) => <li key={p}>• {p}</li>)}
-              {d.hostPermissions.length > 0 && <li>• גישה לאתרים: {d.hostPermissions.join(", ")}</li>}
-            </ul>
-          )}
-        </div>
+          {/* Install / download */}
+          <div className="mt-6 flex flex-wrap gap-3">
+            {d.installUri && (
+              <a href={d.installUri}
+                 className="rounded-md bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-glow hover:brightness-110">
+                {t("detail.install")}
+              </a>
+            )}
+            {stable?.downloadUrl && (
+              <a href={stable.downloadUrl} download
+                 className="rounded-md border border-line bg-surface-2 px-4 py-2 text-sm font-medium text-ink hover:bg-line">
+                {t("detail.downloadzip")} (v{stable.version})
+              </a>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-ink-muted">
+            {t("detail.installnote.1")} <Link href="/download" className="text-brand hover:underline">ExtSync Agent</Link> {t("detail.installnote.2")}
+          </p>
 
-        {/* all channels */}
-        {d.channels.length > 1 && (
+          {/* permissions */}
           <div className="mt-6">
-            <h2 className="mb-2 text-sm font-semibold text-ink">ערוצים</h2>
-            <div className="space-y-1 text-sm">
-              {d.channels.map((ch) => (
-                <div key={ch.channel} className="flex items-center justify-between">
-                  <span className="text-ink">{ch.channel} - v{ch.version} <span className="text-ink-muted">({formatDate(ch.publishedAt)})</span></span>
-                  {ch.downloadUrl && <a href={ch.downloadUrl} download className="text-brand hover:underline">הורדה</a>}
-                </div>
-              ))}
-            </div>
+            <h2 className="mb-2 text-sm font-semibold text-ink">{t("detail.perms")}</h2>
+            {d.permissions.length === 0 && d.hostPermissions.length === 0 ? (
+              <p className="text-sm text-ink-muted">{t("detail.noperms")}</p>
+            ) : (
+              <ul className="space-y-1 text-sm text-ink-muted">
+                {d.permissions.map((p) => <li key={p}>• {p}</li>)}
+                {d.hostPermissions.length > 0 && <li>• {t("detail.hosts")} {d.hostPermissions.join(", ")}</li>}
+              </ul>
+            )}
           </div>
-        )}
 
-        <div className="mt-6 flex flex-wrap gap-4 text-sm">
-          {d.website && <a href={d.website} className="text-brand hover:underline">אתר</a>}
-          {d.repoUrl && <a href={d.repoUrl} className="text-brand hover:underline">קוד מקור</a>}
-          {d.privacyPolicyUrl && <a href={d.privacyPolicyUrl} className="text-brand hover:underline">פרטיות</a>}
+          {/* all channels */}
+          {d.channels.length > 1 && (
+            <div className="mt-6">
+              <h2 className="mb-2 text-sm font-semibold text-ink">{t("detail.channels")}</h2>
+              <div className="space-y-1 text-sm">
+                {d.channels.map((ch) => (
+                  <div key={ch.channel} className="flex items-center justify-between">
+                    <span className="text-ink">{ch.channel} - v{ch.version} <span className="text-ink-muted">({formatDate(ch.publishedAt)})</span></span>
+                    {ch.downloadUrl && <a href={ch.downloadUrl} download className="text-brand hover:underline">{t("detail.download")}</a>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6 flex flex-wrap gap-4 text-sm">
+            {d.website && <a href={d.website} className="text-brand hover:underline">{t("detail.website")}</a>}
+            {d.repoUrl && <a href={d.repoUrl} className="text-brand hover:underline">{t("detail.source")}</a>}
+            {d.privacyPolicyUrl && <a href={d.privacyPolicyUrl} className="text-brand hover:underline">{t("detail.privacy")}</a>}
+          </div>
         </div>
-      </Card>
-    </Shell>
-  );
-}
-
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-screen flex-col">
-      <SiteHeader />
-      <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">{children}</main>
-      <SiteFooter />
-    </div>
+      </main>
+    </MarketingShell>
   );
 }

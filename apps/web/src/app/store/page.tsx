@@ -4,17 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { api, type CatalogItem } from "@/lib/api";
 import { MarketingShell, PageHero } from "@/components/marketing";
 import { ExtensionCard, SkeletonCard, CatalogError } from "@/components/extension-card";
+import { useLocale } from "@/components/locale-context";
 import { Card, Input } from "@/components/ui";
 
 type SortKey = "rating" | "newest" | "name";
 
-const SORT_LABELS: Record<SortKey, string> = {
-  rating: "לפי דירוג",
-  newest: "החדשים קודם",
-  name: "לפי שם (א-ת)",
-};
-
 export default function StorePage() {
+  const { t, locale } = useLocale();
   const [items, setItems] = useState<CatalogItem[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [q, setQ] = useState("");
@@ -29,8 +25,8 @@ export default function StorePage() {
   const categories = useMemo(() => {
     const set = new Set<string>();
     for (const i of items ?? []) if (i.category) set.add(i.category);
-    return [...set].sort((a, b) => a.localeCompare(b, "he"));
-  }, [items]);
+    return [...set].sort((a, b) => a.localeCompare(b, locale));
+  }, [items, locale]);
 
   const filtered = useMemo(() => {
     let list = (items ?? []).filter(
@@ -44,7 +40,7 @@ export default function StorePage() {
           (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""));
         break;
       case "name":
-        list = [...list].sort((a, b) => a.name.localeCompare(b.name, "he"));
+        list = [...list].sort((a, b) => a.name.localeCompare(b.name, locale));
         break;
       default: // rating: avg desc, then number of votes as a tie-breaker
         list = [...list].sort((a, b) =>
@@ -52,14 +48,14 @@ export default function StorePage() {
           (b.ratingsCount ?? 0) - (a.ratingsCount ?? 0));
     }
     return list;
-  }, [items, q, category, sort]);
+  }, [items, q, category, sort, locale]);
 
   return (
     <MarketingShell>
       <PageHero
-        eyebrow="גלריה"
-        title="גלריית התוספים"
-        subtitle="מסודרים לפי דירוג הקהילה - התקנה מנוהלת (עדכון אוטומטי) או הורדה ידנית."
+        eyebrow={t("store.eyebrow")}
+        title={t("store.title")}
+        subtitle={t("store.sub")}
       />
 
       <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
@@ -67,20 +63,22 @@ export default function StorePage() {
         <div className="mb-6 flex flex-col gap-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-ink-muted">
-              {items === null ? "טוען…" : `${filtered.length} תוספים${q || category ? " תואמים" : ""}`}
+              {items === null
+                ? t("store.loading")
+                : `${filtered.length} ${t("store.count")}${q || category ? ` ${t("store.matching")}` : ""}`}
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortKey)}
-                aria-label="מיון"
+                aria-label="sort"
                 className="rounded-md border border-line bg-surface px-2.5 py-2 text-sm text-ink"
               >
-                {Object.entries(SORT_LABELS).map(([k, label]) => (
-                  <option key={k} value={k}>{label}</option>
-                ))}
+                <option value="rating">{t("store.sort.rating")}</option>
+                <option value="newest">{t("store.sort.newest")}</option>
+                <option value="name">{t("store.sort.name")}</option>
               </select>
-              <Input placeholder="🔍 חיפוש תוסף…" value={q} onChange={(e) => setQ(e.target.value)}
+              <Input placeholder={t("store.search")} value={q} onChange={(e) => setQ(e.target.value)}
                      className="sm:w-64" />
             </div>
           </div>
@@ -99,7 +97,7 @@ export default function StorePage() {
                         : "border border-line bg-surface text-ink-muted hover:text-ink"
                     }`}
                   >
-                    {c ?? "הכל"}
+                    {c ?? t("store.cat.all")}
                   </button>
                 );
               })}
@@ -115,7 +113,7 @@ export default function StorePage() {
           <CatalogError />
         ) : filtered.length === 0 ? (
           <Card className="p-10 text-center text-ink-muted">
-            {q || category ? "לא נמצאו תוספים תואמים." : "עדיין אין תוספים ציבוריים שפורסמו. חזרו מאוחר יותר 🙂"}
+            {q || category ? t("store.none.q") : t("store.none")}
           </Card>
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

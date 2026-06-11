@@ -192,6 +192,7 @@ function VersionsTab({ project }: { project: Project }) {
   const [file, setFile] = useState<File | null>(null);
   const [version, setVersion] = useState("");
   const [channel, setChannel] = useState("stable");
+  const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const upload = useMutation({
@@ -201,9 +202,10 @@ function VersionsTab({ project }: { project: Project }) {
       fd.append("file", file);
       fd.append("version", version);
       fd.append("channel", channel);
+      if (notes.trim()) fd.append("release_notes", notes.trim());
       return api.upload(`/projects/${project.id}/releases`, fd);
     },
-    onSuccess: () => { setFile(null); setVersion(""); qc.invalidateQueries({ queryKey: ["releases", project.id] }); },
+    onSuccess: () => { setFile(null); setVersion(""); setNotes(""); qc.invalidateQueries({ queryKey: ["releases", project.id] }); },
     onError: (e) => setError(e instanceof ApiError ? e.message : "ההעלאה נכשלה"),
   });
 
@@ -245,6 +247,16 @@ function VersionsTab({ project }: { project: Project }) {
             </select>
           </Field>
         </div>
+        <Field label="מה חדש בגרסה? (אופציונלי, מוצג בדף התוסף בחנות)">
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            maxLength={1000}
+            className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-brand outline-none"
+            placeholder="למשל: תוקנה תקלת התחברות ונוסף מצב כהה"
+          />
+        </Field>
         <Button onClick={() => upload.mutate()} disabled={!file || !version || upload.isPending}>
           {upload.isPending ? "מעלה…" : "העלאה"}
         </Button>

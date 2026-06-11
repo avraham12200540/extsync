@@ -75,6 +75,7 @@ async def _fail(db: AsyncSession, release: Release, code: str, message: str) -> 
         title="הבדיקה נכשלה",
         body=f"גרסה {release.version} לא עברה את הבדיקה: {message}",
         data={"releaseId": release.id},
+        email=True,
     )
     await emit_event(db, release.project_id, "release.validation_failed",
                      {"releaseId": release.id, "version": release.version, "error": code})

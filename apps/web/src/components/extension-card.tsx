@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import type { CatalogItem } from "@/lib/api";
 import { LogoIcon } from "@/components/logo";
 import { RatingDisplay } from "@/components/stars";
+import { useLocale } from "@/components/locale-context";
 
 /** Shimmering placeholder shown while the catalog loads. */
 export function SkeletonCard({ delay = 0 }: { delay?: number }) {
@@ -21,10 +24,11 @@ export function SkeletonCard({ delay = 0 }: { delay?: number }) {
 
 /** Friendly load-failure notice (API unreachable ≠ empty catalog). */
 export function CatalogError() {
+  const { t } = useLocale();
   return (
     <div className="rounded-xl border border-line bg-surface p-10 text-center">
-      <p className="font-medium text-ink">לא הצלחנו לטעון את הגלריה כרגע</p>
-      <p className="mt-1 text-sm text-ink-muted">בדקו את החיבור ונסו לרענן את הדף בעוד רגע.</p>
+      <p className="font-medium text-ink">{t("store.error.title")}</p>
+      <p className="mt-1 text-sm text-ink-muted">{t("store.error.sub")}</p>
     </div>
   );
 }
@@ -32,6 +36,7 @@ export function CatalogError() {
 /** Store card: image fills most of the square; bottom row has the name on the
  *  right and the current version on the left (RTL layout), plus the rating. */
 export function ExtensionCard({ item, delay = 0 }: { item: CatalogItem; delay?: number }) {
+  const { t } = useLocale();
   return (
     <Link href={`/store/${item.slug}`} className="block">
       <article
@@ -72,7 +77,7 @@ export function ExtensionCard({ item, delay = 0 }: { item: CatalogItem; delay?: 
               {item.shortDescription}
             </p>
           )}
-          <p className="mt-1.5 truncate text-xs text-ink-muted">מאת {item.developerName}</p>
+          <p className="mt-1.5 truncate text-xs text-ink-muted">{t("store.by")} {item.developerName}</p>
           <div className="mt-2">
             <RatingDisplay avg={item.avgRating} count={item.ratingsCount} />
           </div>

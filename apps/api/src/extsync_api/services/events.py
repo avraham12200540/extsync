@@ -12,7 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.enums import NotificationKind
 from ..models.notification import Notification
 from ..models.project import Project
+from ..models.user import User
 from ..models.webhook import Webhook, WebhookDelivery
+from .email import send_notification_email
 
 
 async def emit_event(db: AsyncSession, project_id: str, event_type: str, payload: dict) -> int:
@@ -33,7 +35,7 @@ async def emit_event(db: AsyncSession, project_id: str, event_type: str, payload
 
 async def notify_owner(
     db: AsyncSession, project_id: str, kind: NotificationKind, title: str,
-    body: str | None = None, data: dict | None = None,
+    body: str | None = None, data: dict | None = None, email: bool = False,
 ) -> None:
     project = await db.get(Project, project_id)
     if project is None:
@@ -42,3 +44,10 @@ async def notify_owner(
         user_id=project.owner_user_id, kind=kind, title=title, body=body,
         data={**(data or {}), "projectId": project_id},
     ))
+    if email:
+        owner = await db.get(User, project.owner_user_id)
+        if owner is not None and owner.email:
+            try:
+                await send_notification_email(owner.email, title, f"{project.name} - {body or ''}")
+            except Exception:
+                pass  # already logged inside send_email; never fail the caller
