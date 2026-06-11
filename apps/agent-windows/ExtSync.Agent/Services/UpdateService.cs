@@ -46,7 +46,7 @@ public sealed class UpdateService
                 return new ApplyResult(UpdateStepResult.Failed, ErrorCodes.ProjectIdMismatch);
             if (!_verifier.VerifyMetadata(metaEl))
                 return new ApplyResult(UpdateStepResult.Failed, ErrorCodes.InvalidSignature,
-                    "חתימת המטא-דאטה אינה תקינה");
+                    L10n.T("Err.InvalidSignature"));
 
             var tempZip = Path.Combine(AgentPaths.TempDir, $"{meta.ReleaseId}.zip");
             try
@@ -115,11 +115,11 @@ public sealed class UpdateService
         // (15-policy) permission approval gate
         if (meta.RequiresUserApproval && !userApproved)
             return new ApplyResult(UpdateStepResult.Failed, ErrorCodes.PermissionApprovalRequired,
-                "נדרש אישור הרשאות לפני התקנת העדכון");
+                L10n.T("Err.PermissionGated"));
 
         // (7) verify signature BEFORE trusting any field for download
         if (!_verifier.VerifyMetadata(metaEl))
-            return Fail(inst, meta, ErrorCodes.InvalidSignature, "חתימת המטא-דאטה אינה תקינה");
+            return Fail(inst, meta, ErrorCodes.InvalidSignature, L10n.T("Err.InvalidSignature"));
 
         inst.Status = InstallationStatus.Updating;
         inst.LastError = null;
@@ -134,11 +134,11 @@ public sealed class UpdateService
             // (5) size
             var size = new FileInfo(tempZip).Length;
             if (size > meta.Artifact.Size)
-                return Fail(inst, meta, ErrorCodes.SizeExceeded, "הקובץ גדול מהמוצהר");
+                return Fail(inst, meta, ErrorCodes.SizeExceeded, L10n.T("Err.SizeExceeded"));
 
             // (6) hash
             if (!ReleaseVerifier.VerifySha256(tempZip, meta.Artifact.Sha256))
-                return Fail(inst, meta, ErrorCodes.HashMismatch, "ה-hash אינו תואם");
+                return Fail(inst, meta, ErrorCodes.HashMismatch, L10n.T("Err.HashMismatch"));
 
             // (8) extract to staging
             var staging = inst.StagingPath;
@@ -148,7 +148,7 @@ public sealed class UpdateService
 
             // (9-11) local validation
             var (okLocal, localErr) = LocalValidate(staging, meta);
-            if (!okLocal) return Fail(inst, meta, localErr!, "החבילה לא עברה בדיקה מקומית");
+            if (!okLocal) return Fail(inst, meta, localErr!, L10n.T("Err.LocalCheck"));
 
             // (12-13) swap with rollback retained
             var swap = FolderSwap.Replace(inst.ActivePath, staging, inst.RollbackPath, _log);

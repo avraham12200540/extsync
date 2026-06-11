@@ -18,6 +18,7 @@ public sealed class AgentSettings
     public bool UseAgentBeta { get; set; }
     public bool OptInTelemetry { get; set; }             // opt-in only (§29)
     public bool DarkMode { get; set; }
+    public string Language { get; set; } = "he";         // "he" | "en" (L10n)
     public string DeviceId { get; set; } = "";           // random, not hardware-derived (§2)
     public string? DeviceToken { get; set; }
     public string? UserDeviceToken { get; set; }         // set after account pairing

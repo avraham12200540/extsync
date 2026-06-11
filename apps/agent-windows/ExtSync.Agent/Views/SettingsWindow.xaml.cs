@@ -12,6 +12,7 @@ public partial class SettingsWindow : Window
     {
         InitializeComponent();
         _settings = settings;
+        CmbLanguage.SelectedIndex = settings.Language == "en" ? 1 : 0;
         ChkStartup.IsChecked = settings.StartWithWindows;
         ChkAutoCheck.IsChecked = settings.AutoCheck;
         TxtInterval.Text = settings.CheckIntervalValue.ToString();
@@ -25,11 +26,18 @@ public partial class SettingsWindow : Window
         TxtRollback.Text = settings.RollbackVersionsToKeep.ToString();
         ChkBeta.IsChecked = settings.UseAgentBeta;
         ChkTelemetry.IsChecked = settings.OptInTelemetry;
-        TxtVersion.Text = $"גרסת התוכנה: {settings.AgentVersion} (מתעדכנת אוטומטית)";
+        TxtVersion.Text = L10n.F("Set.Version", settings.AgentVersion);
     }
 
     private void OnSave(object sender, RoutedEventArgs e)
     {
+        var newLang = CmbLanguage.SelectedIndex == 1 ? "en" : "he";
+        if (newLang != _settings.Language)
+        {
+            _settings.Language = newLang;
+            L10n.Apply(newLang); // live-updates every open window (DynamicResource)
+            TxtVersion.Text = L10n.F("Set.Version", _settings.AgentVersion);
+        }
         _settings.StartWithWindows = ChkStartup.IsChecked == true;
         _settings.AutoCheck = ChkAutoCheck.IsChecked == true;
         if (int.TryParse(TxtInterval.Text, out var v)) _settings.CheckIntervalValue = Math.Clamp(v, 1, 100000);
@@ -45,7 +53,7 @@ public partial class SettingsWindow : Window
         _settings.OptInTelemetry = ChkTelemetry.IsChecked == true;
         _settings.Save();
         StartupRegistration.Apply(_settings.StartWithWindows);
-        MessageBox.Show("ההגדרות נשמרו.", "ExtSync", MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show(L10n.T("Set.Saved"), "ExtSync", MessageBoxButton.OK, MessageBoxImage.Information);
         Close();
     }
 

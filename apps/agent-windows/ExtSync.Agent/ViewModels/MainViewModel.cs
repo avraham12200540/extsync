@@ -24,6 +24,7 @@ public sealed class MainViewModel : ObservableObject
         _settings = settings;
         _log = log;
         _controller.InstallationsChanged += () => Application.Current.Dispatcher.Invoke(Reload);
+        L10n.LanguageChanged += () => Application.Current.Dispatcher.Invoke(Reload);
 
         CheckUpdatesCommand = new RelayCommand(_ => CheckUpdatesAsync());
         AddByLinkCommand = new RelayCommand(_ => AddByLinkAsync());
@@ -53,13 +54,13 @@ public sealed class MainViewModel : ObservableObject
         ? (Brush)Application.Current.Resources["Success"]
         : (Brush)Application.Current.Resources["Warning"];
 
-    private string _connectionStatus = "מתחבר…";
+    private string _connectionStatus = L10n.T("Conn.Connecting");
     public string ConnectionStatus { get => _connectionStatus; set => SetField(ref _connectionStatus, value); }
 
-    private string _lastCheckText = "טרם נבדק";
+    private string _lastCheckText = L10n.T("Check.Never");
     public string LastCheckText { get => _lastCheckText; set => SetField(ref _lastCheckText, value); }
 
-    public string ManagedCountText => $"{Extensions.Count} תוספים מנוהלים";
+    public string ManagedCountText => L10n.F("Managed.Count", Extensions.Count);
 
     public async Task LoadAsync()
     {
@@ -72,9 +73,9 @@ public sealed class MainViewModel : ObservableObject
         Extensions.Clear();
         foreach (var inst in _controller.Installations)
             Extensions.Add(new ExtensionItemViewModel(inst, _controller, _log));
-        ConnectionStatus = _controller.ServerConnected ? "מחובר לשרת" : "לא מחובר (מצב לא-מקוון)";
+        ConnectionStatus = L10n.T(_controller.ServerConnected ? "Conn.Online" : "Conn.Offline");
         LastCheckText = _controller.LastCheck is { } t
-            ? $"בדיקה אחרונה: {t.ToLocalTime():HH:mm}" : "טרם נבדק";
+            ? L10n.F("Check.Last", t.ToLocalTime().ToString("HH:mm")) : L10n.T("Check.Never");
         OnPropertyChanged(nameof(ManagedCountText));
         OnPropertyChanged(nameof(ConnectionColor));
         OnPropertyChanged(nameof(EmptyVisibility));
@@ -97,7 +98,7 @@ public sealed class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             _log.Warning(ex, "check updates failed");
-            MessageBox.Show("לא הצלחנו לבדוק עדכונים כעת. ננסה שוב מאוחר יותר.",
+            MessageBox.Show(L10n.T("Msg.CheckFailed"),
                 "ExtSync", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally { IsBusy = false; Reload(); }
@@ -125,7 +126,7 @@ public sealed class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             _log.Warning(ex, "resolve install link failed");
-            MessageBox.Show("הקישור אינו תקין או שפג תוקפו.",
+            MessageBox.Show(L10n.T("Msg.LinkInvalid"),
                 "ExtSync", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }

@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="ExtSync Agent" Height="660" Width="920" MinHeight="480" MinWidth="760"
         Icon="/Assets/logo.png"
-        FlowDirection="RightToLeft" FontFamily="Segoe UI" WindowStartupLocation="CenterScreen"
+        FlowDirection="{DynamicResource S.Flow}" FontFamily="Segoe UI" WindowStartupLocation="CenterScreen"
         Background="{StaticResource SurfaceMuted}">
     <Window.Resources>
         <!-- Compact per-card action buttons. -->
@@ -50,11 +50,11 @@
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="הוספת תוסף מקישור" Command="{Binding AddByLinkCommand}"
+                    <Button Content="{DynamicResource S.Main.AddByLink}" Command="{Binding AddByLinkCommand}"
                             Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
-                    <Button Content="בדיקת עדכונים" Command="{Binding CheckUpdatesCommand}"
+                    <Button Content="{DynamicResource S.Main.Check}" Command="{Binding CheckUpdatesCommand}"
                             Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
-                    <Button Content="הגדרות" Command="{Binding OpenSettingsCommand}"
+                    <Button Content="{DynamicResource S.Main.Settings}" Command="{Binding OpenSettingsCommand}"
                             Style="{StaticResource SecondaryButton}"/>
                 </StackPanel>
             </Grid>
@@ -71,15 +71,15 @@
                         HorizontalAlignment="Center" MaxWidth="420">
                 <Image Source="/Assets/logo.png" Width="72" Height="72" HorizontalAlignment="Center"
                        RenderOptions.BitmapScalingMode="HighQuality"/>
-                <TextBlock Text="אין עדיין תוספים מנוהלים" FontSize="18" FontWeight="SemiBold"
+                <TextBlock Text="{DynamicResource S.Main.Empty.Title}" FontSize="18" FontWeight="SemiBold"
                            Foreground="{StaticResource TextPrimary}" HorizontalAlignment="Center" Margin="0,14,0,0"/>
                 <TextBlock TextWrapping="Wrap" TextAlignment="Center" FontSize="13"
                            Foreground="{StaticResource TextMuted}" Margin="0,6,0,0"
-                           Text="התקינו תוסף מגלריית התוספים באתר, או הדביקו קישור התקנה שקיבלתם ממפתח - ומכאן הוא יתעדכן אצלכם אוטומטית."/>
+                           Text="{DynamicResource S.Main.Empty.Body}"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
-                    <Button Content="פתיחת גלריית התוספים" Command="{Binding OpenStoreCommand}"
+                    <Button Content="{DynamicResource S.Main.Empty.Store}" Command="{Binding OpenStoreCommand}"
                             Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
-                    <Button Content="הוספה מקישור" Command="{Binding AddByLinkCommand}"
+                    <Button Content="{DynamicResource S.Main.Empty.Add}" Command="{Binding AddByLinkCommand}"
                             Style="{StaticResource SecondaryButton}"/>
                 </StackPanel>
             </StackPanel>
@@ -119,17 +119,17 @@
                                         </StackPanel>
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Button Content="בדיקה" Command="{Binding CheckCommand}"
+                                        <Button Content="{DynamicResource S.Item.Check}" Command="{Binding CheckCommand}"
                                                 Style="{StaticResource ItemSecondary}" Margin="0,0,6,0"/>
                                         <Button Content="{Binding PauseText}" Command="{Binding PauseCommand}"
                                                 Style="{StaticResource ItemSecondary}" Margin="0,0,6,0"/>
-                                        <Button Content="תיקייה" Command="{Binding OpenFolderCommand}"
+                                        <Button Content="{DynamicResource S.Item.Folder}" Command="{Binding OpenFolderCommand}"
                                                 Style="{StaticResource ItemSecondary}" Margin="0,0,6,0"/>
-                                        <Button Content="דף התוספים" Command="{Binding OpenExtensionsCommand}"
+                                        <Button Content="{DynamicResource S.Item.ExtPage}" Command="{Binding OpenExtensionsCommand}"
                                                 Style="{StaticResource ItemSecondary}" Margin="0,0,6,0"/>
-                                        <Button Content="Rollback" Command="{Binding RollbackCommand}"
+                                        <Button Content="{DynamicResource S.Item.Rollback}" Command="{Binding RollbackCommand}"
                                                 Style="{StaticResource ItemWarning}" Margin="0,0,6,0"/>
-                                        <Button Content="הסרה" Command="{Binding RemoveCommand}"
+                                        <Button Content="{DynamicResource S.Item.Remove}" Command="{Binding RemoveCommand}"
                                                 Style="{StaticResource ItemDanger}"/>
                                     </StackPanel>
                                 </Grid>

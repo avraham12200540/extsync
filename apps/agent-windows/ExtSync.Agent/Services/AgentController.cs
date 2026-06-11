@@ -117,7 +117,7 @@ public sealed class AgentController
         {
             var result = await _updates.InstallInitialAsync(inst, meta, ct);
             if (result.Result == UpdateStepResult.Failed)
-                throw new InvalidOperationException($"התקנה נכשלה: {result.ErrorCode}");
+                throw new InvalidOperationException(result.Message ?? result.ErrorCode ?? "install failed");
         }
         inst = _store.Get(projectId)!;
         RefreshNativeOrigins();

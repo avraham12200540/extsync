@@ -18,7 +18,7 @@ public partial class LinkInputWindow : Window
         Token = ExtractToken(InputBox.Text.Trim());
         if (string.IsNullOrEmpty(Token))
         {
-            MessageBox.Show("לא זוהה טוקן תקין בקישור.", "ExtSync",
+            MessageBox.Show(L10n.T("Link.Invalid"), "ExtSync",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }

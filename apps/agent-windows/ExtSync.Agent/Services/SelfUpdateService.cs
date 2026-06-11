@@ -80,7 +80,7 @@ public sealed class SelfUpdateService
         }
 
         _log.Information("self-update: applying {Version}", version);
-        _notify?.Invoke("ExtSync Agent", $"מתקין עדכון לגרסה {version}…");
+        _notify?.Invoke("ExtSync Agent", L10n.F("Upd.Installing", version));
 
         // Exit first (mutex released, files unlocked), install silently, relaunch.
         // `&` in cmd is sequential, and ping serves as a dependency-free sleep.

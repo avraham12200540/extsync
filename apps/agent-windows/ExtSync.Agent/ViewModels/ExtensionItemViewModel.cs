@@ -34,20 +34,20 @@ public sealed class ExtensionItemViewModel : ObservableObject
     public string Channel => _inst.Channel;
     public string ExtensionId => _inst.ExtensionId;
     public bool UpdatesPaused => _inst.UpdatesPaused;
-    public string PauseText => _inst.UpdatesPaused ? "חידוש עדכונים" : "השהיה";
+    public string PauseText => L10n.T(_inst.UpdatesPaused ? "Pause.Resume" : "Pause.Do");
     public string LastUpdatedText => _inst.LastUpdatedAt is { } t ? t.ToLocalTime().ToString("dd/MM HH:mm") : "-";
 
     public string StatusText => _inst.Status switch
     {
-        InstallationStatus.UpToDate => "מעודכן",
-        InstallationStatus.UpdateAvailable => "עדכון זמין",
-        InstallationStatus.Updating => "מעדכן…",
-        InstallationStatus.Downloading => "מוריד…",
-        InstallationStatus.AwaitingManualLoad => "ממתין לטעינה ב-Chrome",
-        InstallationStatus.ReloadRequired => "נדרשת טעינה מחדש",
-        InstallationStatus.Paused => "מושהה",
-        InstallationStatus.Broken => "תקלה",
-        InstallationStatus.RollbackInProgress => "מבצע Rollback…",
+        InstallationStatus.UpToDate => L10n.T("St.UpToDate"),
+        InstallationStatus.UpdateAvailable => L10n.T("St.UpdateAvailable"),
+        InstallationStatus.Updating => L10n.T("St.Updating"),
+        InstallationStatus.Downloading => L10n.T("St.Downloading"),
+        InstallationStatus.AwaitingManualLoad => L10n.T("St.AwaitManual"),
+        InstallationStatus.ReloadRequired => L10n.T("St.ReloadRequired"),
+        InstallationStatus.Paused => L10n.T("St.Paused"),
+        InstallationStatus.Broken => L10n.T("St.Broken"),
+        InstallationStatus.RollbackInProgress => L10n.T("St.RollingBack"),
         _ => _inst.Status.ToString(),
     };
 
@@ -63,8 +63,8 @@ public sealed class ExtensionItemViewModel : ObservableObject
 
     public bool BridgeConnected => _inst.BridgeConnected;
     public string BridgeText => _inst.HasBridge
-        ? (_inst.BridgeConnected ? "Bridge מחובר" : "Bridge לא מחובר")
-        : "ללא Bridge";
+        ? L10n.T(_inst.BridgeConnected ? "Bridge.On" : "Bridge.Off")
+        : L10n.T("Bridge.None");
 
     public RelayCommand CheckCommand { get; }
     public RelayCommand PauseCommand { get; }
@@ -76,12 +76,12 @@ public sealed class ExtensionItemViewModel : ObservableObject
     private async Task RollbackAsync()
     {
         var ok = MessageBox.Show(
-            $"לחזור לגרסה הקודמת של {Name}? הגרסה הנוכחית תישמר בתיקיית failed.",
-            "Rollback", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+            L10n.F("Dlg.Rollback.Body", Name),
+            L10n.T("Dlg.Rollback.Title"), MessageBoxButton.OKCancel, MessageBoxImage.Question);
         if (ok != MessageBoxResult.OK) return;
         var success = await _controller.RollbackAsync(_inst.ProjectId);
         if (!success)
-            MessageBox.Show("ה-Rollback נכשל. הגרסה הנוכחית נשארה.", "ExtSync",
+            MessageBox.Show(L10n.T("Dlg.Rollback.Failed"), "ExtSync",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
@@ -89,12 +89,8 @@ public sealed class ExtensionItemViewModel : ObservableObject
     {
         // One dialog instead of two: Yes = remove + delete files, No = remove only.
         var result = MessageBox.Show(
-            $"להסיר את {Name} מהניהול?\n\n" +
-            "כן - הסרה ומחיקת קבצי התוסף מהמחשב\n" +
-            "לא - הסרה מהניהול בלבד (הקבצים יישארו)\n" +
-            "ביטול - לא להסיר\n\n" +
-            "שימו לב: התוסף לא יוסר אוטומטית מ-Chrome.",
-            "הסרת תוסף", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            L10n.F("Dlg.Remove.Body", Name),
+            L10n.T("Dlg.Remove.Title"), MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
         if (result == MessageBoxResult.Cancel || result == MessageBoxResult.None) return;
 
         await _controller.RemoveAsync(_inst.ProjectId, deleteFiles: result == MessageBoxResult.Yes);

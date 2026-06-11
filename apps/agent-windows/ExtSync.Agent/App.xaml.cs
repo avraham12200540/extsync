@@ -50,6 +50,7 @@ public partial class App : Application
 
         _settings = AgentSettings.Load();
         _settings.AgentVersion = GetType().Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+        L10n.Apply(_settings.Language);
 
         // Compose services.
         var http = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
@@ -74,7 +75,7 @@ public partial class App : Application
         if (_settings.LastRunVersion != _settings.AgentVersion)
         {
             if (!string.IsNullOrEmpty(_settings.LastRunVersion))
-                _tray.ShowNotification("ExtSync Agent", $"עודכן לגרסה {_settings.AgentVersion} בהצלחה ✓");
+                _tray.ShowNotification("ExtSync Agent", L10n.F("Upd.Updated", _settings.AgentVersion));
             _settings.LastRunVersion = _settings.AgentVersion;
             _settings.Save();
         }
