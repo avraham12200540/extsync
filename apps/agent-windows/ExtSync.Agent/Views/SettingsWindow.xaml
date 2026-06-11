@@ -13,7 +13,8 @@
             <CheckBox x:Name="ChkStartup" Content="הפעלה עם Windows" Margin="0,6"/>
             <CheckBox x:Name="ChkAutoCheck" Content="בדיקת עדכונים אוטומטית" Margin="0,6"/>
             <StackPanel Orientation="Horizontal" Margin="0,6">
-                <TextBlock Text="תדירות בדיקת עדכונים:" VerticalAlignment="Center"/>
+                <TextBlock Text="תדירות בדיקת עדכונים:" VerticalAlignment="Center"
+                           Foreground="{StaticResource TextPrimary}"/>
                 <TextBox x:Name="TxtInterval" Width="60" Margin="8,0" Padding="6"/>
                 <ComboBox x:Name="CmbIntervalUnit" Width="100" VerticalContentAlignment="Center">
                     <ComboBoxItem Content="שניות"/>
@@ -32,7 +33,8 @@
             <CheckBox x:Name="ChkBackground" Content="הורדת עדכונים ברקע" Margin="0,6"/>
             <CheckBox x:Name="ChkNotify" Content="הצגת התראות Windows" Margin="0,6"/>
             <StackPanel Orientation="Horizontal" Margin="0,6">
-                <TextBlock Text="מספר גרסאות Rollback לשמירה:" VerticalAlignment="Center"/>
+                <TextBlock Text="מספר גרסאות Rollback לשמירה:" VerticalAlignment="Center"
+                           Foreground="{StaticResource TextPrimary}"/>
                 <TextBox x:Name="TxtRollback" Width="60" Margin="8,0" Padding="6"/>
             </StackPanel>
             <CheckBox x:Name="ChkBeta" Content="שימוש בגרסת Beta של ה-Agent" Margin="0,6"/>
