@@ -98,6 +98,32 @@ html {
   color: transparent;
 }
 
+/* Markdown body for extension full descriptions (react-markdown output). */
+.md-body h1, .md-body h2, .md-body h3 {
+  color: rgb(var(--ink));
+  font-weight: 600;
+  margin: 0.9em 0 0.3em;
+  font-size: 1.05em;
+}
+.md-body p { margin: 0.45em 0; line-height: 1.6; }
+.md-body ul, .md-body ol { margin: 0.45em 0; padding-inline-start: 1.3em; }
+.md-body ul { list-style: disc; }
+.md-body ol { list-style: decimal; }
+.md-body li { margin: 0.15em 0; }
+.md-body a { color: #2b7de9; text-decoration: underline; }
+.md-body code {
+  background: rgb(var(--surface-2));
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+}
+.md-body strong { color: rgb(var(--ink)); }
+.md-body blockquote {
+  border-inline-start: 3px solid rgb(var(--line));
+  padding-inline-start: 0.8em;
+  margin: 0.6em 0;
+}
+
 /* Indeterminate "scanning" progress bar (upload validation). */
 .scan-track {
   position: relative;

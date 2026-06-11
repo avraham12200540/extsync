@@ -79,7 +79,7 @@ Name: "desktopicon"; Description: "צור קיצור דרך בשולחן העב�
 ; Create a logon Scheduled Task so the Agent starts with the session (§6).
 ; The Agent's internal scheduler then performs periodic update checks (default 4h).
 Filename: "schtasks.exe"; \
-  Parameters: "/Create /F /TN ""ExtSync Agent Logon"" /TR ""'{app}\ExtSyncAgent.exe'"" /SC ONLOGON"; \
+  Parameters: "/Create /F /TN ""ExtSync Agent Logon"" /TR ""'{app}\ExtSyncAgent.exe' --minimized"" /SC ONLOGON"; \
   Flags: runhidden runascurrentuser
 ; Launch the Agent now and write the native host manifest.
 Filename: "{app}\ExtSyncAgent.exe"; Description: "הפעל את ExtSync Agent"; Flags: nowait postinstall skipifsilent

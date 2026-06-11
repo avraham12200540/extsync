@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import ReactMarkdown from "react-markdown";
 import type { CatalogDetail } from "@/lib/api";
 import { MarketingShell } from "@/components/marketing";
 import { RatingSection } from "@/components/rating-section";
@@ -50,8 +51,34 @@ export default async function StoreDetailPage({ params }: { params: { slug: stri
 
   const stable = d.channels.find((c) => c.channel === "stable") ?? d.channels[0];
 
+  // Rich result for Google: extension as a free software application.
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: d.name,
+    description: d.shortDescription || undefined,
+    applicationCategory: "BrowserApplication",
+    operatingSystem: "Chrome",
+    url: `https://extsync.com/store/${encodeURIComponent(d.slug)}`,
+    image: d.iconUrl || "https://extsync.com/og.jpg",
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+    ...(d.ratingsCount > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: d.avgRating,
+            ratingCount: d.ratingsCount,
+          },
+        }
+      : {}),
+  };
+
   return (
     <MarketingShell>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <main className="mx-auto w-full max-w-2xl px-6 py-10">
         <Link href="/store" className="mb-4 inline-block text-sm text-ink-muted hover:text-brand">{t("detail.back")}</Link>
         <div className="rounded-lg border border-line bg-surface p-5 shadow-card">
@@ -73,6 +100,7 @@ export default async function StoreDetailPage({ params }: { params: { slug: stri
                 {stable && <Badge>{t("detail.version")} {stable.version}</Badge>}
                 {d.category && <Badge>{d.category}</Badge>}
                 {d.usesNativeMessaging && <Badge>{t("detail.autoupdate")}</Badge>}
+                {(d.installs ?? 0) > 0 && <Badge>⬇ {d.installs} {t("store.installs")}</Badge>}
               </div>
             </div>
           </div>
@@ -81,7 +109,11 @@ export default async function StoreDetailPage({ params }: { params: { slug: stri
           <RatingSection slug={d.slug} initialAvg={d.avgRating} initialCount={d.ratingsCount} />
 
           {d.shortDescription && <p className="mt-4 text-ink">{d.shortDescription}</p>}
-          {d.fullDescription && <p className="mt-2 whitespace-pre-line text-sm text-ink-muted">{d.fullDescription}</p>}
+          {d.fullDescription && (
+            <div className="md-body mt-2 text-sm text-ink-muted">
+              <ReactMarkdown>{d.fullDescription}</ReactMarkdown>
+            </div>
+          )}
 
           {/* what's new */}
           {stable?.releaseNotes && (

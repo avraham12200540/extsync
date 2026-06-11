@@ -15,7 +15,8 @@ from ..db import get_session
 from ..deps import CurrentUser, OptionalUser
 from ..errors import not_found
 from ..ids import secret_token
-from ..models.enums import Channel, InstallLinkType, ProjectStatus, ProjectVisibility, ReleaseStatus
+from ..models.device import Installation
+from ..models.enums import Channel, InstallationStatus, InstallLinkType, ProjectStatus, ProjectVisibility, ReleaseStatus
 from ..models.install_link import InstallLink
 from ..models.project import Project
 from ..models.rating import ProjectRating
@@ -40,6 +41,7 @@ class CatalogItem(CamelModel):
     latest_version: str | None = None
     category: str | None = None
     published_at: str | None = None
+    installs: int = 0
     avg_rating: float = 0
     ratings_count: int = 0
     my_rating: int | None = None
@@ -72,6 +74,7 @@ class CatalogDetail(CamelModel):
     privacy_policy_url: str | None = None
     extension_id: str | None = None
     category: str | None = None
+    installs: int = 0
     channels: list[CatalogChannelInfo] = []
     permissions: list[str] = []
     host_permissions: list[str] = []
@@ -102,6 +105,21 @@ async def _ratings_map(db: AsyncSession, project_ids: list[str]) -> dict[str, tu
         .group_by(ProjectRating.project_id)
     )).all()
     return {pid: (round(float(avg), 2), int(cnt)) for pid, avg, cnt in rows}
+
+
+async def _installs_map(db: AsyncSession, project_ids: list[str]) -> dict[str, int]:
+    """Active (non-removed) installation count per project - store social proof."""
+    if not project_ids:
+        return {}
+    rows = (await db.execute(
+        select(Installation.project_id, func.count())
+        .where(
+            Installation.project_id.in_(project_ids),
+            Installation.status != InstallationStatus.removed,
+        )
+        .group_by(Installation.project_id)
+    )).all()
+    return {pid: int(n) for pid, n in rows}
 
 
 async def _my_ratings(db: AsyncSession, user_id: str | None, project_ids: list[str]) -> dict[str, int]:
@@ -139,6 +157,7 @@ async def list_catalog(db: DBSession, user: OptionalUser, q: str | None = None,
 
     ids = [p.id for p in projects]
     ratings = await _ratings_map(db, ids)
+    installs = await _installs_map(db, ids)
     mine = await _my_ratings(db, user.id if user else None, ids)
 
     items: list[CatalogItem] = []
@@ -151,6 +170,7 @@ async def list_catalog(db: DBSession, user: OptionalUser, q: str | None = None,
             icon_url=p.icon_url, developer_name=await _developer_name(db, p.owner_user_id),
             extension_id=p.extension_id, latest_version=rel.version if rel else None,
             category=p.category, published_at=_iso(rel.published_at) if rel else None,
+            installs=installs.get(p.id, 0),
             avg_rating=avg, ratings_count=cnt, my_rating=mine.get(p.id),
         ))
     # Highest-rated first; ties broken by number of ratings, then name.
@@ -279,7 +299,9 @@ async def catalog_detail(slug: str, db: DBSession, user: OptionalUser) -> Catalo
         developer_name=await _developer_name(db, project.owner_user_id),
         website=project.website, repo_url=project.repo_url,
         privacy_policy_url=project.privacy_policy_url, extension_id=project.extension_id,
-        category=project.category, channels=channels, permissions=perms,
+        category=project.category,
+        installs=(await _installs_map(db, [project.id])).get(project.id, 0),
+        channels=channels, permissions=perms,
         host_permissions=host_perms, uses_native_messaging=native, install_uri=install_uri,
         avg_rating=avg, ratings_count=cnt, my_rating=mine.get(project.id),
     )

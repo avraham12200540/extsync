@@ -57,7 +57,13 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-8 flex flex-col items-center justify-between gap-2 border-t border-white/10 pt-6 text-xs text-slate-500 sm:flex-row">
-          <span>© {new Date().getFullYear()} ExtSync. {t("footer.rights")}</span>
+          <span>
+            © {new Date().getFullYear()} ExtSync. {t("footer.rights")}
+            {" · "}
+            <Link href="/terms" className="transition-colors hover:text-slate-300">{t("footer.terms")}</Link>
+            {" · "}
+            <Link href="/privacy" className="transition-colors hover:text-slate-300">{t("footer.privacy")}</Link>
+          </span>
           <span>{t("footer.disclaimer")}</span>
         </div>
       </div>

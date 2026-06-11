@@ -19,7 +19,8 @@ public static class StartupRegistration
         if (enabled)
         {
             var exe = Process.GetCurrentProcess().MainModule?.FileName;
-            if (!string.IsNullOrEmpty(exe)) key.SetValue(ValueName, $"\"{exe}\"");
+            // --minimized: boot into the tray quietly instead of popping the window.
+            if (!string.IsNullOrEmpty(exe)) key.SetValue(ValueName, $"\"{exe}\" --minimized");
         }
         else
         {

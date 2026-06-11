@@ -32,14 +32,41 @@ export async function generateMetadata(): Promise<Metadata> {
       description,
       images: ["/og.jpg"],
     },
+    // Google Search Console HTML-tag verification: set GOOGLE_SITE_VERIFICATION
+    // in Vercel env vars (no code change needed).
+    ...(process.env.GOOGLE_SITE_VERIFICATION
+      ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } }
+      : {}),
   };
 }
+
+const SITE_JSONLD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      name: "ExtSync",
+      url: "https://extsync.com",
+      logo: "https://extsync.com/logo.png",
+    },
+    {
+      "@type": "WebSite",
+      name: "ExtSync",
+      url: "https://extsync.com",
+      inLanguage: ["he", "en"],
+    },
+  ],
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = getLocale();
   return (
     <html lang={locale} dir={isRtl(locale) ? "rtl" : "ltr"} suppressHydrationWarning>
       <body style={{ ["--font-sans" as any]: "'Segoe UI', system-ui, sans-serif" }}>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(SITE_JSONLD) }}
+        />
         <LocaleProvider initial={locale}>
           <Providers>{children}</Providers>
         </LocaleProvider>

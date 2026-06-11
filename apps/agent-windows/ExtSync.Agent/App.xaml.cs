@@ -30,11 +30,14 @@ public partial class App : Application
 
         _mutex = new Mutex(true, SingleInstanceMutex, out bool isNew);
         var uriArg = CustomUri.FromArgs(e.Args);
+        // Autostart (logon task / Run key) passes --minimized: start in the tray
+        // without popping the main window on every boot.
+        var startMinimized = e.Args.Contains("--minimized");
         if (!isNew)
         {
             // Another instance owns the UI. Forward any extsync:// URL and exit.
             if (uriArg != null) ForwardToRunningInstance(uriArg);
-            else ForwardToRunningInstance("show");
+            else if (!startMinimized) ForwardToRunningInstance("show");
             Shutdown();
             return;
         }
@@ -86,7 +89,7 @@ public partial class App : Application
         await vm.LoadAsync();
 
         if (uriArg != null) await HandleUri(uriArg, vm);
-        else window.Show();
+        else if (!startMinimized) window.Show();
 
         // Real-time push via WebSocket (with the poller below as fallback, §6).
         _ws = new AgentWebSocket(_settings, () => Dispatcher.InvokeAsync(vm.CheckUpdatesAsync).Task.Unwrap(), _log);

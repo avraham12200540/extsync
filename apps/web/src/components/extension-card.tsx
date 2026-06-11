@@ -78,8 +78,13 @@ export function ExtensionCard({ item, delay = 0 }: { item: CatalogItem; delay?: 
             </p>
           )}
           <p className="mt-1.5 truncate text-xs text-ink-muted">{t("store.by")} {item.developerName}</p>
-          <div className="mt-2">
+          <div className="mt-2 flex items-center justify-between gap-2">
             <RatingDisplay avg={item.avgRating} count={item.ratingsCount} />
+            {(item.installs ?? 0) > 0 && (
+              <span className="shrink-0 text-xs text-ink-muted" title={t("store.installs")}>
+                ⬇ {item.installs} {t("store.installs")}
+              </span>
+            )}
           </div>
         </div>
       </article>

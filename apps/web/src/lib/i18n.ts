@@ -35,6 +35,8 @@ const he: Dict = {
   "footer.mitmachim": "מתמחים טופ",
   "footer.rights": "כל הזכויות שמורות.",
   "footer.disclaimer": "אינה תחליף רשמי ל-Chrome Web Store.",
+  "footer.terms": "תנאי שימוש",
+  "footer.privacy": "פרטיות",
 
   // ---- home ----
   "home.tagline": "חנות לתוספי Chrome פרטיים - הורדה, התקנה ועדכון אוטומטי, בלי Chrome Web Store.",
@@ -88,6 +90,7 @@ const he: Dict = {
   "store.error.sub": "בדקו את החיבור ונסו לרענן את הדף בעוד רגע.",
   "store.by": "מאת",
   "store.norat": "אין דירוגים",
+  "store.installs": "התקנות",
 
   // ---- store detail ----
   "detail.back": "חזרה לגלריה",
@@ -396,6 +399,12 @@ const he: Dict = {
   "dash.pd.upfailed": "ההעלאה נכשלה",
   "dash.pd.scanq": "בתור לסריקת אבטחה…",
   "dash.pd.scanning": "סורק אבטחה: manifest, הרשאות, קוד מרוחק, ZIP-bomb…",
+  "dash.pd.danger": "אזור מסוכן",
+  "dash.pd.del.btn": "מחיקת התוסף",
+  "dash.pd.del.note": "מחיקה מסירה את התוסף מהחנות לצמיתות - כל הגרסאות וקישורי ההתקנה יפסיקו לעבוד, ומשתמשים לא יקבלו עוד עדכונים.",
+  "dash.pd.del.c1": "למחוק את",
+  "dash.pd.del.c2": "לצמיתות? כל הגרסאות וקישורי ההתקנה יפסיקו לעבוד.",
+  "dash.pd.del.c3": "אישור אחרון: הפעולה בלתי הפיכה. למחוק?",
   "dash.pd.link.create": "יצירת קישור התקנה",
   "dash.pd.link.uses": "שימושים:",
   "dash.pd.link.copy": "העתק",
@@ -464,6 +473,8 @@ const en: Dict = {
   "footer.mitmachim": "Mitmachim Top",
   "footer.rights": "All rights reserved.",
   "footer.disclaimer": "Not an official replacement for the Chrome Web Store.",
+  "footer.terms": "Terms of Service",
+  "footer.privacy": "Privacy",
 
   // ---- home ----
   "home.tagline": "A store for private Chrome extensions - download, install and auto-update, without the Chrome Web Store.",
@@ -517,6 +528,7 @@ const en: Dict = {
   "store.error.sub": "Check your connection and try refreshing in a moment.",
   "store.by": "By",
   "store.norat": "No ratings",
+  "store.installs": "installs",
 
   // ---- store detail ----
   "detail.back": "Back to gallery",
@@ -825,6 +837,12 @@ const en: Dict = {
   "dash.pd.upfailed": "Upload failed",
   "dash.pd.scanq": "Queued for security scan…",
   "dash.pd.scanning": "Scanning: manifest, permissions, remote code, ZIP-bomb…",
+  "dash.pd.danger": "Danger zone",
+  "dash.pd.del.btn": "Delete extension",
+  "dash.pd.del.note": "Deleting removes the extension from the store permanently - all versions and install links stop working, and users no longer receive updates.",
+  "dash.pd.del.c1": "Delete",
+  "dash.pd.del.c2": "permanently? All versions and install links will stop working.",
+  "dash.pd.del.c3": "Final confirmation: this cannot be undone. Delete?",
   "dash.pd.link.create": "Create install link",
   "dash.pd.link.uses": "uses:",
   "dash.pd.link.copy": "Copy",

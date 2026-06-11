@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MonitorSmartphone, CircleCheck, CircleX } from "lucide-react";
 import { api, ApiError, type InstallLink, type Project, type Release } from "@/lib/api";
@@ -62,7 +63,22 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
 function OverviewTab({ project }: { project: Project }) {
   const { t } = useLocale();
   const qc = useQueryClient();
+  const router = useRouter();
   const [iconErr, setIconErr] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const deleteProject = async () => {
+    if (!confirm(`${t("dash.pd.del.c1")} "${project.name}" ${t("dash.pd.del.c2")}`)) return;
+    if (!confirm(t("dash.pd.del.c3"))) return;
+    setDeleting(true);
+    try {
+      await api.del(`/projects/${project.id}`);
+      router.push("/app/projects");
+    } catch (e) {
+      setDeleting(false);
+      alert(e instanceof ApiError ? e.message : t("dash.pd.delfailed"));
+    }
+  };
   const uploadIcon = useMutation({
     mutationFn: async (file: File) => {
       const fd = new FormData();
@@ -173,6 +189,15 @@ function OverviewTab({ project }: { project: Project }) {
             {iconErr && <p className="mt-1 text-xs text-danger">{iconErr}</p>}
           </div>
         </div>
+      </Card>
+
+      {/* danger zone */}
+      <Card className="sm:col-span-2 border-danger/40">
+        <h3 className="mb-1 font-semibold text-danger">{t("dash.pd.danger")}</h3>
+        <p className="mb-3 text-xs text-ink-muted">{t("dash.pd.del.note")}</p>
+        <Button variant="danger" size="sm" disabled={deleting} onClick={deleteProject}>
+          {t("dash.pd.del.btn")}
+        </Button>
       </Card>
     </div>
   );

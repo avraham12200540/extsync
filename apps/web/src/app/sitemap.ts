@@ -13,6 +13,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/download`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${BASE}/docs`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE}/security`, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${BASE}/terms`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${BASE}/privacy`, changeFrequency: "yearly", priority: 0.3 },
   ];
 
   let items: CatalogItem[] = [];

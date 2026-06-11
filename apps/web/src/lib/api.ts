@@ -159,6 +159,7 @@ export interface CatalogItem {
   latestVersion?: string | null;
   category?: string | null;
   publishedAt?: string | null;
+  installs?: number;
   avgRating: number;
   ratingsCount: number;
   myRating?: number | null;
@@ -187,6 +188,7 @@ export interface CatalogDetail {
   privacyPolicyUrl?: string | null;
   extensionId?: string | null;
   category?: string | null;
+  installs?: number;
   channels: CatalogChannelInfo[];
   permissions: string[];
   hostPermissions: string[];
