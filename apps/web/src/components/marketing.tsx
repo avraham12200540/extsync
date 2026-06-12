@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { Logo, LogoIcon } from "@/components/logo";
@@ -79,7 +80,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       <div className="relative hidden overflow-hidden bg-brand-navy p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="pointer-events-none absolute -left-16 -top-16 h-72 w-72 rounded-full bg-brand-teal/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -right-10 h-80 w-80 rounded-full bg-brand-sky/20 blur-3xl" />
-        <a href="/" className="relative"><Logo size={38} onDark /></a>
+        <Link href="/" className="relative"><Logo size={38} onDark /></Link>
         <AuthBrandPanel />
         <p className="relative text-xs text-slate-400">© {new Date().getFullYear()} ExtSync</p>
       </div>
@@ -88,7 +89,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
       <div className="relative flex items-center justify-center bg-surface-2 px-6 py-12">
         <div className="absolute left-4 top-4"><LocaleToggle /></div>
         <div className="fade-up w-full max-w-md">
-          <a href="/" className="mb-8 inline-flex lg:hidden"><Logo size={34} /></a>
+          <Link href="/" className="mb-8 inline-flex lg:hidden"><Logo size={34} /></Link>
           {children}
         </div>
       </div>

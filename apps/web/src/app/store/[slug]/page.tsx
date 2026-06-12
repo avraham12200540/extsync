@@ -27,9 +27,10 @@ async function getDetail(slug: string): Promise<CatalogDetail | null> {
 }
 
 export async function generateMetadata(
-  { params }: { params: { slug: string } },
+  { params }: { params: Promise<{ slug: string }> },
 ): Promise<Metadata> {
-  const d = await getDetail(params.slug);
+  const { slug } = await params;
+  const d = await getDetail(slug);
   if (!d) return { title: "Not found" };
   const description = d.shortDescription || `${d.developerName} | ExtSync`;
   return {
@@ -43,10 +44,11 @@ export async function generateMetadata(
   };
 }
 
-export default async function StoreDetailPage({ params }: { params: { slug: string } }) {
-  const locale = getLocale();
+export default async function StoreDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const locale = await getLocale();
   const t = (k: string) => tr(k, locale);
-  const d = await getDetail(params.slug);
+  const d = await getDetail(slug);
   if (!d) notFound();
 
   const stable = d.channels.find((c) => c.channel === "stable") ?? d.channels[0];

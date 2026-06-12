@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { api, ApiError, type InstallPage } from "@/lib/api";
 import { SiteHeader } from "@/components/site-header";
@@ -9,16 +9,17 @@ import { useLocale } from "@/components/locale-context";
 import { Badge, Button, Card, Spinner } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 
-export default function InstallTokenPage({ params }: { params: { token: string } }) {
+export default function InstallTokenPage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = use(params);
   const { t } = useLocale();
   const [data, setData] = useState<InstallPage | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.post<InstallPage>(`/install-links/${params.token}/resolve`)
+    api.post<InstallPage>(`/install-links/${token}/resolve`)
       .then(setData)
       .catch((e) => setError(e instanceof ApiError ? e.message : "Error"));
-  }, [params.token]);
+  }, [token]);
 
   return (
     <div className="flex min-h-screen flex-col">

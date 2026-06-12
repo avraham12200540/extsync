@@ -130,7 +130,7 @@ export interface Release {
   requiresUserApproval: boolean;
   riskScore: number;
   releaseNotes?: string | null;
-  validationReport?: any;
+  validationReport?: unknown;
   validationError?: string | null;
   warningsCount?: number;
   publishedAt?: string | null;

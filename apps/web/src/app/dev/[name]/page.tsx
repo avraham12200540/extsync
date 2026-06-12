@@ -23,10 +23,10 @@ async function getExtensions(name: string): Promise<CatalogItem[] | null> {
 }
 
 export async function generateMetadata(
-  { params }: { params: { name: string } },
+  { params }: { params: Promise<{ name: string }> },
 ): Promise<Metadata> {
-  const name = decodeURIComponent(params.name);
-  const locale = getLocale();
+  const name = decodeURIComponent((await params).name);
+  const locale = await getLocale();
   return {
     title: locale === "en" ? `Extensions by ${name}` : `התוספים של ${name}`,
     description: locale === "en"
@@ -35,10 +35,10 @@ export async function generateMetadata(
   };
 }
 
-export default async function DeveloperPage({ params }: { params: { name: string } }) {
-  const locale = getLocale();
+export default async function DeveloperPage({ params }: { params: Promise<{ name: string }> }) {
+  const locale = await getLocale();
   const t = (k: string) => tr(k, locale);
-  const name = decodeURIComponent(params.name);
+  const name = decodeURIComponent((await params).name);
   const items = await getExtensions(name);
   if (items === null || items.length === 0) notFound();
 

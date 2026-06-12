@@ -12,10 +12,10 @@ function VerifyInner() {
   const { t } = useLocale();
   const params = useSearchParams();
   const token = params.get("token");
-  const [state, setState] = useState<"loading" | "ok" | "error">("loading");
+  const [state, setState] = useState<"loading" | "ok" | "error">(token ? "loading" : "error");
 
   useEffect(() => {
-    if (!token) { setState("error"); return; }
+    if (!token) return;
     api.post("/auth/verify-email", { token }).then(() => setState("ok")).catch(() => setState("error"));
   }, [token]);
 

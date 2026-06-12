@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,9 +13,9 @@ import { formatDate } from "@/lib/utils";
 
 type Tab = "overview" | "versions" | "links" | "analytics";
 
-export default function ProjectDetailPage({ params }: { params: { id: string } }) {
+export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { t } = useLocale();
-  const id = params.id;
+  const { id } = use(params);
   const [tab, setTab] = useState<Tab>("overview");
   const { data: project, isLoading } = useQuery({
     queryKey: ["project", id],
@@ -396,7 +396,10 @@ function AnalyticsTab({ projectId }: { projectId: string }) {
   const { t } = useLocale();
   const { data } = useQuery({
     queryKey: ["analytics", projectId],
-    queryFn: () => api.get<any>(`/projects/${projectId}/analytics`),
+    queryFn: () =>
+      api.get<{ activeInstallations: number; updates24h: { success: number; failed: number } }>(
+        `/projects/${projectId}/analytics`,
+      ),
   });
   const { data: series } = useQuery({
     queryKey: ["analytics-timeseries", projectId],

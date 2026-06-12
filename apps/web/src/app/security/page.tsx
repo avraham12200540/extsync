@@ -4,8 +4,8 @@ import { t as tr } from "@/lib/i18n";
 
 const ICONS = ["🔏", "🧪", "🔎", "🚫", "🔒", "↩️"];
 
-export default function SecurityPage() {
-  const locale = getLocale();
+export default async function SecurityPage() {
+  const locale = await getLocale();
   const t = (k: string) => tr(k, locale);
   const items = [1, 2, 3, 4, 5, 6].map((n, i) => ({
     icon: ICONS[i], t: t(`sec.${n}.t`), d: t(`sec.${n}.d`),

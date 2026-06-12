@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { MarketingShell, PageHero } from "@/components/marketing";
 import { getLocale } from "@/lib/locale-server";
 
-export function generateMetadata(): Metadata {
-  return getLocale() === "en"
+export async function generateMetadata(): Promise<Metadata> {
+  return (await getLocale()) === "en"
     ? { title: "Privacy Policy", robots: { index: true } }
     : { title: "מדיניות פרטיות", robots: { index: true } };
 }
@@ -30,8 +30,8 @@ const EN: [string, string][] = [
   ["8. Contact", "Privacy questions: glasser.avraham@gmail.com"],
 ];
 
-export default function PrivacyPage() {
-  const locale = getLocale();
+export default async function PrivacyPage() {
+  const locale = await getLocale();
   const sections = locale === "en" ? EN : HE;
   return (
     <MarketingShell>

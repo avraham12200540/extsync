@@ -1,5 +1,6 @@
-# ExtSync Web (Next.js) — dev image. For production use `next build` + standalone.
-FROM node:20-slim
+# ExtSync Web (Next.js) - dev image. For production use `next build` + standalone.
+# Next 16 requires Node >= 20.9; pinned to the same Node 24 line as CI/dev.
+FROM node:24-slim
 
 ENV NODE_ENV=development
 

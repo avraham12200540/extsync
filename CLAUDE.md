@@ -25,7 +25,7 @@ communicates in Hebrew.
 
 ## Layout
 
-- `apps/web` - Next.js 14 + Tailwind (RTL, bilingual he/en, dark default)
+- `apps/web` - Next.js 16 + Tailwind (RTL, bilingual he/en, dark default)
 - `apps/api` - FastAPI + Postgres + Redis (+ `extsync_signing` isolated signer)
 - `apps/worker` - release validation/signing pipeline
 - `apps/agent-windows` - WPF .NET 8 Windows Agent (self-updating)

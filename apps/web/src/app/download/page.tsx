@@ -8,8 +8,8 @@ import { t as tr } from "@/lib/i18n";
 const DOWNLOAD_URL =
   "https://github.com/avraham12200540/extsync/releases/latest/download/ExtSyncAgentSetup.exe";
 
-export default function DownloadPage() {
-  const locale = getLocale();
+export default async function DownloadPage() {
+  const locale = await getLocale();
   const t = (k: string) => tr(k, locale);
 
   const features = [

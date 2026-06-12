@@ -6,7 +6,7 @@ import { getLocale } from "@/lib/locale-server";
 import { isRtl } from "@/lib/i18n";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const locale = getLocale();
+  const locale = await getLocale();
   const title = locale === "en"
     ? "ExtSync - Private Chrome Extension Management"
     : "ExtSync - ניהול תוספי Chrome פרטיים";
@@ -58,11 +58,18 @@ const SITE_JSONLD = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const locale = getLocale();
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
   return (
-    <html lang={locale} dir={isRtl(locale) ? "rtl" : "ltr"} suppressHydrationWarning>
-      <body style={{ ["--font-sans" as any]: "'Segoe UI', system-ui, sans-serif" }}>
+    <html
+      lang={locale}
+      dir={isRtl(locale) ? "rtl" : "ltr"}
+      // Next 16 no longer suppresses CSS smooth-scrolling during navigations;
+      // this attribute restores instant scroll-to-top on route changes.
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
+      <body style={{ "--font-sans": "'Segoe UI', system-ui, sans-serif" } as React.CSSProperties}>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(SITE_JSONLD) }}
