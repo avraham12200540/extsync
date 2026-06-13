@@ -1,6 +1,10 @@
 // Typed API client. Access token lives in memory (set by the auth context); the
 // refresh token is an httpOnly cookie, so we send credentials and auto-refresh on 401.
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Default to the prod API: NEXT_PUBLIC_* is inlined at BUILD time, and if the build
+// env lacks NEXT_PUBLIC_API_URL the client would otherwise call a relative path on
+// its own origin (extsync.com/catalog -> 404). Prod is also the documented default
+// for local web dev (see AGENT.md); override with NEXT_PUBLIC_API_URL for a local API.
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.extsync.com";
 
 let accessToken: string | null = null;
 let onAuthLost: (() => void) | null = null;
