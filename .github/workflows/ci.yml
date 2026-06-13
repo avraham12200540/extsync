@@ -65,10 +65,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: "20" }
-      - name: Typecheck + build
+        with: { node-version: "24" }
+      # next build no longer runs ESLint (Next 16), so lint explicitly here.
+      - name: Lint + typecheck + build
         working-directory: apps/web
-        run: npm install && npm run typecheck && npm run build
+        run: npm install && npm run lint && npm run typecheck && npm run build
 
   migrations:
     runs-on: ubuntu-latest
