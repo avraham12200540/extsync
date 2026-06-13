@@ -6,7 +6,7 @@ import type { CatalogDetail } from "@/lib/api";
 import { MarketingShell } from "@/components/marketing";
 import { RatingSection } from "@/components/rating-section";
 import { Badge } from "@/components/ui";
-import { formatDate } from "@/lib/utils";
+import { formatDate, safeJsonLd } from "@/lib/utils";
 import { getLocale } from "@/lib/locale-server";
 import { t as tr } from "@/lib/i18n";
 
@@ -79,7 +79,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
     <MarketingShell>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
       <main className="mx-auto w-full max-w-2xl px-6 py-10">
         <Link href="/store" className="mb-4 inline-block text-sm text-ink-muted hover:text-brand">{t("detail.back")}</Link>

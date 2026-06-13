@@ -4,6 +4,7 @@ import { Providers } from "@/components/providers";
 import { LocaleProvider } from "@/components/locale-context";
 import { getLocale } from "@/lib/locale-server";
 import { isRtl } from "@/lib/i18n";
+import { safeJsonLd } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
@@ -72,7 +73,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body style={{ "--font-sans": "'Segoe UI', system-ui, sans-serif" } as React.CSSProperties}>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(SITE_JSONLD) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(SITE_JSONLD) }}
         />
         <LocaleProvider initial={locale}>
           <Providers>{children}</Providers>
