@@ -186,6 +186,10 @@ services:
       - "3000:3000"
     volumes:
       - ./apps/web:/app/apps/web
+      # Keep the image-installed Linux node_modules; without this anonymous
+      # volume the host bind-mount above shadows them with the host's (Windows)
+      # node_modules and native modules (swc) break inside the container.
+      - /app/apps/web/node_modules
       - ./packages:/app/packages
 
 volumes:
