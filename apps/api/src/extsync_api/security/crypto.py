@@ -19,8 +19,11 @@ from ..config import settings
 
 @lru_cache
 def _fernet() -> Fernet:
-    # Derive a 32-byte key deterministically from the app secret.
-    digest = hashlib.sha256(("extsync-enc:" + settings.jwt_secret).encode("utf-8")).digest()
+    # Prefer a dedicated ENCRYPTION_KEY so a JWT_SECRET rotation/leak does not also
+    # compromise encryption-at-rest. Falls back to jwt_secret for backward
+    # compatibility (existing ciphertext stays decryptable) when unset.
+    base_secret = settings.encryption_key or settings.jwt_secret
+    digest = hashlib.sha256(("extsync-enc:" + base_secret).encode("utf-8")).digest()
     key = base64.urlsafe_b64encode(digest)
     return Fernet(key)
 

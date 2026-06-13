@@ -35,6 +35,14 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     configure_logging(settings.log_level)
+    # Fail closed: never run production with a publicly-known dev secret default.
+    insecure = settings.insecure_production_defaults()
+    if insecure:
+        raise RuntimeError(
+            "Refusing to start in production with insecure default secrets: "
+            + ", ".join(insecure)
+            + ". Set strong values in the environment."
+        )
     logger.info("ExtSync API starting (env=%s)", settings.environment)
     yield
     await close_redis()

@@ -7,6 +7,13 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Dev-only secret defaults that must never reach production (fail-closed check).
+_DEV_SECRET_DEFAULTS = {
+    "jwt_secret": "dev-insecure-change-me",
+    "signing_internal_token": "dev-internal-token",
+    "csrf_secret": "dev-insecure-csrf-change-me",
+}
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -47,6 +54,11 @@ class Settings(BaseSettings):
     session_cookie_secure: bool = False
     session_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
     csrf_secret: str = "dev-insecure-csrf-change-me"
+    # Dedicated key for encryption-at-rest (TOTP secrets, project keys, webhook
+    # secrets). Empty -> derive from jwt_secret (legacy behavior). Set a separate
+    # value ONLY together with re-encrypting existing ciphertext, or stored
+    # secrets become undecryptable.
+    encryption_key: str = ""
 
     argon2_time_cost: int = 3
     argon2_memory_cost_kib: int = 65_536
@@ -94,6 +106,20 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    def insecure_production_defaults(self) -> list[str]:
+        """In production, return the names of secrets still set to a dev default.
+
+        Checked at startup (see main.lifespan) so a misconfigured prod boot fails
+        closed instead of silently shipping a publicly-known secret from the repo.
+        """
+        if not self.is_production:
+            return []
+        return [
+            name
+            for name, dev_value in _DEV_SECRET_DEFAULTS.items()
+            if getattr(self, name) == dev_value
+        ]
 
     def public_keys_map(self) -> dict[str, str]:
         """Parse SIGNING_PUBLIC_KEYS into {keyId: base64}."""

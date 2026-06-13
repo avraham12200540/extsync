@@ -1,16 +1,19 @@
 """Webhook management + delivery log (§32)."""
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, status
 from sqlalchemy import select
 
 from ..deps import CurrentUser, DBSession
-from ..errors import not_found
+from ..errors import APIError, ErrorCode, not_found
 from ..ids import secret_token
 from ..models.webhook import Webhook, WebhookDelivery
 from ..rbac import Permission
 from ..schemas.common import CamelModel, OkResponse
 from ..security.crypto import encrypt_str
+from ..security.ssrf import UnsafeUrlError, assert_safe_public_url
 from ..services.audit import record_audit
 from ..services.authz import load_project_for_user
 from ..services.jobs import enqueue_webhook
@@ -61,6 +64,12 @@ def _iso(v) -> str | None:
 @router.post("/projects/{project_id}/webhooks", status_code=status.HTTP_201_CREATED, response_model=WebhookCreated)
 async def create_webhook(project_id: str, req: WebhookCreate, user: CurrentUser, db: DBSession) -> WebhookCreated:
     await load_project_for_user(db, project_id, user, Permission.WEBHOOK_MANAGE)
+    # SSRF guard: the worker will POST to this URL server-side, so reject any URL
+    # that resolves to an internal/reserved address. Re-checked again at delivery.
+    try:
+        await asyncio.to_thread(assert_safe_public_url, req.url)
+    except UnsafeUrlError as exc:
+        raise APIError(ErrorCode.BAD_REQUEST, str(exc), status_code=422) from exc
     events = [e for e in req.events if e in ALLOWED_EVENTS]
     secret = secret_token(24)
     wh = Webhook(project_id=project_id, url=req.url, secret_encrypted=encrypt_str(secret),

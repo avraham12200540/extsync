@@ -1,6 +1,7 @@
 """Webhook delivery with HMAC signing, retry, and replay protection (§32)."""
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import hashlib
 import hmac
@@ -12,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from extsync_api.logging import get_logger
 from extsync_api.models.webhook import Webhook, WebhookDelivery
 from extsync_api.security.crypto import decrypt_str
+from extsync_api.security.ssrf import UnsafeUrlError, assert_safe_public_url
 
 logger = get_logger("extsync.worker.webhook")
 
@@ -33,6 +35,17 @@ async def deliver_webhook(db: AsyncSession, delivery_id: str) -> str:
         delivery.status = "failed"
         return "failed"
 
+    # SSRF guard at delivery time: re-resolve and reject internal targets, in
+    # case DNS for this host was repointed inward after the webhook was created.
+    try:
+        await asyncio.to_thread(assert_safe_public_url, webhook.url)
+    except UnsafeUrlError as exc:
+        logger.warning("webhook %s blocked unsafe url: %s", webhook.id, exc)
+        delivery.status = "failed"
+        delivery.response_body = f"blocked: {exc}"
+        delivery.next_retry_at = None
+        return "failed"
+
     body = json.dumps(delivery.payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     ts = str(int(dt.datetime.now(dt.timezone.utc).timestamp()))
     secret = decrypt_str(webhook.secret_encrypted)
@@ -46,7 +59,9 @@ async def deliver_webhook(db: AsyncSession, delivery_id: str) -> str:
     }
     delivery.attempts += 1
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        # follow_redirects=False: a 30x to an internal URL would bypass the SSRF
+        # guard above, so never follow redirects on webhook delivery.
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
             resp = await client.post(webhook.url, content=body, headers=headers)
         delivery.response_code = resp.status_code
         delivery.response_body = resp.text[:2000]
