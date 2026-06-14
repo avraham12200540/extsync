@@ -112,6 +112,7 @@ def _register_optional_routers(app: FastAPI) -> None:
     """Include feature routers if present (keeps the app importable mid-build)."""
     module_names = [
         "auth",
+        "oauth_google",
         "projects",
         "releases",
         "install_links",

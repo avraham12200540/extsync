@@ -298,6 +298,11 @@ async def start_password_reset(db: AsyncSession, email: str) -> None:
     user = await db.scalar(select(User).where(User.email == email))
     if user is None:
         return  # no enumeration
+    if user.password_hash is None:
+        # OAuth-only account (no password): nothing to reset - they sign in with
+        # Google. Issuing a token here would let a mailbox holder SET a first
+        # password and convert a Google-only account to password login.
+        return
     raw = new_opaque_token(32)
     db.add(PasswordReset(user_id=user.id, token_hash=hash_token(raw),
                          expires_at=_now() + dt.timedelta(hours=1)))

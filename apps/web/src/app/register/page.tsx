@@ -86,6 +86,12 @@ export default function RegisterPage() {
             {isSubmitting ? t("reg.busy") : t("reg.submit")}
           </Button>
         </form>
+        <div className="my-5 flex items-center gap-3 text-xs text-ink-muted">
+          <span className="h-px flex-1 bg-line" />{t("auth.or")}<span className="h-px flex-1 bg-line" />
+        </div>
+        <a href={`${api.apiUrl}/auth/google/start`} className="block">
+          <Button type="button" variant="secondary" className="w-full">{t("auth.google")}</Button>
+        </a>
         <p className="mt-4 text-center text-sm text-ink-muted">
           {t("reg.have")} <Link href="/login" className="text-brand hover:underline">{t("reg.login")}</Link>
         </p>

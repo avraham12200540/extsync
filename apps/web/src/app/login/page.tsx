@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -10,7 +10,7 @@ import { useAuth } from "@/components/providers";
 import { AuthShell } from "@/components/marketing";
 import { useLocale } from "@/components/locale-context";
 import { Button, Card, Field, Input } from "@/components/ui";
-import { ApiError } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 
 type Form = { email: string; password: string };
 
@@ -28,6 +28,22 @@ export default function LoginPage() {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Form>({
     resolver: zodResolver(schema),
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    // Surface a failed Google OAuth round-trip (callback redirects with ?oauth=failed).
+    if (params.get("oauth") === "failed") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setServerError(t("auth.google.failed"));
+    }
+    // A 2FA-enabled account that signed in with Google is handed off here with a
+    // challenge to finish the second factor (OAuth never skips 2FA).
+    const ch = params.get("challenge");
+    if (ch) {
+      setChallenge(ch);
+      window.history.replaceState({}, "", "/login");
+    }
+  }, [t]);
 
   const onSubmit = async (data: Form) => {
     setServerError(null);
@@ -77,6 +93,17 @@ export default function LoginPage() {
             </Field>
             <Button className="w-full" onClick={submit2fa}>{t("login.2fa.submit")}</Button>
           </div>
+        )}
+
+        {!challenge && (
+          <>
+            <div className="my-5 flex items-center gap-3 text-xs text-ink-muted">
+              <span className="h-px flex-1 bg-line" />{t("auth.or")}<span className="h-px flex-1 bg-line" />
+            </div>
+            <a href={`${api.apiUrl}/auth/google/start`} className="block">
+              <Button type="button" variant="secondary" className="w-full">{t("auth.google")}</Button>
+            </a>
+          </>
         )}
 
         <div className="mt-4 flex justify-between text-sm">
