@@ -1,6 +1,6 @@
-// Defense-in-depth response headers for every route. A full Content-Security-
-// Policy is intentionally omitted here (the app uses inline JSON-LD + the
-// next-themes bootstrap script, so CSP needs nonces + a dedicated test pass).
+// Defense-in-depth response headers for every route. The Content-Security-Policy
+// is set per-request (with a fresh nonce) in src/proxy.ts; these are the static
+// headers that don't need a nonce.
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },

@@ -26,6 +26,7 @@ from ..schemas.auth import (
     VerifyEmailRequest,
 )
 from ..schemas.common import OkResponse
+from ..security.crypto import hash_token
 from ..services import auth_service as svc
 from ..services.ratelimit import client_ip, enforce_rate_limit
 
@@ -40,7 +41,9 @@ def _set_refresh_cookie(response: Response, raw_refresh: str) -> None:
         value=raw_refresh,
         max_age=settings.jwt_refresh_ttl_seconds,
         httponly=True,
-        secure=settings.session_cookie_secure,
+        # Always Secure in production (the cookie must never ride plain HTTP),
+        # regardless of the env flag; dev over http stays usable.
+        secure=settings.session_cookie_secure or settings.is_production,
         samesite=settings.session_cookie_samesite,
         path="/",
     )
@@ -148,6 +151,14 @@ async def two_factor_verify(
     req: TwoFactorVerifyRequest, request: Request, response: Response,
     db: DBSession, user: OptionalUser = None,
 ):
+    # Throttle TOTP/recovery-code guessing: per IP, and per challenge/user so a
+    # single account/session can't be brute-forced from many IPs either.
+    ip = client_ip(request)
+    limit, window = settings.rate_limit_2fa_per_5min, 300
+    await enforce_rate_limit(f"2fa:ip:{ip}", limit=limit, window_seconds=window)
+    subject = req.challenge or (user.id if user else "anon")
+    await enforce_rate_limit(f"2fa:sub:{hash_token(subject)}", limit=limit, window_seconds=window)
+
     # Login-challenge path (no auth header, challenge present) -> returns tokens.
     if req.challenge:
         verified = await svc.verify_login_2fa(db, challenge=req.challenge, code=req.code)

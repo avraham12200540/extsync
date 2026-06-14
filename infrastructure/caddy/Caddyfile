@@ -3,8 +3,24 @@
 # Point these DNS A-records at the VPS:  api.<domain>  and  files.<domain>.
 # (The website itself is served by Vercel at <domain>/www — not here.)
 
+# Shared hardening headers for every response Caddy serves.
+(security_headers) {
+	header {
+		# Force HTTPS for two years, including subdomains.
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		# Don't let browsers MIME-sniff responses into a different content type.
+		X-Content-Type-Options "nosniff"
+		# These hosts are never meant to be framed.
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Don't advertise the server software.
+		-Server
+	}
+}
+
 # API
 api.{$DOMAIN} {
+	import security_headers
 	encode gzip zstd
 	reverse_proxy api:8000
 }
@@ -12,6 +28,7 @@ api.{$DOMAIN} {
 # Public artifact downloads (MinIO, artifacts bucket is anonymous-download).
 # Used both by the Agent and by the "manual download" button in the store.
 files.{$DOMAIN} {
+	import security_headers
 	encode gzip
 	reverse_proxy minio:9000
 }

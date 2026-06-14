@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
@@ -46,6 +47,7 @@ export async function generateMetadata(
 
 export default async function StoreDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   const locale = await getLocale();
   const t = (k: string) => tr(k, locale);
   const d = await getDetail(slug);
@@ -79,6 +81,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
     <MarketingShell>
       <script
         type="application/ld+json"
+        nonce={nonce}
         dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
       <main className="mx-auto w-full max-w-2xl px-6 py-10">

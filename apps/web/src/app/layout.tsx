@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { LocaleProvider } from "@/components/locale-context";
@@ -61,6 +62,7 @@ const SITE_JSONLD = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html
       lang={locale}
@@ -73,10 +75,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body style={{ "--font-sans": "'Segoe UI', system-ui, sans-serif" } as React.CSSProperties}>
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: safeJsonLd(SITE_JSONLD) }}
         />
         <LocaleProvider initial={locale}>
-          <Providers>{children}</Providers>
+          <Providers nonce={nonce}>{children}</Providers>
         </LocaleProvider>
       </body>
     </html>

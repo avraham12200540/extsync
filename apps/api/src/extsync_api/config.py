@@ -98,6 +98,7 @@ class Settings(BaseSettings):
     rate_limit_upload_per_hour: int = 60
     rate_limit_register_per_hour: int = 50        # per IP — lets many people sign up
     rate_limit_resend_verify_per_hour: int = 20   # per user — only caps resend spam
+    rate_limit_2fa_per_5min: int = 10             # per IP + per challenge — anti TOTP brute force
 
     # google oauth
     google_oauth_client_id: str = ""
