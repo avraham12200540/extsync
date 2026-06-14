@@ -187,17 +187,24 @@ public static class ChromeHelper
 
     private static async Task OpenInProfileWhenReadyAsync(string chrome, string profileDir)
     {
-        // --new-window + a chrome:// URL is the combination Chrome honors reliably,
-        // but only against a RUNNING instance; so wait for a window, settle briefly
-        // (firing the instant a window appears also gets dropped), then send.
-        var args = $"--profile-directory=\"{profileDir}\" --new-window {ExtensionsUrl}";
+        // Hand chrome://extensions to the RUNNING instance as a NEW TAB in the chosen
+        // profile. We deliberately do NOT pass --new-window: forcing a fresh window
+        // makes it cold-start and Chrome drops the chrome:// URL (the blank-tab bug).
+        // A plain URL hand-off opens a tab in the profile window we just launched -
+        // the most reliable path. Wait for a real browser window, settle, then send.
+        // Logs every Chrome window title + each stage so a miss is diagnosable.
+        var args = $"--profile-directory=\"{profileDir}\" {ExtensionsUrl}";
+        var seen = new HashSet<string>();
         for (var i = 0; i < 40; i++) // ~20s
         {
             await Task.Delay(500).ConfigureAwait(false);
-            if (ChromeWindowTitles().Any(LooksLikeBrowserWindow))
+            var titles = ChromeWindowTitles();
+            foreach (var t in titles)
+                if (seen.Add(t)) Log.Information("OpenExtensions: Chrome window title seen: {Title}", t);
+            if (titles.Any(LooksLikeBrowserWindow))
             {
-                await Task.Delay(1500).ConfigureAwait(false);
-                Log.Information("OpenExtensions: window ready; opening extensions in profile {Profile}", profileDir);
+                await Task.Delay(2000).ConfigureAwait(false);
+                Log.Information("OpenExtensions: window ready; opening extensions (new tab) in profile {Profile}", profileDir);
                 try { Process.Start(new ProcessStartInfo(chrome, args) { UseShellExecute = false }); }
                 catch (Exception ex) { Log.Warning(ex, "OpenExtensions: profile open failed"); }
                 return;
