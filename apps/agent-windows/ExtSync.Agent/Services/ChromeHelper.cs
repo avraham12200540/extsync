@@ -165,22 +165,47 @@ public static class ChromeHelper
     public static bool OpenExtensionsInProfile(string profileDir)
     {
         var chrome = FindChrome();
+        if (chrome == null || string.IsNullOrWhiteSpace(profileDir)) return OpenExtensionsPage();
         try
         {
-            if (chrome != null && !string.IsNullOrWhiteSpace(profileDir))
-            {
-                Log.Information("OpenExtensions: opening in profile {Profile}", profileDir);
-                Process.Start(new ProcessStartInfo(
-                    chrome, $"--profile-directory=\"{profileDir}\" {ExtensionsUrl}") { UseShellExecute = false });
-                return true;
-            }
-            return OpenExtensionsPage();
+            Log.Information("OpenExtensions: target profile {Profile}", profileDir);
+            // Open the profile's WINDOW first (no URL). Passing a chrome:// URL while
+            // a profile window is cold-starting drops it (blank tab) - so we wait for
+            // a browser window to exist, then send chrome://extensions into the
+            // already-running instance (reliable), targeted at the chosen profile.
+            Process.Start(new ProcessStartInfo(
+                chrome, $"--profile-directory=\"{profileDir}\"") { UseShellExecute = false });
+            _ = OpenInProfileWhenReadyAsync(chrome, profileDir);
+            return true;
         }
         catch (Exception ex)
         {
             Log.Warning(ex, "OpenExtensions: open-in-profile failed");
             return false;
         }
+    }
+
+    private static async Task OpenInProfileWhenReadyAsync(string chrome, string profileDir)
+    {
+        // --new-window + a chrome:// URL is the combination Chrome honors reliably,
+        // but only against a RUNNING instance; so wait for a window, settle briefly
+        // (firing the instant a window appears also gets dropped), then send.
+        var args = $"--profile-directory=\"{profileDir}\" --new-window {ExtensionsUrl}";
+        for (var i = 0; i < 40; i++) // ~20s
+        {
+            await Task.Delay(500).ConfigureAwait(false);
+            if (ChromeWindowTitles().Any(LooksLikeBrowserWindow))
+            {
+                await Task.Delay(1500).ConfigureAwait(false);
+                Log.Information("OpenExtensions: window ready; opening extensions in profile {Profile}", profileDir);
+                try { Process.Start(new ProcessStartInfo(chrome, args) { UseShellExecute = false }); }
+                catch (Exception ex) { Log.Warning(ex, "OpenExtensions: profile open failed"); }
+                return;
+            }
+        }
+        Log.Information("OpenExtensions: window not detected; opening extensions in profile {Profile} anyway", profileDir);
+        try { Process.Start(new ProcessStartInfo(chrome, args) { UseShellExecute = false }); }
+        catch (Exception ex) { Log.Warning(ex, "OpenExtensions: fallback profile open failed"); }
     }
 
     public static void CopyPathToClipboard(string path) => CopyText(path);
