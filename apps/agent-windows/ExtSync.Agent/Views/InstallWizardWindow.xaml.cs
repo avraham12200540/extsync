@@ -1,6 +1,9 @@
+using System.Diagnostics;
+using System.IO;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using ExtSync.Agent.Models;
 using ExtSync.Agent.Services;
 using Serilog;
@@ -14,7 +17,6 @@ public partial class InstallWizardWindow : Window
     private readonly AgentController _controller;
     private readonly ILogger _log;
     private LocalInstallation? _installation;
-    private string? _chosenProfileDir;
 
     public InstallWizardWindow(string token, JsonElement resolved, AgentController controller, ILogger log)
     {
@@ -65,46 +67,12 @@ public partial class InstallWizardWindow : Window
         try
         {
             _installation = await _controller.InstallFromTokenAsync(_token, _resolved);
-            // No File Explorer pop-up - only the browser. The folder path is on the
-            // clipboard and the guide panel keeps a manual "Open folder" button.
+            // We no longer try to auto-open chrome://extensions - Chrome drops the URL
+            // unreliably across profiles/cold starts (the blank-tab saga). Instead the
+            // guide explains it in plain steps + a short video, the folder path is
+            // pre-copied for "Load unpacked", and "Copy chrome://extensions" is one click.
             ChromeHelper.CopyPathToClipboard(_installation.ActivePath);
             TxtFolder.Text = L10n.F("Wiz.Folder", _installation.ActivePath);
-
-            var profiles = ChromeHelper.GetProfiles();
-            if (profiles.Count > 1)
-            {
-                // Let the user pick which Chrome profile to install into; the
-                // extensions page then opens in THAT profile (open or closed).
-                ProfileButtons.Children.Clear();
-                var style = TryFindResource("SecondaryButton") as Style;
-                foreach (var (dir, name) in profiles)
-                {
-                    var btn = new Button
-                    {
-                        Content = name,
-                        Tag = dir,
-                        HorizontalAlignment = HorizontalAlignment.Left,
-                        Margin = new Thickness(0, 0, 0, 8),
-                    };
-                    if (style != null) btn.Style = style;
-                    btn.Click += OnProfileChosen;
-                    ProfileButtons.Children.Add(btn);
-                }
-                ConfirmPanel.Visibility = Visibility.Collapsed;
-                ProfilePanel.Visibility = Visibility.Visible;
-                return;
-            }
-
-            // 0 or 1 profile: nothing to choose.
-            if (profiles.Count == 1)
-            {
-                _chosenProfileDir = profiles[0].Dir;
-                ChromeHelper.OpenExtensionsInProfile(_chosenProfileDir);
-            }
-            else
-            {
-                ChromeHelper.OpenExtensionsPage();
-            }
             ShowGuide();
         }
         catch (Exception ex)
@@ -116,24 +84,34 @@ public partial class InstallWizardWindow : Window
         }
     }
 
-    private void OnProfileChosen(object sender, RoutedEventArgs e)
-    {
-        _chosenProfileDir = (string)((Button)sender).Tag;
-        ChromeHelper.OpenExtensionsInProfile(_chosenProfileDir);
-        ShowGuide();
-    }
-
     private void ShowGuide()
     {
         ConfirmPanel.Visibility = Visibility.Collapsed;
-        ProfilePanel.Visibility = Visibility.Collapsed;
         GuidePanel.Visibility = Visibility.Visible;
     }
 
-    private void OnOpenExtensions(object sender, RoutedEventArgs e)
+    private void OnOpenGifLargePoster(object sender, MouseButtonEventArgs e) => OpenGuideGifLarge();
+    private void OnOpenGifLargeClick(object sender, RoutedEventArgs e) => OpenGuideGifLarge();
+
+    // Show the full screen-recording guide in a large, closable window: extract the
+    // embedded GIF to a temp file and open it in the OS default viewer (which animates
+    // it correctly - we deliberately do not animate GIFs inside WPF).
+    private void OpenGuideGifLarge()
     {
-        if (!string.IsNullOrEmpty(_chosenProfileDir)) ChromeHelper.OpenExtensionsInProfile(_chosenProfileDir);
-        else ChromeHelper.OpenExtensionsPage();
+        try
+        {
+            var dest = Path.Combine(Path.GetTempPath(), "extsync-load-extension.gif");
+            var res = Application.GetResourceStream(new Uri("Assets/load-extension.gif", UriKind.Relative));
+            if (res == null) return;
+            using (var src = res.Stream)
+            using (var fs = File.Create(dest))
+                src.CopyTo(fs);
+            Process.Start(new ProcessStartInfo(dest) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            _log.Warning(ex, "open guide gif failed");
+        }
     }
     private void OnCopyPath(object sender, RoutedEventArgs e)
     {

@@ -16,6 +16,7 @@
   <ItemGroup>
     <Resource Include="Assets\logo.png" />
     <Resource Include="Assets\extsync.ico" />
+    <Resource Include="Assets\load-extension.gif" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,7 +1,7 @@
 <Window x:Class="ExtSync.Agent.Views.InstallWizardWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="{DynamicResource S.Wiz.WinTitle}" Height="620" Width="560"
+        Title="{DynamicResource S.Wiz.WinTitle}" Height="660" Width="560"
         Icon="/Assets/logo.png"
         FlowDirection="{DynamicResource S.Flow}" FontFamily="Segoe UI"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
@@ -51,62 +51,67 @@
             </StackPanel>
         </StackPanel>
 
-        <!-- Phase 1.5: choose Chrome profile -->
-        <StackPanel x:Name="ProfilePanel" Visibility="Collapsed">
-            <TextBlock Text="{DynamicResource S.Wiz.ChooseProfile}" FontSize="20" FontWeight="SemiBold"
-                       Foreground="{StaticResource TextPrimary}"/>
-            <Border Background="#262B7DE9" CornerRadius="8" Padding="10" Margin="0,12">
-                <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#93C5FD"
-                    Text="{DynamicResource S.Wiz.ChooseProfileNote}"/>
-            </Border>
-            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="360">
-                <StackPanel x:Name="ProfileButtons" Margin="0,4"/>
-            </ScrollViewer>
-            <Button Content="{DynamicResource S.Wiz.Cancel}" Click="OnCancel"
-                    Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,12,0,0"/>
-        </StackPanel>
+        <!-- Phase 2: guide (scrollable content + pinned action buttons) -->
+        <Grid x:Name="GuidePanel" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-        <!-- Phase 2: guide -->
-        <StackPanel x:Name="GuidePanel" Visibility="Collapsed">
-            <TextBlock Text="{DynamicResource S.Wiz.GuideHeader}" FontSize="20" FontWeight="SemiBold"
-                       Foreground="{StaticResource TextPrimary}"/>
-            <Border Background="{StaticResource Surface}" CornerRadius="12" Padding="18" Margin="0,16"
-                    BorderBrush="{StaticResource Border}" BorderThickness="1">
+            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
                 <StackPanel>
-                    <TextBlock Text="{DynamicResource S.Wiz.Step1}" Margin="0,4" TextWrapping="Wrap"
+                    <TextBlock Text="{DynamicResource S.Wiz.GuideHeader}" FontSize="20" FontWeight="SemiBold"
                                Foreground="{StaticResource TextPrimary}"/>
-                    <TextBlock Text="{DynamicResource S.Wiz.Step2}" Margin="0,4" TextWrapping="Wrap"
+
+                    <!-- Video guide: static preview, click to open full animation in a large window -->
+                    <TextBlock Text="{DynamicResource S.Wiz.GifCaption}" FontWeight="SemiBold" Margin="0,14,0,6"
                                Foreground="{StaticResource TextPrimary}"/>
-                    <TextBlock Text="{DynamicResource S.Wiz.Step3}" Margin="0,4" TextWrapping="Wrap"
-                               Foreground="{StaticResource TextPrimary}"/>
-                    <TextBlock Text="{DynamicResource S.Wiz.Step4}" Margin="0,4" TextWrapping="Wrap"
-                               Foreground="{StaticResource TextPrimary}"/>
-                    <TextBlock x:Name="TxtFolder" Margin="0,8,0,0" FontSize="12" TextWrapping="Wrap"
+                    <Border Cursor="Hand" MouseLeftButtonUp="OnOpenGifLargePoster" CornerRadius="8" Margin="0,0,0,4"
+                            BorderBrush="{StaticResource Border}" BorderThickness="1" Background="#000000" ClipToBounds="True">
+                        <Grid>
+                            <Image Source="/Assets/load-extension.gif" Stretch="Uniform" MaxHeight="180"/>
+                            <Border Background="#B0000000" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    CornerRadius="20" Padding="16,9">
+                                <TextBlock Text="{DynamicResource S.Wiz.GifOpenLarge}" Foreground="White"
+                                           FontSize="13" FontWeight="SemiBold"/>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <Border Background="{StaticResource Surface}" CornerRadius="12" Padding="18" Margin="0,12"
+                            BorderBrush="{StaticResource Border}" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource S.Wiz.Step1}" Margin="0,4" TextWrapping="Wrap"
+                                       Foreground="{StaticResource TextPrimary}"/>
+                            <TextBlock Text="{DynamicResource S.Wiz.Step2}" Margin="0,4" TextWrapping="Wrap"
+                                       Foreground="{StaticResource TextPrimary}"/>
+                            <TextBlock Text="{DynamicResource S.Wiz.Step3}" Margin="0,4" TextWrapping="Wrap"
+                                       Foreground="{StaticResource TextPrimary}"/>
+                            <TextBlock Text="{DynamicResource S.Wiz.Step4}" Margin="0,4" TextWrapping="Wrap"
+                                       Foreground="{StaticResource TextPrimary}"/>
+                            <TextBlock x:Name="TxtFolder" Margin="0,8,0,0" FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{StaticResource TextMuted}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <WrapPanel>
+                        <Button Content="{DynamicResource S.Wiz.GifOpenLarge}" Click="OnOpenGifLargeClick" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8"/>
+                        <Button Content="{DynamicResource S.Wiz.CopyUrl}" Click="OnCopyUrl" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
+                        <Button Content="{DynamicResource S.Wiz.CopyPath}" Click="OnCopyPath" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
+                        <Button Content="{DynamicResource S.Wiz.OpenFolder}" Click="OnOpenFolder" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
+                    </WrapPanel>
+
+                    <TextBlock x:Name="TxtGuideStatus" Margin="0,8" FontSize="13" TextWrapping="Wrap"
                                Foreground="{StaticResource TextMuted}"/>
                 </StackPanel>
-            </Border>
+            </ScrollViewer>
 
-            <Border Background="#262B7DE9" CornerRadius="8" Padding="10" Margin="0,0,0,10">
-                <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#93C5FD"
-                    Text="{DynamicResource S.Wiz.ProfileNote}"/>
-            </Border>
-
-            <WrapPanel>
-                <Button Content="{DynamicResource S.Wiz.OpenAgain}" Click="OnOpenExtensions" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8"/>
-                <Button Content="{DynamicResource S.Wiz.CopyUrl}" Click="OnCopyUrl" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
-                <Button Content="{DynamicResource S.Wiz.CopyPath}" Click="OnCopyPath" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
-                <Button Content="{DynamicResource S.Wiz.OpenFolder}" Click="OnOpenFolder" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
-            </WrapPanel>
-
-            <TextBlock x:Name="TxtGuideStatus" Margin="0,8" FontSize="13" TextWrapping="Wrap"
-                       Foreground="{StaticResource TextMuted}"/>
-
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,8,0,0">
+            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,12,0,0">
                 <Button x:Name="BtnConfirmLoaded" Content="{DynamicResource S.Wiz.Loaded}" Click="OnConfirmLoaded"
                         Style="{StaticResource SuccessButton}" Margin="0,0,8,0"/>
                 <Button x:Name="BtnDone" Content="{DynamicResource S.Wiz.Done}" Click="OnCancel" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
                 <Button Content="{DynamicResource S.Wiz.Help}" Click="OnHelp" Style="{StaticResource SecondaryButton}"/>
             </StackPanel>
-        </StackPanel>
+        </Grid>
     </Grid>
 </Window>
