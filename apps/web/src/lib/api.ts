@@ -226,6 +226,7 @@ export interface InstallPage {
   requiresAccount: boolean;
   hasBridge: boolean;
   installUri: string;
+  downloadUrl?: string | null;
   usable: boolean;
   reason?: string | null;
 }

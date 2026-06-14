@@ -72,5 +72,9 @@ class InstallPageResolve(CamelModel):
     requires_account: bool
     has_bridge: bool
     install_uri: str  # extsync://install?token=...
+    # Direct download of the validated extension ZIP for manual install (load
+    # unpacked in Chrome) - for users who don't want the Agent. Omitted for
+    # account-gated links. Manual installs do NOT auto-update.
+    download_url: str | None = None
     usable: bool
     reason: str | None = None

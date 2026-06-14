@@ -311,6 +311,9 @@ const he: Dict = {
   "inst.need.2": "? התקן אותו פעם אחת ואז חזור לדף הזה.",
   "inst.dl": "הורדת ExtSync Agent",
   "inst.account": "להתקנה זו נדרש חשבון משתמש מחובר ב-Agent.",
+  "inst.manual.title": "או התקנה ידנית (בלי האייג'נט)",
+  "inst.manual.dl": "הורד ZIP",
+  "inst.manual.hint": "פתח את chrome://extensions, הפעל \"מצב מפתח\", חלץ את ה-ZIP ולחץ \"טען לא ארוז\". התקנה ידנית אינה מתעדכנת אוטומטית.",
 
   // ---- dashboard ----
   "dash.nav.overview": "סקירה",
@@ -755,6 +758,9 @@ const en: Dict = {
   "inst.need.2": " yet? Install it once, then come back to this page.",
   "inst.dl": "Download ExtSync Agent",
   "inst.account": "This install requires a signed-in account in the Agent.",
+  "inst.manual.title": "Or install manually (without the Agent)",
+  "inst.manual.dl": "Download ZIP",
+  "inst.manual.hint": "Open chrome://extensions, turn on Developer mode, unzip the file and click \"Load unpacked\". Manual installs do not auto-update.",
 
   // ---- dashboard ----
   "dash.nav.overview": "Overview",

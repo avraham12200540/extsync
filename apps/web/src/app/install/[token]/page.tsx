@@ -110,6 +110,15 @@ function InstallContent({ data }: { data: InstallPage }) {
           {data.requiresAccount && (
             <p className="mt-3 text-xs text-ink-muted">{t("inst.account")}</p>
           )}
+          {data.downloadUrl && (
+            <div className="mt-4 border-t border-line pt-4">
+              <h2 className="text-sm font-semibold text-ink">{t("inst.manual.title")}</h2>
+              <p className="mt-1 text-xs leading-relaxed text-ink-muted">{t("inst.manual.hint")}</p>
+              <a href={data.downloadUrl} download className="mt-2 inline-block">
+                <Button size="sm" variant="secondary">{t("inst.manual.dl")}</Button>
+              </a>
+            </div>
+          )}
         </>
       )}
     </Card>

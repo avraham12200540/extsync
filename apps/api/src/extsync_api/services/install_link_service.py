@@ -10,8 +10,14 @@ from ..ids import secret_token
 from ..models.enums import ProjectStatus, ReleaseStatus
 from ..models.install_link import InstallLink
 from ..models.project import Project
-from ..models.release import ChannelState, Release, ReleasePermissionSnapshot
+from ..models.release import (
+    ChannelState,
+    Release,
+    ReleaseArtifact,
+    ReleasePermissionSnapshot,
+)
 from ..models.user import DeveloperProfile, User
+from ..storage import storage
 from ..schemas.install_link import (
     InstallLinkCreate,
     InstallPagePermissions,
@@ -84,6 +90,7 @@ async def resolve_install_link(db: AsyncSession, token: str) -> InstallPageResol
     perms = InstallPagePermissions()
     version = published_at = None
     has_bridge = False
+    download_url: str | None = None
     if rel is not None:
         version = rel.version
         published_at = _iso(rel.published_at)
@@ -100,6 +107,17 @@ async def resolve_install_link(db: AsyncSession, token: str) -> InstallPageResol
                 optional_permissions=snap.optional_permissions,
                 uses_native_messaging=snap.uses_native_messaging,
             )
+        # Direct ZIP download for manual install (load unpacked) - only on links
+        # that don't require an account; the artifacts bucket is download-public.
+        if not link.requires_account:
+            artifact = await db.scalar(
+                select(ReleaseArtifact).where(
+                    ReleaseArtifact.release_id == rel.id,
+                    ReleaseArtifact.kind == "validated",
+                )
+            )
+            if artifact is not None:
+                download_url = storage.public_url(artifact.s3_bucket, artifact.s3_key)
 
     return InstallPageResolve(
         token=token,
@@ -121,6 +139,7 @@ async def resolve_install_link(db: AsyncSession, token: str) -> InstallPageResol
         requires_account=link.requires_account,
         has_bridge=has_bridge,
         install_uri=f"extsync://install?token={token}",
+        download_url=download_url,
         usable=usable,
         reason=reason,
     )
