@@ -202,6 +202,9 @@ const he: Dict = {
   "nf.body": "הקישור שגוי או שהדף הוסר. אפשר לחזור לדף הבית או לעיין בגלריית התוספים.",
   "nf.home": "לדף הבית",
   "nf.store": "לגלריית התוספים",
+  "err.title": "משהו השתבש",
+  "err.body": "אירעה שגיאה בלתי צפויה. אפשר לנסות שוב או לחזור לדף הבית.",
+  "err.retry": "נסה שוב",
 
   // ---- auth shell ----
   "auth.brand.title.1": "חנות התוספים הפרטית",
@@ -241,7 +244,7 @@ const he: Dict = {
   "reg.failed": "ההרשמה נכשלה",
   "reg.err.name": "נדרש שם תצוגה",
   "reg.err.email": "אימייל לא תקין",
-  "reg.err.password": "לפחות 10 תווים",
+  "reg.err.password": "לפחות 10 תווים, עם שילוב של לפחות שני סוגים (אותיות, ספרות או סימנים)",
   "reg.err.terms": "יש לאשר את תנאי השימוש",
 
   // ---- forgot / reset ----
@@ -314,6 +317,8 @@ const he: Dict = {
   "inst.manual.title": "או התקנה ידנית (בלי האייג'נט)",
   "inst.manual.dl": "הורד ZIP",
   "inst.manual.hint": "פתח את chrome://extensions, הפעל \"מצב מפתח\", חלץ את ה-ZIP ולחץ \"טען לא ארוז\". התקנה ידנית אינה מתעדכנת אוטומטית.",
+  "inst.notdetected.title": "נראה שה-Agent עדיין לא מותקן",
+  "inst.notdetected.body": "לחצת על 'התקנה' אבל לא קרה כלום? התקן את ExtSync Agent פעם אחת, ואז חזור ולחץ שוב. אפשר גם להשתמש בהתקנה הידנית שמופיעה למטה.",
 
   // ---- dashboard ----
   "dash.nav.overview": "סקירה",
@@ -456,6 +461,12 @@ const he: Dict = {
   "dash.st.2fa.wrong": "קוד שגוי",
   "dash.st.sessions": "אבטחת סשנים",
   "dash.st.logoutall": "התנתקות מכל המכשירים",
+  "dash.st.2fa.disable": "כיבוי אימות דו-שלבי",
+  "dash.st.2fa.pw": "אישור סיסמה",
+  "dash.st.2fa.disableconfirm": "כבה אימות דו-שלבי",
+  "dash.st.cancel": "ביטול",
+  "dash.st.danger": "מחיקת חשבון",
+  "dash.st.danger.body": "כדי למחוק את חשבונך ואת כל הפרויקטים שלו, כתבו לנו ונטפל בכך:",
 };
 
 const en: Dict = {
@@ -649,6 +660,9 @@ const en: Dict = {
   "nf.body": "The link is wrong or the page was removed. You can go back home or browse the extension gallery.",
   "nf.home": "Home page",
   "nf.store": "Extension gallery",
+  "err.title": "Something went wrong",
+  "err.body": "An unexpected error occurred. You can try again or go back home.",
+  "err.retry": "Try again",
 
   // ---- auth shell ----
   "auth.brand.title.1": "The private extension store",
@@ -688,7 +702,7 @@ const en: Dict = {
   "reg.failed": "Sign-up failed",
   "reg.err.name": "Display name is required",
   "reg.err.email": "Invalid email",
-  "reg.err.password": "At least 10 characters",
+  "reg.err.password": "At least 10 characters, mixing at least two of: letters, numbers, symbols",
   "reg.err.terms": "You must accept the Terms of Service",
 
   // ---- forgot / reset ----
@@ -761,6 +775,8 @@ const en: Dict = {
   "inst.manual.title": "Or install manually (without the Agent)",
   "inst.manual.dl": "Download ZIP",
   "inst.manual.hint": "Open chrome://extensions, turn on Developer mode, unzip the file and click \"Load unpacked\". Manual installs do not auto-update.",
+  "inst.notdetected.title": "Looks like the Agent isn't installed yet",
+  "inst.notdetected.body": "Clicked 'Install' but nothing happened? Install the ExtSync Agent once, then come back and click again. You can also use the manual install below.",
 
   // ---- dashboard ----
   "dash.nav.overview": "Overview",
@@ -903,6 +919,12 @@ const en: Dict = {
   "dash.st.2fa.wrong": "Wrong code",
   "dash.st.sessions": "Session security",
   "dash.st.logoutall": "Sign out of all devices",
+  "dash.st.2fa.disable": "Disable two-factor",
+  "dash.st.2fa.pw": "Confirm password",
+  "dash.st.2fa.disableconfirm": "Disable two-factor",
+  "dash.st.cancel": "Cancel",
+  "dash.st.danger": "Delete account",
+  "dash.st.danger.body": "To delete your account and all its projects, email us and we'll take care of it:",
 };
 
 const dicts: Record<Locale, Dict> = { he, en };

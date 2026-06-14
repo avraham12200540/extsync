@@ -5,9 +5,10 @@ import asyncio
 import contextlib
 import datetime as dt
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
 
+from ..config import settings
 from ..deps import CurrentDevice, DBSession
 from ..db import get_sessionmaker
 from ..logging import get_logger
@@ -30,6 +31,7 @@ from ..schemas.common import OkResponse
 from ..security.crypto import hash_token
 from ..services import agent_service as svc
 from ..services.push import project_channel_topic
+from ..services.ratelimit import client_ip, enforce_rate_limit
 
 logger = get_logger("extsync.agent")
 router = APIRouter(prefix="/agent", tags=["agent"])
@@ -46,7 +48,11 @@ def _now_iso() -> str:
 
 
 @router.post("/register", response_model=AgentRegisterResponse)
-async def register(req: AgentRegisterRequest, db: DBSession) -> AgentRegisterResponse:
+async def register(req: AgentRegisterRequest, request: Request, db: DBSession) -> AgentRegisterResponse:
+    # Anonymous, write-heavy endpoint: cap per-IP so a scripted loop can't bloat
+    # the devices/sessions tables on the shared droplet.
+    await enforce_rate_limit(f"agent-register:{client_ip(request)}",
+                             limit=settings.rate_limit_agent_register_per_hour, window_seconds=3600)
     device, token = await svc.register_device(
         db, anonymous_device_id=req.anonymous_device_id, os=req.os,
         os_version=req.os_version, agent_version=req.agent_version,

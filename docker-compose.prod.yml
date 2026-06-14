@@ -48,6 +48,7 @@ x-app-env: &app-env
   EMAIL_FROM: ${EMAIL_FROM}
   RESEND_API_KEY: ${RESEND_API_KEY:-}
   ENFORCE_EMAIL_VERIFICATION: ${ENFORCE_EMAIL_VERIFICATION:-false}
+  SENTRY_DSN: ${SENTRY_DSN:-}
   PUBLIC_WEB_URL: https://${WEB_DOMAIN}
   PUBLIC_API_URL: https://api.${DOMAIN}
   MAX_UPLOAD_ZIP_BYTES: ${MAX_UPLOAD_ZIP_BYTES:-52428800}
@@ -134,6 +135,12 @@ services:
     command: ["uvicorn", "extsync_api.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
     expose: ["8000"]
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   worker:
     build: { context: ., dockerfile: infrastructure/docker/worker.Dockerfile }
@@ -143,6 +150,12 @@ services:
       redis: { condition: service_healthy }
     command: ["python", "-m", "extsync_worker.main"]
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,sys,redis; sys.exit(0 if redis.from_url(os.environ['REDIS_URL']).get('extsync:worker:heartbeat') else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
 
   caddy:
     image: caddy:2-alpine

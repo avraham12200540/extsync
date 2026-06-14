@@ -46,19 +46,23 @@ async def deliver_webhook(db: AsyncSession, delivery_id: str) -> str:
         delivery.next_retry_at = None
         return "failed"
 
-    body = json.dumps(delivery.payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    ts = str(int(dt.datetime.now(dt.timezone.utc).timestamp()))
-    secret = decrypt_str(webhook.secret_encrypted)
-    headers = {
-        "Content-Type": "application/json",
-        "X-ExtSync-Event": delivery.event_type,
-        "X-ExtSync-Event-Id": delivery.event_id,           # replay protection key
-        "X-ExtSync-Timestamp": ts,                          # replay window check
-        "X-ExtSync-Signature": sign_payload(secret, ts, body),
-        "User-Agent": "ExtSync-Webhook/1.0",
-    }
+    # Count this as an attempt up front so that ANY failure below (HTTP error,
+    # un-decryptable secret after a key rotation, JSON/serialisation error) is a
+    # bounded attempt and the delivery still reaches a terminal state. Otherwise
+    # a non-HTTP exception would escape, get rolled back, and be re-swept forever.
     delivery.attempts += 1
     try:
+        body = json.dumps(delivery.payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        ts = str(int(dt.datetime.now(dt.timezone.utc).timestamp()))
+        secret = decrypt_str(webhook.secret_encrypted)
+        headers = {
+            "Content-Type": "application/json",
+            "X-ExtSync-Event": delivery.event_type,
+            "X-ExtSync-Event-Id": delivery.event_id,           # replay protection key
+            "X-ExtSync-Timestamp": ts,                          # replay window check
+            "X-ExtSync-Signature": sign_payload(secret, ts, body),
+            "User-Agent": "ExtSync-Webhook/1.0",
+        }
         # follow_redirects=False: a 30x to an internal URL would bypass the SSRF
         # guard above, so never follow redirects on webhook delivery.
         async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
@@ -71,7 +75,7 @@ async def deliver_webhook(db: AsyncSession, delivery_id: str) -> str:
             delivery.next_retry_at = None
             return "success"
         raise httpx.HTTPStatusError("non-2xx", request=resp.request, response=resp)
-    except httpx.HTTPError as exc:
+    except Exception as exc:  # noqa: BLE001 - any failure is a bounded, recorded attempt
         logger.warning("webhook delivery %s attempt %s failed: %s", delivery_id, delivery.attempts, exc)
         if delivery.attempts >= MAX_ATTEMPTS:
             delivery.status = "failed"

@@ -8,12 +8,16 @@ delayed re-enqueue (never silently dropped).
 from __future__ import annotations
 
 import asyncio
+import datetime as dt
 import json
 import signal
+
+from sqlalchemy import or_, select
 
 from extsync_api.config import settings
 from extsync_api.db import get_sessionmaker
 from extsync_api.logging import configure_logging, get_logger
+from extsync_api.models.webhook import WebhookDelivery
 from extsync_api.redis_client import get_redis
 from extsync_api.services.jobs import VALIDATION_QUEUE, WEBHOOK_QUEUE
 
@@ -24,6 +28,15 @@ logger = get_logger("extsync.worker")
 
 HEARTBEAT_KEY = "extsync:worker:heartbeat"
 HEARTBEAT_TTL = 60
+
+# Webhook outbox: emit_event only writes pending WebhookDelivery rows. This
+# sweeper turns them into queue jobs and re-queues retries whose next_retry_at is
+# due. A short lease on next_retry_at stops the next sweep from re-enqueuing a
+# delivery that is already in flight (deliver_webhook overrides it on its result).
+WEBHOOK_SWEEP_INTERVAL = 10
+WEBHOOK_LEASE_SECONDS = 120
+WEBHOOK_SWEEP_BATCH = 200
+
 _shutdown = asyncio.Event()
 
 
@@ -36,6 +49,43 @@ async def _heartbeat_loop() -> None:
             logger.warning("heartbeat write failed")
         try:
             await asyncio.wait_for(_shutdown.wait(), timeout=20)
+        except asyncio.TimeoutError:
+            pass
+
+
+async def _webhook_sweeper_loop() -> None:
+    """Outbox: enqueue pending webhook deliveries and re-queue due retries."""
+    sm = get_sessionmaker()
+    client = get_redis()
+    while not _shutdown.is_set():
+        try:
+            now = dt.datetime.now(dt.timezone.utc)
+            async with sm() as session:
+                rows = (await session.scalars(
+                    select(WebhookDelivery)
+                    .where(
+                        WebhookDelivery.status == "pending",
+                        or_(
+                            WebhookDelivery.next_retry_at.is_(None),
+                            WebhookDelivery.next_retry_at <= now,
+                        ),
+                    )
+                    .order_by(WebhookDelivery.created_at)
+                    .limit(WEBHOOK_SWEEP_BATCH)
+                )).all()
+                ids = [r.id for r in rows]
+                lease_until = now + dt.timedelta(seconds=WEBHOOK_LEASE_SECONDS)
+                for r in rows:
+                    r.next_retry_at = lease_until  # lease; deliver_webhook overrides on its result
+                await session.commit()
+            for delivery_id in ids:
+                await client.lpush(WEBHOOK_QUEUE, json.dumps({"deliveryId": delivery_id}))
+            if ids:
+                logger.info("webhook sweeper enqueued %s deliveries", len(ids))
+        except Exception:  # noqa: BLE001 - never let the sweeper die
+            logger.exception("webhook sweeper iteration failed")
+        try:
+            await asyncio.wait_for(_shutdown.wait(), timeout=WEBHOOK_SWEEP_INTERVAL)
         except asyncio.TimeoutError:
             pass
 
@@ -87,6 +137,7 @@ async def run() -> None:
     logger.info("ExtSync worker starting")
     client = get_redis()
     hb = asyncio.create_task(_heartbeat_loop())
+    sweeper = asyncio.create_task(_webhook_sweeper_loop())
     try:
         while not _shutdown.is_set():
             try:
@@ -110,6 +161,7 @@ async def run() -> None:
     finally:
         _shutdown.set()
         hb.cancel()
+        sweeper.cancel()
         logger.info("ExtSync worker stopped")
 
 

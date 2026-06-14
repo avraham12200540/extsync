@@ -12,7 +12,7 @@ from __future__ import annotations
 import datetime as dt
 
 import jwt
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
@@ -358,6 +358,29 @@ async def confirm_2fa(db: AsyncSession, user: User, code: str) -> list[str]:
     await record_audit(db, action="auth.2fa_enabled", actor_user_id=user.id,
                        target_type="user", target_id=user.id)
     return plaintext
+
+
+async def disable_2fa(db: AsyncSession, user: User, password: str) -> None:
+    """Turn 2FA off for a logged-in user after re-confirming their password.
+
+    Reaching this endpoint already required passing 2FA at login, so a password
+    re-check is sufficient defense-in-depth. Clears the TOTP secret and all
+    recovery codes so 2FA is no longer a one-way door: a user who still has an
+    active session can disable it even after losing their authenticator app.
+    (A fully locked-out user with no session and no recovery codes still needs
+    an admin reset — tracked separately.)
+    """
+    if not user.two_factor_enabled:
+        raise APIError(ErrorCode.BAD_REQUEST, "אימות דו-שלבי אינו מופעל", status_code=400)
+    if not user.password_hash or not verify_password(password, user.password_hash):
+        await record_security_event(db, type="2fa_disable_failed", severity="warning",
+                                    user_id=user.id)
+        raise APIError(ErrorCode.INVALID_CREDENTIALS, "הסיסמה שגויה", status_code=401)
+    await db.execute(delete(TwoFactorSecret).where(TwoFactorSecret.user_id == user.id))
+    await db.execute(delete(RecoveryCode).where(RecoveryCode.user_id == user.id))
+    user.two_factor_enabled = False
+    await record_audit(db, action="auth.2fa_disabled", actor_user_id=user.id,
+                       target_type="user", target_id=user.id)
 
 
 # --------------------------------------------------------------------------- device flow

@@ -1,0 +1,5 @@
+# ExtSync security contact (RFC 9116). Found something? Please tell us.
+Contact: mailto:glasser.avraham@gmail.com
+Expires: 2027-06-14T00:00:00.000Z
+Preferred-Languages: he, en
+Canonical: https://extsync.com/.well-known/security.txt

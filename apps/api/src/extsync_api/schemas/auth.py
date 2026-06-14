@@ -69,6 +69,10 @@ class TwoFactorEnabledResponse(CamelModel):
     recovery_codes: list[str]
 
 
+class TwoFactorDisableRequest(CamelModel):
+    password: str = Field(min_length=1, max_length=256)
+
+
 class DeviceFlowStartRequest(CamelModel):
     anonymous_device_id: str = Field(min_length=8, max_length=64)
     os: str | None = None

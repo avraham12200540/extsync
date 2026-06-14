@@ -99,6 +99,11 @@ class Settings(BaseSettings):
     rate_limit_register_per_hour: int = 50        # per IP — lets many people sign up
     rate_limit_resend_verify_per_hour: int = 20   # per user — only caps resend spam
     rate_limit_2fa_per_5min: int = 10             # per IP + per challenge — anti TOTP brute force
+    rate_limit_agent_register_per_hour: int = 60  # per IP — anonymous agent device registration
+    rate_limit_install_resolve_per_min: int = 60  # per IP — public install-page resolve
+
+    # observability (optional) — error tracking is off unless a DSN is set.
+    sentry_dsn: str = ""
 
     # google oauth
     google_oauth_client_id: str = ""

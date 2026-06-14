@@ -35,8 +35,12 @@ async def enforce_rate_limit(key: str, *, limit: int, window_seconds: int) -> No
 
 
 def client_ip(request) -> str:  # type: ignore[no-untyped-def]
-    # Honor X-Forwarded-For first hop when behind the reverse proxy (nginx).
+    # Behind Caddy (the only upstream): Caddy APPENDS the real connecting peer as
+    # the LAST X-Forwarded-For hop. Trust that, NOT the client-supplied leftmost
+    # value - otherwise a request can spoof its own IP and bypass per-IP limits.
     fwd = request.headers.get("x-forwarded-for")
     if fwd:
-        return fwd.split(",")[0].strip()
+        hops = [h.strip() for h in fwd.split(",") if h.strip()]
+        if hops:
+            return hops[-1]
     return request.client.host if request.client else "unknown"

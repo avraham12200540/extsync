@@ -41,9 +41,28 @@ export default function InstallTokenPage({ params }: { params: Promise<{ token: 
 
 function InstallContent({ data }: { data: InstallPage }) {
   const { t } = useLocale();
+  const [agentMissing, setAgentMissing] = useState(false);
   const onInstall = () => {
     // Only fired by an explicit user click (§16) - never auto-launched.
+    setAgentMissing(false);
     window.location.href = data.installUri;
+    // If the extsync:// handler exists, launching it blurs/hides this tab. If
+    // nothing handles it (Agent not installed) the page stays visible, so after a
+    // short grace period surface a hint - the click must never be a silent dead end.
+    let timer = 0;
+    const settled = () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", settled);
+      window.removeEventListener("blur", settled);
+      window.removeEventListener("pagehide", settled);
+    };
+    document.addEventListener("visibilitychange", settled);
+    window.addEventListener("blur", settled);
+    window.addEventListener("pagehide", settled);
+    timer = window.setTimeout(() => {
+      settled();
+      if (document.visibilityState === "visible") setAgentMissing(true);
+    }, 2500);
   };
 
   return (
@@ -101,6 +120,15 @@ function InstallContent({ data }: { data: InstallPage }) {
               {t("inst.cta")}
             </Button>
           </div>
+          {agentMissing && (
+            <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200">
+              <p className="font-semibold">{t("inst.notdetected.title")}</p>
+              <p className="mt-1">{t("inst.notdetected.body")}</p>
+              <div className="mt-3">
+                <Link href="/download"><Button size="sm" variant="secondary">{t("inst.dl")}</Button></Link>
+              </div>
+            </div>
+          )}
           <div className="mt-4 rounded-md bg-surface-2 p-4 text-sm text-ink-muted">
             {t("inst.need.1")} <strong className="text-ink">ExtSync Agent</strong>{t("inst.need.2")}
             <div className="mt-2">

@@ -49,7 +49,26 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     logger.info("ExtSync API shutting down")
 
 
+def _init_sentry() -> None:
+    """Enable Sentry error tracking, but only if a DSN is configured (else no-op)."""
+    if not settings.sentry_dsn:
+        return
+    try:
+        import sentry_sdk
+
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            environment=settings.environment,
+            send_default_pii=False,
+            traces_sample_rate=0.0,
+        )
+        logger.info("Sentry error tracking enabled")
+    except Exception:  # noqa: BLE001 - monitoring must never block boot
+        logger.warning("Sentry init failed; continuing without it", exc_info=True)
+
+
 def create_app() -> FastAPI:
+    _init_sentry()
     # Expose interactive docs only outside production (or when explicitly enabled).
     docs_enabled = settings.enable_api_docs or settings.environment != "production"
     app = FastAPI(

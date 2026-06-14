@@ -20,6 +20,7 @@ from ..schemas.auth import (
     RegisterRequest,
     ResetPasswordRequest,
     TokenResponse,
+    TwoFactorDisableRequest,
     TwoFactorEnabledResponse,
     TwoFactorSetupResponse,
     TwoFactorVerifyRequest,
@@ -173,6 +174,17 @@ async def two_factor_verify(
         raise unauthorized()
     codes = await svc.confirm_2fa(db, user, req.code)
     return TwoFactorEnabledResponse(recovery_codes=codes)
+
+
+@router.post("/2fa/disable", response_model=OkResponse)
+async def two_factor_disable(
+    req: TwoFactorDisableRequest, user: CurrentUser, db: DBSession
+) -> OkResponse:
+    # Password re-check, throttled per-user to blunt online password guessing.
+    await enforce_rate_limit(f"2fa-disable:{user.id}", limit=settings.rate_limit_2fa_per_5min,
+                             window_seconds=300)
+    await svc.disable_2fa(db, user, req.password)
+    return OkResponse()
 
 
 @router.post("/device-flow/start", response_model=DeviceFlowStartResponse)

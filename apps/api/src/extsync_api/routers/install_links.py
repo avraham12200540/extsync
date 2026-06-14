@@ -1,8 +1,9 @@
 """Install link endpoints (§23). The resolve endpoint is public."""
 from __future__ import annotations
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Request, status
 
+from ..config import settings
 from ..deps import CurrentUser, DBSession
 from ..models.base import utcnow
 from ..rbac import Permission
@@ -15,6 +16,7 @@ from ..schemas.install_link import (
 )
 from ..services import install_link_service as svc
 from ..services.authz import load_project_for_user
+from ..services.ratelimit import client_ip, enforce_rate_limit
 from ..models.install_link import InstallLink
 
 router = APIRouter(tags=["install-links"])
@@ -80,6 +82,9 @@ async def delete_link(project_id: str, link_id: str, user: CurrentUser, db: DBSe
 
 
 @router.post("/install-links/{token}/resolve", response_model=InstallPageResolve)
-async def resolve_link(token: str, db: DBSession) -> InstallPageResolve:
-    # Public endpoint — no auth. Powers the install page.
+async def resolve_link(token: str, request: Request, db: DBSession) -> InstallPageResolve:
+    # Public endpoint — no auth. Powers the install page; capped per-IP so the
+    # unauthenticated resolve (several SELECTs each) can't be hammered.
+    await enforce_rate_limit(f"install-resolve:{client_ip(request)}",
+                             limit=settings.rate_limit_install_resolve_per_min, window_seconds=60)
     return await svc.resolve_install_link(db, token)

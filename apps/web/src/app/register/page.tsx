@@ -26,7 +26,10 @@ export default function RegisterPage() {
     displayName: z.string().min(1, t("reg.err.name")),
     orgName: z.string().optional().default(""),
     email: z.string().email(t("reg.err.email")),
-    password: z.string().min(10, t("reg.err.password")),
+    password: z.string().min(10, t("reg.err.password")).refine(
+      (v) => [/[a-z]/.test(v), /[A-Z]/.test(v), /\d/.test(v), /[^a-zA-Z0-9]/.test(v)].filter(Boolean).length >= 2,
+      t("reg.err.password"),
+    ),
     acceptTerms: z.literal(true, { errorMap: () => ({ message: t("reg.err.terms") }) }),
   });
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Form>({

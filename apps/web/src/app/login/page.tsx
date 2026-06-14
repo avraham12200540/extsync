@@ -47,7 +47,7 @@ export default function LoginPage() {
       await complete2fa(challenge, code);
       router.push("/app");
     } catch (e) {
-      setServerError(e instanceof ApiError ? e.message : "קוד שגוי");
+      setServerError(e instanceof ApiError ? e.message : t("dash.st.2fa.wrong"));
     }
   };
 

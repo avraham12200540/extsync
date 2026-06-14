@@ -16,7 +16,6 @@ from ..security.crypto import encrypt_str
 from ..security.ssrf import UnsafeUrlError, assert_safe_public_url
 from ..services.audit import record_audit
 from ..services.authz import load_project_for_user
-from ..services.jobs import enqueue_webhook
 
 router = APIRouter(tags=["webhooks"])
 
@@ -116,7 +115,12 @@ async def resend_delivery(project_id: str, webhook_id: str, delivery_id: str,
     delivery = await db.get(WebhookDelivery, delivery_id)
     if delivery is None or delivery.webhook_id != webhook_id:
         raise not_found("המשלוח לא נמצא")
+    # Re-arm the delivery and let the worker's outbox sweeper enqueue it (single
+    # producer => no double-delivery race with the sweeper). Reset attempts so a
+    # resend of an exhausted delivery actually retries from scratch.
     delivery.status = "pending"
+    delivery.attempts = 0
+    delivery.next_retry_at = None
+    delivery.delivered_at = None
     await db.flush()
-    await enqueue_webhook(delivery.id)
     return OkResponse()

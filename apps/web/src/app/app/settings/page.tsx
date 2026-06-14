@@ -16,6 +16,8 @@ export default function SettingsPage() {
   const [setup, setSetup] = useState<{ secret: string; otpauthUri: string } | null>(null);
   const [code, setCode] = useState("");
   const [recovery, setRecovery] = useState<string[] | null>(null);
+  const [showDisable, setShowDisable] = useState(false);
+  const [disablePw, setDisablePw] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const begin2fa = async () => {
@@ -31,6 +33,15 @@ export default function SettingsPage() {
       setSetup(null);
       await refreshMe();
     } catch (e) { setError(e instanceof ApiError ? e.message : t("dash.st.2fa.wrong")); }
+  };
+  const disable2fa = async () => {
+    setError(null);
+    try {
+      await api.post("/auth/2fa/disable", { password: disablePw });
+      setShowDisable(false);
+      setDisablePw("");
+      await refreshMe();
+    } catch (e) { setError(e instanceof ApiError ? e.message : t("dash.err")); }
   };
 
   return (
@@ -55,7 +66,22 @@ export default function SettingsPage() {
         <h2 className="mb-2 font-semibold text-ink">{t("dash.st.2fa")}</h2>
         {error && <p className="mb-3 rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-danger dark:text-red-400">{error}</p>}
         {user?.twoFactorEnabled ? (
-          <p className="text-sm text-success">{t("dash.st.2fa.on")}</p>
+          <div>
+            <p className="mb-3 text-sm text-success">{t("dash.st.2fa.on")}</p>
+            {showDisable ? (
+              <div className="space-y-3">
+                <Field label={t("dash.st.2fa.pw")}>
+                  <Input type="password" value={disablePw} onChange={(e) => setDisablePw(e.target.value)} autoComplete="current-password" />
+                </Field>
+                <div className="flex gap-2">
+                  <Button variant="danger" size="sm" onClick={disable2fa} disabled={!disablePw}>{t("dash.st.2fa.disableconfirm")}</Button>
+                  <Button variant="secondary" size="sm" onClick={() => { setShowDisable(false); setDisablePw(""); setError(null); }}>{t("dash.st.cancel")}</Button>
+                </div>
+              </div>
+            ) : (
+              <Button variant="secondary" size="sm" onClick={() => setShowDisable(true)}>{t("dash.st.2fa.disable")}</Button>
+            )}
+          </div>
         ) : recovery ? (
           <div>
             <p className="mb-2 text-sm text-ink">{t("dash.st.2fa.recovery")}</p>
@@ -75,11 +101,19 @@ export default function SettingsPage() {
         )}
       </Card>
 
-      <Card>
+      <Card className="mb-4">
         <h2 className="mb-2 font-semibold text-ink">{t("dash.st.sessions")}</h2>
         <Button variant="danger" size="sm" onClick={() => api.post("/auth/logout-all")}>
           {t("dash.st.logoutall")}
         </Button>
+      </Card>
+
+      <Card>
+        <h2 className="mb-2 font-semibold text-ink">{t("dash.st.danger")}</h2>
+        <p className="text-sm text-ink-muted">
+          {t("dash.st.danger.body")}{" "}
+          <a href="mailto:glasser.avraham@gmail.com?subject=Delete%20my%20ExtSync%20account" className="text-brand hover:underline">glasser.avraham@gmail.com</a>
+        </p>
       </Card>
     </div>
   );

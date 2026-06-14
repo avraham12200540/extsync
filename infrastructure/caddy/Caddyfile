@@ -21,6 +21,11 @@
 # API
 api.{$DOMAIN} {
 	import security_headers
+	# Reject oversized bodies at the edge before the app buffers them into memory
+	# (the upload cap is 50MB; this leaves headroom for multipart overhead).
+	request_body {
+		max_size 60MB
+	}
 	encode gzip zstd
 	reverse_proxy api:8000
 }
