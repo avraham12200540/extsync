@@ -22,6 +22,9 @@ const he: Dict = {
   "nav.register": "הרשמת מפתחים",
   "nav.dashboard": "לוח הבקרה",
   "nav.menu": "תפריט",
+  "theme.light": "בהיר",
+  "theme.dark": "כהה",
+  "theme.toggle": "החלפת מצב תצוגה (בהיר/כהה)",
 
   // ---- footer ----
   "footer.tagline": "הפצה, התקנה ועדכון אוטומטי של תוספי Chrome פרטיים - מחוץ לחנות, עם חתימה דיגיטלית ואבטחה מלאה.",
@@ -483,6 +486,9 @@ const en: Dict = {
   "nav.register": "Developer Sign-up",
   "nav.dashboard": "Dashboard",
   "nav.menu": "Menu",
+  "theme.light": "Light",
+  "theme.dark": "Dark",
+  "theme.toggle": "Toggle light / dark",
 
   // ---- footer ----
   "footer.tagline": "Distribute, install and auto-update private Chrome extensions - outside the store, digitally signed and fully secured.",

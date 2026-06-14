@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/providers";
 import { useLocale } from "@/components/locale-context";
 import { LocaleToggle } from "@/components/locale-toggle";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui";
 
@@ -65,6 +66,7 @@ export function SiteHeader() {
                 </Link>
               );
             })}
+            <ThemeToggle className="mx-1" />
             <LocaleToggle className="mx-1" />
             <span className="mx-2 h-5 w-px bg-line" />
             {authButtons}
@@ -72,6 +74,7 @@ export function SiteHeader() {
 
           {/* Mobile */}
           <div className="flex items-center gap-2 md:hidden">
+            <ThemeToggle />
             <LocaleToggle />
             {authButtons}
             <button
