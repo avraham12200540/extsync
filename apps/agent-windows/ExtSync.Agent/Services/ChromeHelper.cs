@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
-using System.Text.Json;
 using Serilog;
 
 namespace ExtSync.Agent.Services;
@@ -19,26 +18,34 @@ public static class ChromeHelper
 
     public static bool OpenExtensionsPage()
     {
-        // Goal: chrome://extensions must actually land in the user's profile.
-        // - Chrome already running: a new window opens in the active profile - fine.
-        // - Chrome CLOSED: launching `--new-window <url>` makes Chrome show the
-        //   profile picker, which frequently DROPS the start URL (the user ends up
-        //   on a blank/new-tab page and has to navigate to chrome://extensions by
-        //   hand). To avoid that, target the last-used profile with
-        //   --profile-directory: it skips the picker and keeps the URL.
+        // We keep Chrome's profile picker intact (the user chooses a profile), but
+        // the picker drops a start URL - so `chrome --new-window <url>` on a CLOSED
+        // Chrome lands the user on a blank tab. Strategy:
+        //   * Chrome already running -> open the page in the active profile now.
+        //   * Chrome closed -> launch plainly so the picker appears as usual, then
+        //     once a real browser window exists (the user has picked a profile)
+        //     open the extensions tab in it. A browser window's title ends with
+        //     " - Google Chrome"; the bare picker's does not, so we never fire
+        //     while the picker is still up, and we open exactly one extensions tab.
         var chrome = FindChrome();
+        if (chrome == null)
+        {
+            try { Process.Start(new ProcessStartInfo(ExtensionsUrl) { UseShellExecute = true }); return true; }
+            catch { return false; }
+        }
         try
         {
-            if (chrome != null)
+            if (IsChromeRunning())
             {
-                var running = Process.GetProcessesByName("chrome").Length > 0;
-                var args = running
-                    ? $"--new-window {ExtensionsUrl}"
-                    : $"--profile-directory=\"{LastUsedProfile()}\" {ExtensionsUrl}";
-                Process.Start(new ProcessStartInfo(chrome, args) { UseShellExecute = false });
-                return true;
+                LaunchExtensions(chrome);
             }
-            Process.Start(new ProcessStartInfo(ExtensionsUrl) { UseShellExecute = true });
+            else
+            {
+                // Bring up Chrome (and its profile picker) without a URL...
+                Process.Start(new ProcessStartInfo(chrome) { UseShellExecute = false });
+                // ...then open the extensions page once the user has a window.
+                _ = OpenExtensionsWhenReadyAsync(chrome);
+            }
             return true;
         }
         catch
@@ -47,30 +54,44 @@ public static class ChromeHelper
         }
     }
 
-    /// <summary>The last-used Chrome profile directory (e.g. "Default", "Profile 1")
-    /// from Chrome's Local State, so we can open a URL without the profile picker
-    /// dropping it. Falls back to "Default" if anything is unreadable.</summary>
-    private static string LastUsedProfile()
+    private static bool IsChromeRunning() => Process.GetProcessesByName("chrome").Length > 0;
+
+    private static void LaunchExtensions(string chrome) =>
+        Process.Start(new ProcessStartInfo(chrome, ExtensionsUrl) { UseShellExecute = false });
+
+    /// <summary>After the picker is shown, wait (up to ~45s) for the user to pick a
+    /// profile - i.e. a real Chrome browser window to appear - then open the
+    /// extensions tab in it. Falls back to a best-effort open if none is detected.</summary>
+    private static async Task OpenExtensionsWhenReadyAsync(string chrome)
     {
-        try
+        for (var i = 0; i < 60; i++)
         {
-            var localState = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Google", "Chrome", "User Data", "Local State");
-            if (File.Exists(localState))
+            await Task.Delay(750).ConfigureAwait(false);
+            if (HasChromeBrowserWindow())
             {
-                using var doc = JsonDocument.Parse(File.ReadAllText(localState));
-                if (doc.RootElement.TryGetProperty("profile", out var prof) &&
-                    prof.TryGetProperty("last_used", out var lu) &&
-                    lu.ValueKind == JsonValueKind.String)
-                {
-                    var v = lu.GetString();
-                    if (!string.IsNullOrWhiteSpace(v)) return v!;
-                }
+                try { LaunchExtensions(chrome); } catch { /* non-fatal */ }
+                return;
             }
         }
-        catch { /* fall through to the default profile */ }
-        return "Default";
+        try { LaunchExtensions(chrome); } catch { /* non-fatal */ }
+    }
+
+    /// <summary>True once a Chrome *browser* window exists (title ends with
+    /// " - Google Chrome"), which excludes the bare profile picker.</summary>
+    private static bool HasChromeBrowserWindow()
+    {
+        foreach (var p in Process.GetProcessesByName("chrome"))
+        {
+            try
+            {
+                if (p.MainWindowHandle != IntPtr.Zero &&
+                    p.MainWindowTitle.EndsWith(" - Google Chrome", StringComparison.Ordinal))
+                    return true;
+            }
+            catch { /* the process may have exited mid-iteration */ }
+            finally { p.Dispose(); }
+        }
+        return false;
     }
 
     public static void CopyPathToClipboard(string path) => CopyText(path);
