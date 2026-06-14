@@ -63,10 +63,12 @@ public partial class InstallWizardWindow : Window
         try
         {
             _installation = await _controller.InstallFromTokenAsync(_token, _resolved);
-            // Prepare the guided manual load.
+            // Prepare the guided manual load: copy the folder path and open the
+            // extensions page in the user's profile. We deliberately do NOT pop
+            // open File Explorer - only the browser should appear. (The path is on
+            // the clipboard, and the guide panel still has an "Open folder" button.)
             ChromeHelper.CopyPathToClipboard(_installation.ActivePath);
             ChromeHelper.OpenExtensionsPage();
-            ChromeHelper.OpenFolder(_installation.ActivePath);
             TxtFolder.Text = L10n.F("Wiz.Folder", _installation.ActivePath);
             ConfirmPanel.Visibility = Visibility.Collapsed;
             GuidePanel.Visibility = Visibility.Visible;

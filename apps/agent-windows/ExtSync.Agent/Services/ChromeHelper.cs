@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
+using System.Text.Json;
 using Serilog;
 
 namespace ExtSync.Agent.Services;
@@ -7,7 +8,9 @@ namespace ExtSync.Agent.Services;
 /// <summary>
 /// Helpers that make the one-time manual load as painless as possible (§1, §17).
 /// We CANNOT silently load an unpacked extension — Chrome does not allow it. We
-/// open the right page, copy the folder path, and open the folder in Explorer.
+/// open chrome://extensions in the user's profile and copy the folder path to the
+/// clipboard. Opening the folder in Explorer is available on demand (a button),
+/// not automatic, so the install click only brings up the browser.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public static class ChromeHelper
@@ -16,18 +19,23 @@ public static class ChromeHelper
 
     public static bool OpenExtensionsPage()
     {
-        // If Chrome is already running, the new tab opens in the current profile
-        // window (no picker). If it is closed, Chrome may show the profile picker;
-        // with some setups the picker drops the start URL and a blank tab opens —
-        // that is why the wizard also offers a "copy chrome://extensions" button.
+        // Goal: chrome://extensions must actually land in the user's profile.
+        // - Chrome already running: a new window opens in the active profile - fine.
+        // - Chrome CLOSED: launching `--new-window <url>` makes Chrome show the
+        //   profile picker, which frequently DROPS the start URL (the user ends up
+        //   on a blank/new-tab page and has to navigate to chrome://extensions by
+        //   hand). To avoid that, target the last-used profile with
+        //   --profile-directory: it skips the picker and keeps the URL.
         var chrome = FindChrome();
         try
         {
             if (chrome != null)
             {
-                // --new-window keeps the URL attached more reliably than a plain tab.
-                Process.Start(new ProcessStartInfo(chrome, $"--new-window {ExtensionsUrl}")
-                    { UseShellExecute = false });
+                var running = Process.GetProcessesByName("chrome").Length > 0;
+                var args = running
+                    ? $"--new-window {ExtensionsUrl}"
+                    : $"--profile-directory=\"{LastUsedProfile()}\" {ExtensionsUrl}";
+                Process.Start(new ProcessStartInfo(chrome, args) { UseShellExecute = false });
                 return true;
             }
             Process.Start(new ProcessStartInfo(ExtensionsUrl) { UseShellExecute = true });
@@ -37,6 +45,32 @@ public static class ChromeHelper
         {
             return false;
         }
+    }
+
+    /// <summary>The last-used Chrome profile directory (e.g. "Default", "Profile 1")
+    /// from Chrome's Local State, so we can open a URL without the profile picker
+    /// dropping it. Falls back to "Default" if anything is unreadable.</summary>
+    private static string LastUsedProfile()
+    {
+        try
+        {
+            var localState = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Google", "Chrome", "User Data", "Local State");
+            if (File.Exists(localState))
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(localState));
+                if (doc.RootElement.TryGetProperty("profile", out var prof) &&
+                    prof.TryGetProperty("last_used", out var lu) &&
+                    lu.ValueKind == JsonValueKind.String)
+                {
+                    var v = lu.GetString();
+                    if (!string.IsNullOrWhiteSpace(v)) return v!;
+                }
+            }
+        }
+        catch { /* fall through to the default profile */ }
+        return "Default";
     }
 
     public static void CopyPathToClipboard(string path) => CopyText(path);
