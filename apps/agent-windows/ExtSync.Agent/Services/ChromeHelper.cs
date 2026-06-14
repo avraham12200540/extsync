@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.Versioning;
+using System.Text.Json;
 using Serilog;
 
 namespace ExtSync.Agent.Services;
@@ -118,6 +119,68 @@ public static class ChromeHelper
             c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.Format).ToArray()).Trim();
         return clean.Contains("Google Chrome", StringComparison.Ordinal)
             && clean.Contains(" - ", StringComparison.Ordinal);
+    }
+
+    /// <summary>The Chrome profiles (directory + display name) from Local State,
+    /// in Chrome's display order. Empty if Chrome/Local State can't be read.</summary>
+    public static List<(string Dir, string Name)> GetProfiles()
+    {
+        var result = new List<(string, string)>();
+        try
+        {
+            var localState = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Google", "Chrome", "User Data", "Local State");
+            if (!File.Exists(localState)) return result;
+            using var doc = JsonDocument.Parse(File.ReadAllText(localState));
+            if (!doc.RootElement.TryGetProperty("profile", out var profile)) return result;
+            if (!profile.TryGetProperty("info_cache", out var cache) || cache.ValueKind != JsonValueKind.Object)
+                return result;
+
+            var map = new Dictionary<string, string>();
+            foreach (var entry in cache.EnumerateObject())
+            {
+                var name = entry.Value.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String
+                    ? n.GetString() : null;
+                map[entry.Name] = string.IsNullOrWhiteSpace(name) ? entry.Name : name!;
+            }
+            // Preserve Chrome's own display order when available.
+            if (profile.TryGetProperty("profiles_order", out var order) && order.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var el in order.EnumerateArray())
+                {
+                    var dir = el.GetString();
+                    if (dir != null && map.Remove(dir, out var nm)) result.Add((dir, nm));
+                }
+            }
+            foreach (var kv in map) result.Add((kv.Key, kv.Value));
+        }
+        catch { /* unreadable -> empty list, caller falls back */ }
+        return result;
+    }
+
+    /// <summary>Open chrome://extensions in a SPECIFIC profile. Reliable and
+    /// race-free whether Chrome is open or closed (no dependency on the native
+    /// profile picker). Falls back to the generic open if no profile is given.</summary>
+    public static bool OpenExtensionsInProfile(string profileDir)
+    {
+        var chrome = FindChrome();
+        try
+        {
+            if (chrome != null && !string.IsNullOrWhiteSpace(profileDir))
+            {
+                Log.Information("OpenExtensions: opening in profile {Profile}", profileDir);
+                Process.Start(new ProcessStartInfo(
+                    chrome, $"--profile-directory=\"{profileDir}\" {ExtensionsUrl}") { UseShellExecute = false });
+                return true;
+            }
+            return OpenExtensionsPage();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "OpenExtensions: open-in-profile failed");
+            return false;
+        }
     }
 
     public static void CopyPathToClipboard(string path) => CopyText(path);

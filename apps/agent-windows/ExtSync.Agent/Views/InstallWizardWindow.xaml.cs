@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Controls;
 using ExtSync.Agent.Models;
 using ExtSync.Agent.Services;
 using Serilog;
@@ -13,6 +14,7 @@ public partial class InstallWizardWindow : Window
     private readonly AgentController _controller;
     private readonly ILogger _log;
     private LocalInstallation? _installation;
+    private string? _chosenProfileDir;
 
     public InstallWizardWindow(string token, JsonElement resolved, AgentController controller, ILogger log)
     {
@@ -63,15 +65,47 @@ public partial class InstallWizardWindow : Window
         try
         {
             _installation = await _controller.InstallFromTokenAsync(_token, _resolved);
-            // Prepare the guided manual load: copy the folder path and open the
-            // extensions page in the user's profile. We deliberately do NOT pop
-            // open File Explorer - only the browser should appear. (The path is on
-            // the clipboard, and the guide panel still has an "Open folder" button.)
+            // No File Explorer pop-up - only the browser. The folder path is on the
+            // clipboard and the guide panel keeps a manual "Open folder" button.
             ChromeHelper.CopyPathToClipboard(_installation.ActivePath);
-            ChromeHelper.OpenExtensionsPage();
             TxtFolder.Text = L10n.F("Wiz.Folder", _installation.ActivePath);
-            ConfirmPanel.Visibility = Visibility.Collapsed;
-            GuidePanel.Visibility = Visibility.Visible;
+
+            var profiles = ChromeHelper.GetProfiles();
+            if (profiles.Count > 1)
+            {
+                // Let the user pick which Chrome profile to install into; the
+                // extensions page then opens in THAT profile (open or closed).
+                ProfileButtons.Children.Clear();
+                var style = TryFindResource("SecondaryButton") as Style;
+                foreach (var (dir, name) in profiles)
+                {
+                    var btn = new Button
+                    {
+                        Content = name,
+                        Tag = dir,
+                        HorizontalAlignment = HorizontalAlignment.Left,
+                        Margin = new Thickness(0, 0, 0, 8),
+                    };
+                    if (style != null) btn.Style = style;
+                    btn.Click += OnProfileChosen;
+                    ProfileButtons.Children.Add(btn);
+                }
+                ConfirmPanel.Visibility = Visibility.Collapsed;
+                ProfilePanel.Visibility = Visibility.Visible;
+                return;
+            }
+
+            // 0 or 1 profile: nothing to choose.
+            if (profiles.Count == 1)
+            {
+                _chosenProfileDir = profiles[0].Dir;
+                ChromeHelper.OpenExtensionsInProfile(_chosenProfileDir);
+            }
+            else
+            {
+                ChromeHelper.OpenExtensionsPage();
+            }
+            ShowGuide();
         }
         catch (Exception ex)
         {
@@ -82,7 +116,25 @@ public partial class InstallWizardWindow : Window
         }
     }
 
-    private void OnOpenExtensions(object sender, RoutedEventArgs e) => ChromeHelper.OpenExtensionsPage();
+    private void OnProfileChosen(object sender, RoutedEventArgs e)
+    {
+        _chosenProfileDir = (string)((Button)sender).Tag;
+        ChromeHelper.OpenExtensionsInProfile(_chosenProfileDir);
+        ShowGuide();
+    }
+
+    private void ShowGuide()
+    {
+        ConfirmPanel.Visibility = Visibility.Collapsed;
+        ProfilePanel.Visibility = Visibility.Collapsed;
+        GuidePanel.Visibility = Visibility.Visible;
+    }
+
+    private void OnOpenExtensions(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(_chosenProfileDir)) ChromeHelper.OpenExtensionsInProfile(_chosenProfileDir);
+        else ChromeHelper.OpenExtensionsPage();
+    }
     private void OnCopyPath(object sender, RoutedEventArgs e)
     {
         if (_installation != null) ChromeHelper.CopyPathToClipboard(_installation.ActivePath);
