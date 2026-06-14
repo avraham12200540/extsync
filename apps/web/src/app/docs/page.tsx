@@ -57,6 +57,7 @@ export default function DocsPage() {
     { icon: "📦", title: t("docs.d2.t"), body: t("docs.d2.b") },
     { icon: "⬆️", title: t("docs.d3.t"), body: t("docs.d3.b") },
     { icon: "🚀", title: t("docs.d4.t"), body: t("docs.d4.b") },
+    { icon: "🔗", title: t("docs.d5.t"), body: t("docs.d5.b") },
   ];
   const faq = [1, 2, 3, 4].map((n) => [t(`docs.q${n}`), t(`docs.a${n}`)] as const);
 

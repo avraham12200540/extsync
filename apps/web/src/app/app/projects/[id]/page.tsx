@@ -54,7 +54,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
       {tab === "overview" && <OverviewTab project={project} />}
       {tab === "versions" && <VersionsTab project={project} />}
-      {tab === "links" && <LinksTab projectId={id} />}
+      {tab === "links" && <LinksTab projectId={id} slug={project.slug} />}
       {tab === "analytics" && <AnalyticsTab projectId={id} />}
     </div>
   );
@@ -360,9 +360,10 @@ function VersionsTab({ project }: { project: Project }) {
   );
 }
 
-function LinksTab({ projectId }: { projectId: string }) {
-  const { t } = useLocale();
+function LinksTab({ projectId, slug }: { projectId: string; slug: string }) {
+  const { t, locale } = useLocale();
   const qc = useQueryClient();
+  const [copied, setCopied] = useState<string | null>(null);
   const { data } = useQuery({
     queryKey: ["links", projectId],
     queryFn: () => api.get<InstallLink[]>(`/projects/${projectId}/install-links`),
@@ -372,19 +373,42 @@ function LinksTab({ projectId }: { projectId: string }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["links", projectId] }),
   });
 
+  const copy = (key: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied((c) => (c === key ? null : c)), 1500);
+  };
+
+  // The embeddable "Install with ExtSync" snippet: brand badge wrapped in the
+  // developer's install link. Origin is taken from the install URL so it works
+  // in any environment; ?lang=he gives the Hebrew badge to match the dashboard.
+  const embedCode = (l: InstallLink) => {
+    const origin = (() => { try { return new URL(l.url).origin; } catch { return "https://extsync.com"; } })();
+    const badge = `${origin}/badge/${slug}.svg${locale === "he" ? "?lang=he" : ""}`;
+    return `<a href="${l.url}"><img src="${badge}" alt="${t("dash.pd.link.embed.alt")}"></a>`;
+  };
+
   return (
     <div className="space-y-4">
       <Button onClick={() => create.mutate()} disabled={create.isPending}>{t("dash.pd.link.create")}</Button>
+      <p className="text-xs text-ink-muted">{t("dash.pd.link.embed.hint")}</p>
       <div className="space-y-2">
         {(data ?? []).map((l) => (
-          <Card key={l.id} className="flex items-center justify-between">
-            <div>
-              <code className="text-sm text-ink">{l.url}</code>
+          <Card key={l.id} className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <code className="break-all text-sm text-ink">{l.url}</code>
               <p className="mt-1 text-xs text-ink-muted">
                 {l.linkType} • {l.channel} • {t("dash.pd.link.uses")} {l.usedCount}{l.maxUses ? `/${l.maxUses}` : ""}
               </p>
             </div>
-            <Button size="sm" variant="secondary" onClick={() => navigator.clipboard.writeText(l.url)}>{t("dash.pd.link.copy")}</Button>
+            <div className="flex shrink-0 gap-2">
+              <Button size="sm" variant="secondary" onClick={() => copy(`url:${l.id}`, l.url)}>
+                {copied === `url:${l.id}` ? t("dash.pd.link.copied") : t("dash.pd.link.copy")}
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => copy(`embed:${l.id}`, embedCode(l))}>
+                {copied === `embed:${l.id}` ? t("dash.pd.link.copied") : t("dash.pd.link.embed")}
+              </Button>
+            </div>
           </Card>
         ))}
       </div>
