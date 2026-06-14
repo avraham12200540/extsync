@@ -36,26 +36,31 @@ public static class ChromeHelper
         }
         try
         {
-            if (IsChromeRunning())
+            // Decide on an actual browser WINDOW, not just a chrome.exe process:
+            // Chrome keeps background processes alive with NO window open (common),
+            // so a process check wrongly concludes a window exists and fires a URL
+            // that the profile picker then drops. If a browser window is open, open
+            // the tab in it; otherwise launch Chrome (its picker) and open the
+            // extensions tab once a window appears.
+            if (ChromeWindowTitles().Any(LooksLikeBrowserWindow))
             {
+                Log.Information("OpenExtensions: a browser window is open; opening the extensions tab now");
                 LaunchExtensions(chrome);
             }
             else
             {
-                // Bring up Chrome (and its profile picker) without a URL...
+                Log.Information("OpenExtensions: no browser window; launching Chrome (picker) then waiting for a window");
                 Process.Start(new ProcessStartInfo(chrome) { UseShellExecute = false });
-                // ...then open the extensions page once the user has a window.
                 _ = OpenExtensionsWhenReadyAsync(chrome);
             }
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Warning(ex, "OpenExtensions: failed to open the extensions page");
             return false;
         }
     }
-
-    private static bool IsChromeRunning() => Process.GetProcessesByName("chrome").Length > 0;
 
     private static void LaunchExtensions(string chrome) =>
         Process.Start(new ProcessStartInfo(chrome, ExtensionsUrl) { UseShellExecute = false });
