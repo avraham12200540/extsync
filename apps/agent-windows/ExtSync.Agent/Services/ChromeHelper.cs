@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.Versioning;
 using Serilog;
 
@@ -59,39 +60,59 @@ public static class ChromeHelper
     private static void LaunchExtensions(string chrome) =>
         Process.Start(new ProcessStartInfo(chrome, ExtensionsUrl) { UseShellExecute = false });
 
-    /// <summary>After the picker is shown, wait (up to ~45s) for the user to pick a
-    /// profile - i.e. a real Chrome browser window to appear - then open the
-    /// extensions tab in it. Falls back to a best-effort open if none is detected.</summary>
+    /// <summary>After the picker is shown, wait for the user to pick a profile -
+    /// i.e. a real Chrome browser window to appear - then open the extensions tab
+    /// in it. Locale-independent (works with Hebrew/RTL titles). Logs the window
+    /// titles it sees so a missed detection can be diagnosed from the agent log.
+    /// Falls back to a best-effort open if nothing is detected in time.</summary>
     private static async Task OpenExtensionsWhenReadyAsync(string chrome)
     {
-        for (var i = 0; i < 60; i++)
+        var seen = new HashSet<string>();
+        for (var i = 0; i < 50; i++) // ~25s
         {
-            await Task.Delay(750).ConfigureAwait(false);
-            if (HasChromeBrowserWindow())
+            await Task.Delay(500).ConfigureAwait(false);
+            var titles = ChromeWindowTitles();
+            foreach (var t in titles)
+                if (seen.Add(t)) Log.Information("OpenExtensions: Chrome window title seen: {Title}", t);
+            if (titles.Any(LooksLikeBrowserWindow))
             {
-                try { LaunchExtensions(chrome); } catch { /* non-fatal */ }
+                Log.Information("OpenExtensions: browser window detected; opening extensions page");
+                try { LaunchExtensions(chrome); } catch (Exception ex) { Log.Warning(ex, "OpenExtensions: launch failed"); }
                 return;
             }
         }
-        try { LaunchExtensions(chrome); } catch { /* non-fatal */ }
+        Log.Information("OpenExtensions: no browser window detected in time; opening extensions page anyway");
+        try { LaunchExtensions(chrome); } catch (Exception ex) { Log.Warning(ex, "OpenExtensions: fallback launch failed"); }
     }
 
-    /// <summary>True once a Chrome *browser* window exists (title ends with
-    /// " - Google Chrome"), which excludes the bare profile picker.</summary>
-    private static bool HasChromeBrowserWindow()
+    private static List<string> ChromeWindowTitles()
     {
+        var titles = new List<string>();
         foreach (var p in Process.GetProcessesByName("chrome"))
         {
             try
             {
-                if (p.MainWindowHandle != IntPtr.Zero &&
-                    p.MainWindowTitle.EndsWith(" - Google Chrome", StringComparison.Ordinal))
-                    return true;
+                if (p.MainWindowHandle != IntPtr.Zero && !string.IsNullOrEmpty(p.MainWindowTitle))
+                    titles.Add(p.MainWindowTitle);
             }
             catch { /* the process may have exited mid-iteration */ }
             finally { p.Dispose(); }
         }
-        return false;
+        return titles;
+    }
+
+    /// <summary>True for a Chrome *browser* window, excluding the bare profile
+    /// picker. Strips the bidi/formatting marks Chrome injects into RTL (Hebrew)
+    /// window titles, then matches the non-localized product name plus a page-title
+    /// separator - so "&lt;page&gt; - Google Chrome" matches in any UI language while
+    /// a bare "Google Chrome" picker title does not.</summary>
+    private static bool LooksLikeBrowserWindow(string title)
+    {
+        if (string.IsNullOrEmpty(title)) return false;
+        var clean = new string(title.Where(
+            c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.Format).ToArray()).Trim();
+        return clean.Contains("Google Chrome", StringComparison.Ordinal)
+            && clean.Contains(" - ", StringComparison.Ordinal);
     }
 
     public static void CopyPathToClipboard(string path) => CopyText(path);
