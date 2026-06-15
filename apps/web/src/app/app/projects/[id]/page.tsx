@@ -258,6 +258,17 @@ function VersionsTab({ project }: { project: Project }) {
     <div className="space-y-6">
       <Card>
         <h3 className="mb-4 font-semibold text-ink">{t("dash.pd.up.title")}</h3>
+        <details className="mb-4 rounded-md border border-line bg-surface-2 p-3 text-sm">
+          <summary className="cursor-pointer font-medium text-ink">{t("dash.pd.up.req.title")}</summary>
+          <p className="mt-2 font-medium text-ink-muted">{t("dash.pd.up.req.must")}</p>
+          <ul className="mt-1 list-inside list-disc space-y-1 text-ink-muted">
+            <li>{t("dash.pd.up.req.1")}</li>
+            <li>{t("dash.pd.up.req.2")}</li>
+            <li>{t("dash.pd.up.req.3")}</li>
+            <li>{t("dash.pd.up.req.4")}</li>
+          </ul>
+          <p className="mt-2 text-ink-muted">{t("dash.pd.up.req.rec")}</p>
+        </details>
         {error && <p className="mb-3 rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-danger dark:text-red-400">{error}</p>}
         <Field label={t("dash.pd.up.zip")}>
           <input type="file" accept=".zip" onChange={(e) => setFile(e.target.files?.[0] ?? null)}
