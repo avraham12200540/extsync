@@ -422,6 +422,10 @@ function LinksTab({ projectId, slug }: { projectId: string; slug: string }) {
     mutationFn: () => api.post<InstallLink>(`/projects/${projectId}/install-links`, { channel: "stable", linkType: "public" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["links", projectId] }),
   });
+  const remove = useMutation({
+    mutationFn: (id: string) => api.del(`/projects/${projectId}/install-links/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["links", projectId] }),
+  });
 
   const copy = (key: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -457,6 +461,14 @@ function LinksTab({ projectId, slug }: { projectId: string; slug: string }) {
               </Button>
               <Button size="sm" variant="secondary" onClick={() => copy(`embed:${l.id}`, embedCode(l))}>
                 {copied === `embed:${l.id}` ? t("dash.pd.link.copied") : t("dash.pd.link.embed")}
+              </Button>
+              <Button
+                size="sm"
+                variant="danger"
+                disabled={remove.isPending}
+                onClick={() => { if (confirm(t("dash.pd.link.delconfirm"))) remove.mutate(l.id); }}
+              >
+                {t("dash.pd.link.delete")}
               </Button>
             </div>
           </Card>
