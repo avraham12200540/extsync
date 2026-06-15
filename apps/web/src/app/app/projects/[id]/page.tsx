@@ -426,6 +426,11 @@ function LinksTab({ projectId, slug }: { projectId: string; slug: string }) {
     mutationFn: (id: string) => api.del(`/projects/${projectId}/install-links/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["links", projectId] }),
   });
+  const toggle = useMutation({
+    mutationFn: ({ id, disabled }: { id: string; disabled: boolean }) =>
+      api.patch(`/projects/${projectId}/install-links/${id}`, { disabled }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["links", projectId] }),
+  });
 
   const copy = (key: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -448,11 +453,12 @@ function LinksTab({ projectId, slug }: { projectId: string; slug: string }) {
       <p className="text-xs text-ink-muted">{t("dash.pd.link.embed.hint")}</p>
       <div className="space-y-2">
         {(data ?? []).map((l) => (
-          <Card key={l.id} className="flex flex-wrap items-center justify-between gap-3">
+          <Card key={l.id} className={`flex flex-wrap items-center justify-between gap-3 ${l.disabled ? "opacity-60" : ""}`}>
             <div className="min-w-0">
               <code className="break-all text-sm text-ink">{l.url}</code>
               <p className="mt-1 text-xs text-ink-muted">
                 {l.linkType} • {l.channel} • {t("dash.pd.link.uses")} {l.usedCount}{l.maxUses ? `/${l.maxUses}` : ""}
+                {l.disabled && <span className="font-medium text-amber-600 dark:text-amber-400"> • {t("dash.pd.link.disabled")}</span>}
               </p>
             </div>
             <div className="flex shrink-0 gap-2">
@@ -461,6 +467,14 @@ function LinksTab({ projectId, slug }: { projectId: string; slug: string }) {
               </Button>
               <Button size="sm" variant="secondary" onClick={() => copy(`embed:${l.id}`, embedCode(l))}>
                 {copied === `embed:${l.id}` ? t("dash.pd.link.copied") : t("dash.pd.link.embed")}
+              </Button>
+              <Button
+                size="sm"
+                variant={l.disabled ? "secondary" : "warning"}
+                disabled={toggle.isPending}
+                onClick={() => toggle.mutate({ id: l.id, disabled: !l.disabled })}
+              >
+                {l.disabled ? t("dash.pd.link.enable") : t("dash.pd.link.disable")}
               </Button>
               <Button
                 size="sm"
