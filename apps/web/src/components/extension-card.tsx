@@ -40,7 +40,7 @@ export function ExtensionCard({ item, delay = 0 }: { item: CatalogItem; delay?: 
   return (
     <Link href={`/store/${item.slug}`} className="block">
       <article
-        className="lift fade-up group overflow-hidden rounded-xl border border-line bg-surface shadow-card hover:border-brand/50"
+        className="glass-tile fade-up group overflow-hidden rounded-xl"
         style={{ ["--d" as never]: `${delay}ms` }}
       >
         {/* image area - most of the card */}

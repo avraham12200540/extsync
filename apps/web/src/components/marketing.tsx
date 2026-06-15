@@ -25,7 +25,7 @@ export function HeroArt({ className = "" }: { className?: string }) {
       <img
         src="/hero.webp"
         alt=""
-        className="h-full w-full scale-105 object-cover object-center"
+        className="h-full w-full scale-105 object-cover object-center blur-[2px]"
       />
       <div className="absolute inset-0 bg-gradient-to-b from-brand-navy/35 via-brand-navy/55 to-surface-2" />
       <div className="absolute inset-0 bg-hero-radial opacity-50" />

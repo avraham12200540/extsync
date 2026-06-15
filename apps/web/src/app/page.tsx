@@ -7,7 +7,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ExtensionCard, SkeletonCard, CatalogError } from "@/components/extension-card";
 import { SectionHeading, HeroArt } from "@/components/marketing";
-import { LogoIcon, Wordmark } from "@/components/logo";
+import { Wordmark } from "@/components/logo";
 import { useLocale } from "@/components/locale-context";
 import { Button } from "@/components/ui";
 
@@ -52,31 +52,28 @@ export default function HomePage() {
           <div className="pointer-events-none absolute -right-24 bottom-0 h-80 w-80 animate-float rounded-full bg-brand-sky/15 blur-3xl [animation-delay:1.5s]" />
 
           <div className="mx-auto max-w-6xl px-4 py-24 text-center sm:px-6 sm:py-32">
-            <div className="fade-up mx-auto mb-6 w-fit animate-float">
-              <LogoIcon size={92} />
-            </div>
             <h1 className="fade-up" style={{ ["--d" as never]: "80ms" }}>
-              <Wordmark onDark className="text-5xl sm:text-7xl" />
+              <Wordmark onDark className="text-6xl sm:text-8xl" />
             </h1>
             <p
-              className="fade-up mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-slate-200 sm:text-xl"
+              className="fade-up mx-auto mt-6 max-w-3xl text-xl leading-relaxed text-slate-200 sm:text-2xl"
               style={{ ["--d" as never]: "160ms" }}
             >
               {t("home.tagline")}
             </p>
             <div
-              className="fade-up mt-9 flex flex-wrap items-center justify-center gap-3"
+              className="fade-up mt-10 flex flex-wrap items-center justify-center gap-4"
               style={{ ["--d" as never]: "240ms" }}
             >
               <a href="#extensions">
-                <Button size="md" variant="glass" className="px-6 py-2.5 text-base">
+                <Button size="md" variant="glass" className="px-8 py-3.5 text-lg">
                   {t("home.cta.browse")}
                 </Button>
               </a>
               <Link href="/register">
                 <Button
                   size="md"
-                  className="border border-white/30 bg-white/10 px-6 py-2.5 text-base text-white backdrop-blur hover:bg-white/20"
+                  className="border border-white/30 bg-white/10 px-8 py-3.5 text-lg text-white backdrop-blur hover:bg-white/20"
                 >
                   {t("home.cta.dev")}
                 </Button>

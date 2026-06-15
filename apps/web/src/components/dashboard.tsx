@@ -31,7 +31,7 @@ export function StatCard({
   icon, label, value, tone = "text-ink", iconClass = "bg-brand-gradient",
 }: { icon: React.ReactNode; label: string; value: React.ReactNode; tone?: string; iconClass?: string }) {
   return (
-    <div className="lift rounded-xl border border-line bg-surface p-5 shadow-card">
+    <div className="glass-tile rounded-xl p-5">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-ink-muted">{label}</p>
         <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white shadow-glow", iconClass)}>
