@@ -147,7 +147,7 @@ export default function HomePage() {
             <SectionHeading title={t("home.security.title")} subtitle={t("home.security.sub")} />
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {securityItems.map((s, i) => (
-                <div key={s.t} className="fade-up rounded-xl border border-line bg-surface-2/40 p-5 text-center"
+                <div key={s.t} className="fade-up glass-tile rounded-xl p-5 text-center"
                      style={{ ["--d" as never]: `${i * 90}ms` }}>
                   <div className="mb-2 text-3xl">{s.i}</div>
                   <h3 className="font-semibold text-ink">{s.t}</h3>
@@ -169,7 +169,7 @@ export default function HomePage() {
               {howItems.map((s, i) => (
                 <div
                   key={s.t}
-                  className="fade-up rounded-xl border border-line bg-surface-2/50 p-6 text-center"
+                  className="fade-up glass-tile rounded-xl p-6 text-center"
                   style={{ ["--d" as never]: `${i * 120}ms` }}
                 >
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-gradient text-2xl shadow-glow">

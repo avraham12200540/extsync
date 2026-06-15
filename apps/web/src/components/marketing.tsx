@@ -23,12 +23,12 @@ export function HeroArt({ className = "" }: { className?: string }) {
     <div aria-hidden className={`absolute inset-0 -z-10 ${className}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/reka.webp"
+        src="/hero.webp"
         alt=""
-        className="h-full w-full scale-105 object-cover object-[center_35%] blur-[3px]"
+        className="h-full w-full scale-105 object-cover object-center"
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-brand-navy/80 via-brand-navy/85 to-surface-2" />
-      <div className="absolute inset-0 bg-hero-radial opacity-70" />
+      <div className="absolute inset-0 bg-gradient-to-b from-brand-navy/35 via-brand-navy/55 to-surface-2" />
+      <div className="absolute inset-0 bg-hero-radial opacity-50" />
     </div>
   );
 }
