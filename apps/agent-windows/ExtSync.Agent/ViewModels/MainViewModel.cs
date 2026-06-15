@@ -120,6 +120,7 @@ public sealed class MainViewModel : ObservableObject
             {
                 Owner = Application.Current.MainWindow,
             };
+            wizard.Loaded += (_, _) => WindowHelpers.BringToFront(wizard);
             wizard.ShowDialog();
             Reload();
         }

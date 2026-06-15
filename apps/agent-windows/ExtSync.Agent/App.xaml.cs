@@ -156,7 +156,7 @@ public partial class App : Application
                         {
                             var vm = (MainViewModel)MainWindow!.DataContext;
                             if (msg.StartsWith("extsync://")) await HandleUri(msg, vm);
-                            else { MainWindow.Show(); MainWindow.Activate(); }
+                            else WindowHelpers.BringToFront(MainWindow);
                         });
                 }
                 catch (OperationCanceledException) { break; }
@@ -185,14 +185,12 @@ public partial class App : Application
             var token = parsed.Query["token"];
             if (!string.IsNullOrEmpty(token))
             {
-                MainWindow!.Show();
-                MainWindow.Activate();
+                WindowHelpers.BringToFront(MainWindow);
                 await vm.StartInstallWizardAsync(token);
                 return;
             }
         }
-        MainWindow!.Show();
-        MainWindow.Activate();
+        WindowHelpers.BringToFront(MainWindow);
     }
 
     /// <summary>Platform public keys are baked into the build (§26). In dev they are
