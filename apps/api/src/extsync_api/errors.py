@@ -56,6 +56,10 @@ class ErrorCode(StrEnum):
     RELEASE_NOT_READY = "RELEASE_NOT_READY"
     UPLOAD_TOO_LARGE = "UPLOAD_TOO_LARGE"
 
+    # ---- likes quota (mitmachim.top meter) ----
+    DUPLICATE_EVENT = "DUPLICATE_EVENT"
+    LIMIT_REACHED = "LIMIT_REACHED"
+
 
 class APIError(Exception):
     """Raise anywhere to return a structured error response."""

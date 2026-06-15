@@ -109,6 +109,15 @@ class Settings(BaseSettings):
     google_oauth_client_id: str = ""
     google_oauth_client_secret: str = ""
 
+    # likes quota (mitmachim.top daily likes meter, synced across machines)
+    likes_quota_daily_limit: int = 20
+    likes_quota_per_user_limit: int = 6
+    likes_quota_timezone: str = "Asia/Jerusalem"  # daily reset uses this tz, not the client clock
+    # DEV ONLY: when true (and not production) the meter accepts an
+    # `X-Dev-Quota-User` header instead of a real auth token, so the extension can
+    # be tested without a full login. Forced off in production by the principal guard.
+    likes_quota_dev_auth: bool = False
+
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
