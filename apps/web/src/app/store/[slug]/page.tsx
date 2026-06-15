@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
+import { Download } from "lucide-react";
 import type { CatalogDetail } from "@/lib/api";
 import { MarketingShell } from "@/components/marketing";
 import { RatingSection } from "@/components/rating-section";
@@ -105,7 +106,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
                 {stable && <Badge>{t("detail.version")} {stable.version}</Badge>}
                 {d.category && <Badge>{d.category}</Badge>}
                 {d.usesNativeMessaging && <Badge>{t("detail.autoupdate")}</Badge>}
-                {(d.installs ?? 0) > 0 && <Badge>⬇ {d.installs} {t("store.installs")}</Badge>}
+                {(d.installs ?? 0) > 0 && <Badge><Download className="me-1 h-3 w-3" /> {d.installs} {t("store.installs")}</Badge>}
               </div>
             </div>
           </div>

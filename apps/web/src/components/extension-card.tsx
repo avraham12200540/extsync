@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Download } from "lucide-react";
 import type { CatalogItem } from "@/lib/api";
 import { LogoIcon } from "@/components/logo";
 import { RatingDisplay } from "@/components/stars";
@@ -81,8 +82,8 @@ export function ExtensionCard({ item, delay = 0 }: { item: CatalogItem; delay?: 
           <div className="mt-2 flex items-center justify-between gap-2">
             <RatingDisplay avg={item.avgRating} count={item.ratingsCount} />
             {(item.installs ?? 0) > 0 && (
-              <span className="shrink-0 text-xs text-ink-muted" title={t("store.installs")}>
-                ⬇ {item.installs} {t("store.installs")}
+              <span className="inline-flex shrink-0 items-center gap-1 text-xs text-ink-muted" title={t("store.installs")}>
+                <Download className="h-3 w-3" /> {item.installs} {t("store.installs")}
               </span>
             )}
           </div>

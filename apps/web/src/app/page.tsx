@@ -10,6 +10,7 @@ import { SectionHeading, HeroArt } from "@/components/marketing";
 import { Wordmark } from "@/components/logo";
 import { useLocale } from "@/components/locale-context";
 import { Button } from "@/components/ui";
+import { FileSignature, FlaskConical, Ban, Undo2, Download, Puzzle, RefreshCw } from "lucide-react";
 
 const DOWNLOAD_URL =
   "https://github.com/avraham12200540/extsync/releases/latest/download/ExtSyncAgentSetup.exe";
@@ -25,15 +26,15 @@ export default function HomePage() {
   }, []);
 
   const securityItems = [
-    { i: "🔏", t: t("home.sec1.t"), d: t("home.sec1.d") },
-    { i: "🧪", t: t("home.sec2.t"), d: t("home.sec2.d") },
-    { i: "🚫", t: t("home.sec3.t"), d: t("home.sec3.d") },
-    { i: "↩️", t: t("home.sec4.t"), d: t("home.sec4.d") },
+    { Icon: FileSignature, t: t("home.sec1.t"), d: t("home.sec1.d") },
+    { Icon: FlaskConical, t: t("home.sec2.t"), d: t("home.sec2.d") },
+    { Icon: Ban, t: t("home.sec3.t"), d: t("home.sec3.d") },
+    { Icon: Undo2, t: t("home.sec4.t"), d: t("home.sec4.d") },
   ];
   const howItems = [
-    { icon: "⬇️", t: t("home.how1.t"), d: t("home.how1.d") },
-    { icon: "🧩", t: t("home.how2.t"), d: t("home.how2.d") },
-    { icon: "🔄", t: t("home.how3.t"), d: t("home.how3.d") },
+    { Icon: Download, t: t("home.how1.t"), d: t("home.how1.d") },
+    { Icon: Puzzle, t: t("home.how2.t"), d: t("home.how2.d") },
+    { Icon: RefreshCw, t: t("home.how3.t"), d: t("home.how3.d") },
   ];
 
   return (
@@ -96,7 +97,7 @@ export default function HomePage() {
               </div>
               <a href={DOWNLOAD_URL} className="shrink-0">
                 <Button size="md" variant="glass" className="px-6 py-3 text-base">
-                  {t("home.agent.cta")}
+                  <Download className="h-4 w-4" /> {t("home.agent.cta")}
                 </Button>
               </a>
             </div>
@@ -146,7 +147,7 @@ export default function HomePage() {
               {securityItems.map((s, i) => (
                 <div key={s.t} className="fade-up glass-tile rounded-xl p-5 text-center"
                      style={{ ["--d" as never]: `${i * 90}ms` }}>
-                  <div className="mb-2 text-3xl">{s.i}</div>
+                  <s.Icon className="mx-auto mb-2 h-8 w-8 text-brand" strokeWidth={1.75} />
                   <h3 className="font-semibold text-ink">{s.t}</h3>
                   <p className="mt-1 text-xs text-ink-muted">{s.d}</p>
                 </div>
@@ -169,8 +170,8 @@ export default function HomePage() {
                   className="fade-up glass-tile rounded-xl p-6 text-center"
                   style={{ ["--d" as never]: `${i * 120}ms` }}
                 >
-                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-gradient text-2xl shadow-glow">
-                    {s.icon}
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-gradient shadow-glow">
+                    <s.Icon className="h-7 w-7 text-white" strokeWidth={1.75} />
                   </div>
                   <h3 className="font-semibold text-ink">{s.t}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-ink-muted">{s.d}</p>

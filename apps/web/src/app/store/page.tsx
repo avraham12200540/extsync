@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, type CatalogItem } from "@/lib/api";
 import { MarketingShell, PageHero } from "@/components/marketing";
 import { ExtensionCard, SkeletonCard, CatalogError } from "@/components/extension-card";
+import { Search } from "lucide-react";
 import { useLocale } from "@/components/locale-context";
 import { Card, Input } from "@/components/ui";
 
@@ -78,8 +79,11 @@ export default function StorePage() {
                 <option value="newest">{t("store.sort.newest")}</option>
                 <option value="name">{t("store.sort.name")}</option>
               </select>
-              <Input placeholder={t("store.search")} value={q} onChange={(e) => setQ(e.target.value)}
-                     className="sm:w-64" />
+              <div className="relative sm:w-64">
+                <Search className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted ltr:left-3 rtl:right-3" />
+                <Input placeholder={t("store.search")} value={q} onChange={(e) => setQ(e.target.value)}
+                       className="w-full ltr:pl-9 rtl:pr-9" />
+              </div>
             </div>
           </div>
 

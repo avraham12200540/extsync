@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useLocale } from "@/components/locale-context";
 import { LogoIcon } from "@/components/logo";
 import { Button } from "@/components/ui";
+import { Download, TriangleAlert } from "lucide-react";
 
 const DOWNLOAD_URL =
   "https://github.com/avraham12200540/extsync/releases/latest/download/ExtSyncAgentSetup.exe";
@@ -47,7 +48,7 @@ export function DownloadCta() {
           ) : (
             <>
               <a href={DOWNLOAD_URL} className="mt-6 inline-block">
-                <Button variant="glass" className="px-8 py-3 text-base">{t("dl.cta")}</Button>
+                <Button variant="glass" className="px-8 py-3 text-base"><Download className="h-4 w-4" /> {t("dl.cta")}</Button>
               </a>
               <p className="mt-4 text-xs text-slate-400">
                 {t("dl.releases.1")}
@@ -62,7 +63,7 @@ export function DownloadCta() {
 
       {!isMac && (
         <div className="mt-6 flex items-start gap-3 rounded-xl border border-amber-300 dark:border-amber-400/30 bg-amber-50 dark:bg-amber-400/10 p-4 text-sm text-amber-900 dark:text-amber-200">
-          <span className="text-lg">⚠️</span>
+          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" />
           <p>{t("dl.smartscreen")}</p>
         </div>
       )}

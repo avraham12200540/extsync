@@ -1,14 +1,15 @@
 import { MarketingShell, PageHero } from "@/components/marketing";
 import { getLocale } from "@/lib/locale-server";
 import { t as tr } from "@/lib/i18n";
+import { FileSignature, FlaskConical, ScanSearch, Ban, Lock, Undo2 } from "lucide-react";
 
-const ICONS = ["🔏", "🧪", "🔎", "🚫", "🔒", "↩️"];
+const ICONS = [FileSignature, FlaskConical, ScanSearch, Ban, Lock, Undo2];
 
 export default async function SecurityPage() {
   const locale = await getLocale();
   const t = (k: string) => tr(k, locale);
   const items = [1, 2, 3, 4, 5, 6].map((n, i) => ({
-    icon: ICONS[i], t: t(`sec.${n}.t`), d: t(`sec.${n}.d`),
+    Icon: ICONS[i], t: t(`sec.${n}.t`), d: t(`sec.${n}.d`),
   }));
 
   return (
@@ -27,8 +28,8 @@ export default async function SecurityPage() {
               className="lift fade-up rounded-xl border border-line bg-surface p-6 shadow-card"
               style={{ ["--d" as never]: `${i * 80}ms` }}
             >
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-gradient text-xl shadow-glow">
-                {it.icon}
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-gradient shadow-glow">
+                <it.Icon className="h-6 w-6 text-white" strokeWidth={1.75} />
               </div>
               <h3 className="font-semibold text-ink">{it.t}</h3>
               <p className="mt-2 text-sm leading-relaxed text-ink-muted">{it.d}</p>

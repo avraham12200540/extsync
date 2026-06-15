@@ -7,6 +7,7 @@ import { api, ApiError } from "@/lib/api";
 import { AuthShell } from "@/components/marketing";
 import { useLocale } from "@/components/locale-context";
 import { Button, Card, Field, Input } from "@/components/ui";
+import { CircleCheck } from "lucide-react";
 
 function ResetForm() {
   const router = useRouter();
@@ -45,7 +46,7 @@ function ResetForm() {
   if (done) {
     return (
       <Card className="w-full text-center shadow-lift">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-gradient text-2xl shadow-glow">✅</div>
+        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-gradient shadow-glow"><CircleCheck className="h-7 w-7 text-white" strokeWidth={1.75} /></div>
         <h1 className="mb-2 text-2xl font-bold text-ink">{t("rp.done.title")}</h1>
         <p className="text-ink-muted">{t("rp.done.body")}</p>
         <Link href="/login" className="mt-4 inline-block text-brand hover:underline">{t("rp.done.cta")}</Link>

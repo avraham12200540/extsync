@@ -4,7 +4,7 @@ import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MonitorSmartphone, CircleCheck, CircleX } from "lucide-react";
+import { MonitorSmartphone, CircleCheck, CircleX, Loader2, Lightbulb } from "lucide-react";
 import { api, ApiError, type InstallLink, type Project, type Release } from "@/lib/api";
 import { useLocale } from "@/components/locale-context";
 import { Badge, Button, Card, Field, Input, Spinner } from "@/components/ui";
@@ -372,7 +372,7 @@ function VersionsTab({ project }: { project: Project }) {
               {scanning && (
                 <div className="mt-3">
                   <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-brand">
-                    <span className="animate-spin">🔍</span>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     {r.status === "uploaded" ? t("dash.pd.scanq") : t("dash.pd.scanning")}
                   </p>
                   <div className="scan-track" />
@@ -392,10 +392,10 @@ function VersionsTab({ project }: { project: Project }) {
                   <div className="mt-3 space-y-2">
                     {errs.map((err, i) => (
                       <div key={i} className="flex items-start gap-2 rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 p-3 text-sm text-danger dark:text-red-400">
-                        <span>⛔</span>
+                        <CircleX className="mt-0.5 h-4 w-4 shrink-0" />
                         <div className="min-w-0">
                           <p>{err.message}</p>
-                          <p className="mt-1 text-xs opacity-90">💡 {t(FIX_HINT[err.code] ?? "dash.pd.fix.generic")}</p>
+                          <p className="mt-1 flex items-start gap-1 text-xs opacity-90"><Lightbulb className="mt-0.5 h-3 w-3 shrink-0" /><span>{t(FIX_HINT[err.code] ?? "dash.pd.fix.generic")}</span></p>
                         </div>
                       </div>
                     ))}

@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { AuthShell } from "@/components/marketing";
 import { useLocale } from "@/components/locale-context";
 import { Card, Spinner } from "@/components/ui";
+import { CircleCheck, TriangleAlert } from "lucide-react";
 
 function VerifyInner() {
   const { t } = useLocale();
@@ -24,7 +25,7 @@ function VerifyInner() {
       {state === "loading" && <div className="flex justify-center py-6"><Spinner /></div>}
       {state === "ok" && (
         <>
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-gradient text-2xl shadow-glow">✅</div>
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-gradient shadow-glow"><CircleCheck className="h-7 w-7 text-white" strokeWidth={1.75} /></div>
           <h1 className="mb-2 text-2xl font-bold text-ink">{t("ve.ok.title")}</h1>
           <p className="text-ink-muted">{t("ve.ok.body")}</p>
           <Link href="/login" className="mt-4 inline-block text-brand hover:underline">{t("ve.ok.cta")}</Link>
@@ -32,7 +33,7 @@ function VerifyInner() {
       )}
       {state === "error" && (
         <>
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-400/15 text-2xl">⚠️</div>
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-400/15"><TriangleAlert className="h-7 w-7 text-amber-600 dark:text-amber-400" strokeWidth={1.75} /></div>
           <h1 className="mb-2 text-2xl font-bold text-ink">{t("ve.err.title")}</h1>
           <p className="text-ink-muted">{t("ve.err.body")}</p>
           <Link href="/login" className="mt-4 inline-block text-brand hover:underline">{t("ve.err.cta")}</Link>

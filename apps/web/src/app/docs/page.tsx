@@ -5,11 +5,15 @@ import Link from "next/link";
 import { MarketingShell, PageHero } from "@/components/marketing";
 import { useLocale } from "@/components/locale-context";
 import { Button } from "@/components/ui";
+import {
+  Download, Puzzle, MousePointerClick, RefreshCw, FolderPlus, Package, Upload,
+  Rocket, Link2, Lightbulb, ChevronDown, User, type LucideIcon,
+} from "lucide-react";
 
 const DOWNLOAD_URL =
   "https://github.com/avraham12200540/extsync/releases/latest/download/ExtSyncAgentSetup.exe";
 
-type Step = { icon: string; title: string; body: string; tip?: string };
+type Step = { Icon: LucideIcon; title: string; body: string; tip?: string };
 
 function Timeline({ steps }: { steps: Step[] }) {
   return (
@@ -21,8 +25,8 @@ function Timeline({ steps }: { steps: Step[] }) {
           className="fade-up relative flex gap-5 pb-8 last:pb-0"
           style={{ ["--d" as never]: `${i * 110}ms` }}
         >
-          <div className="relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-gradient text-2xl shadow-glow">
-            {s.icon}
+          <div className="relative z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-gradient shadow-glow">
+            <s.Icon className="h-7 w-7 text-white" strokeWidth={1.75} />
           </div>
           <div className="lift rounded-xl border border-line bg-surface p-5 shadow-card">
             <div className="flex items-center gap-2">
@@ -33,7 +37,7 @@ function Timeline({ steps }: { steps: Step[] }) {
             </div>
             <p className="mt-2 text-sm leading-relaxed text-ink-muted">{s.body}</p>
             {s.tip && (
-              <p className="mt-2 rounded-lg bg-brand-muted/60 dark:bg-brand/15 px-3 py-1.5 text-xs text-brand dark:text-brand-sky">💡 {s.tip}</p>
+              <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-brand-muted/60 dark:bg-brand/15 px-3 py-1.5 text-xs text-brand dark:text-brand-sky"><Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span>{s.tip}</span></p>
             )}
           </div>
         </li>
@@ -47,17 +51,17 @@ export default function DocsPage() {
   const [tab, setTab] = useState<"user" | "dev">("user");
 
   const userSteps: Step[] = [
-    { icon: "⬇️", title: t("docs.u1.t"), body: t("docs.u1.b") },
-    { icon: "🧩", title: t("docs.u2.t"), body: t("docs.u2.b") },
-    { icon: "🖱️", title: t("docs.u3.t"), body: t("docs.u3.b") },
-    { icon: "🔄", title: t("docs.u4.t"), body: t("docs.u4.b") },
+    { Icon: Download, title: t("docs.u1.t"), body: t("docs.u1.b") },
+    { Icon: Puzzle, title: t("docs.u2.t"), body: t("docs.u2.b") },
+    { Icon: MousePointerClick, title: t("docs.u3.t"), body: t("docs.u3.b") },
+    { Icon: RefreshCw, title: t("docs.u4.t"), body: t("docs.u4.b") },
   ];
   const devSteps: Step[] = [
-    { icon: "📝", title: t("docs.d1.t"), body: t("docs.d1.b"), tip: t("docs.d1.tip") },
-    { icon: "📦", title: t("docs.d2.t"), body: t("docs.d2.b") },
-    { icon: "⬆️", title: t("docs.d3.t"), body: t("docs.d3.b") },
-    { icon: "🚀", title: t("docs.d4.t"), body: t("docs.d4.b") },
-    { icon: "🔗", title: t("docs.d5.t"), body: t("docs.d5.b") },
+    { Icon: FolderPlus, title: t("docs.d1.t"), body: t("docs.d1.b"), tip: t("docs.d1.tip") },
+    { Icon: Package, title: t("docs.d2.t"), body: t("docs.d2.b") },
+    { Icon: Upload, title: t("docs.d3.t"), body: t("docs.d3.b") },
+    { Icon: Rocket, title: t("docs.d4.t"), body: t("docs.d4.b") },
+    { Icon: Link2, title: t("docs.d5.t"), body: t("docs.d5.b") },
   ];
   const faq = [1, 2, 3, 4].map((n) => [t(`docs.q${n}`), t(`docs.a${n}`)] as const);
 
@@ -71,15 +75,18 @@ export default function DocsPage() {
 
       <section className="mx-auto max-w-4xl px-6 py-14">
         <div className="mx-auto mb-12 grid max-w-md grid-cols-2 gap-1 rounded-2xl border border-line bg-surface p-1 shadow-card">
-          {([["user", t("docs.tab.user")], ["dev", t("docs.tab.dev")]] as const).map(([id, label]) => (
+          {([
+            { id: "user", label: t("docs.tab.user"), Icon: User },
+            { id: "dev", label: t("docs.tab.dev"), Icon: Puzzle },
+          ] as const).map(({ id, label, Icon }) => (
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
+              className={`flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${
                 tab === id ? "bg-brand-gradient text-white shadow-glow" : "text-ink-muted hover:text-ink"
               }`}
             >
-              {label}
+              <Icon className="h-4 w-4" /> {label}
             </button>
           ))}
         </div>
@@ -88,7 +95,7 @@ export default function DocsPage() {
           <>
             <Timeline steps={userSteps} />
             <div className="mt-10 flex flex-wrap justify-center gap-3">
-              <a href={DOWNLOAD_URL}><Button variant="glass" className="px-6 py-2.5 text-base">{t("docs.cta.download")}</Button></a>
+              <a href={DOWNLOAD_URL}><Button variant="glass" className="px-6 py-2.5 text-base"><Download className="h-4 w-4" /> {t("docs.cta.download")}</Button></a>
               <Link href="/store"><Button variant="secondary" className="px-6 py-2.5 text-base">{t("docs.cta.store")}</Button></Link>
             </div>
           </>
@@ -110,7 +117,7 @@ export default function DocsPage() {
             {faq.map(([q, a]) => (
               <details key={q} className="group rounded-xl border border-line bg-surface-2/40 p-4 transition-colors hover:border-brand/40">
                 <summary className="flex cursor-pointer list-none items-center justify-between font-medium text-ink">
-                  {q}<span className="text-brand transition-transform group-open:rotate-180">⌄</span>
+                  {q}<ChevronDown className="h-5 w-5 shrink-0 text-brand transition-transform group-open:rotate-180" />
                 </summary>
                 <p className="mt-2 text-sm leading-relaxed text-ink-muted">{a}</p>
               </details>
