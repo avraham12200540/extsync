@@ -1,142 +1,67 @@
+<div align="center">
+
+<img src="apps/web/public/logo.png" width="96" alt="ExtSync logo" />
+
 # ExtSync
 
-**פלטפורמה להפצה, התקנה, ניהול ועדכון של תוספי Chrome (Manifest V3) מחוץ ל-Chrome Web Store** — לתוספים פרטיים, ניסיוניים וצוותיים.
+**Distribute, install and auto-update private Chrome extensions - outside the Chrome Web Store.**
 
-> ExtSync אינה תחליף רשמי ל-Chrome Web Store. בהתקנה הראשונה של תוסף לא ארוז, המשתמש חייב להפעיל "מצב מפתח" ולטעון את התיקייה ידנית ב-`chrome://extensions`. אין דרך נתמכת לבצע התקנה שקטה ומלאה של תוסף ב-Windows רגיל ללא Chrome Web Store וללא ניהול ארגוני. ExtSync הופכת את השלב הזה לפשוט ככל האפשר, ומנהלת את **כל** העדכונים שאחריו. ראו [docs/architecture/limitations.md](docs/architecture/limitations.md).
+[🌐 extsync.com](https://extsync.com) · [📦 Store](https://extsync.com/store) · [📖 Guide](https://extsync.com/docs) · [🇮🇱 עברית](README.he.md)
 
----
+![License: source-available](https://img.shields.io/badge/license-source--available-2563EB)
+![Web: Next.js 16](https://img.shields.io/badge/web-Next.js%2016-000000)
+![API: FastAPI](https://img.shields.io/badge/api-FastAPI-009688)
+![Agent: .NET 8 WPF](https://img.shields.io/badge/agent-.NET%208%20WPF-512BD4)
+![Releases: Ed25519 signed](https://img.shields.io/badge/releases-Ed25519%20signed-0FB5BA)
 
-## מה יש כאן
+</div>
 
-| רכיב | תיקייה | טכנולוגיה | תפקיד |
-|------|--------|-----------|-------|
-| אתר | `apps/web` | Next.js + TS | אתר ציבורי, לוח בקרה למפתח, דף התקנה, Admin |
-| API | `apps/api` | FastAPI + SQLAlchemy | מקור האמת: משתמשים, פרויקטים, גרסאות, חתימות |
-| Worker | `apps/worker` | Python | ניתוח ZIP מבודד, ולידציה, אריזת Artifact |
-| Signing | `apps/api` (`extsync_signing`) | Python | שירות חתימה Ed25519 מבודד רשתית |
-| Agent | `apps/agent-windows` | C# / WPF | תוכנת Windows שמתקינה ומעדכנת תוספים |
-| Native Host | `apps/native-host` | C# | גשר Native Messaging בין Chrome ל-Agent |
-| Bridge | `packages/extension-bridge` | TS | חבילה שמשולבת בתוסף לטעינה-מחדש מאומתת |
-| CLI | `apps/cli` | Node/TS | `extsync` — init/validate/pack/upload/publish |
-| Schema | `packages/release-schema` | JSON Schema + TS/Py | פורמט Metadata + חתימה, מקור אמת חוצה-שפות |
+![ExtSync](docs/assets/home.webp)
 
-מבנה מלא: ראו [docs/architecture/overview.md](docs/architecture/overview.md) ואת ה-ADRs תחת [docs/architecture/](docs/architecture).
+## What is ExtSync?
 
----
+ExtSync is a platform to distribute, install, manage and **auto-update private (or unlisted) Chrome Manifest V3 extensions outside the Chrome Web Store** - for private, internal and team extensions.
 
-## דרישות מוקדמות
+Every release is **Ed25519-signed** and SHA-256 verified. A small Windows Agent installs the extension once, then keeps it up to date automatically, with auto-rollback on failed updates.
 
-- **Docker + Docker Compose** — להרצת ה-Backend, Worker, DB, Redis, MinIO, Mailpit.
-- **Node.js 20+** ו-**npm 10+** — ל-`apps/web`, `apps/cli`, חבילות TS.
-- **Python 3.12+** — אם מריצים את ה-API/Worker מחוץ ל-Docker.
-- **.NET 8 SDK** — לבניית ה-Agent וה-Native Host (Windows בלבד).
-- **Inno Setup 6** — לבניית מתקין ה-Windows (Windows בלבד).
+> ExtSync is not a replacement for the Chrome Web Store. The first install of an unpacked extension still requires enabling Developer mode and loading the folder once in `chrome://extensions`. ExtSync makes that one step as simple as possible and then manages every update after it. See [architecture/limitations.md](docs/architecture/limitations.md).
 
-> במכונת פיתוח ללא Docker/dotnet אפשר עדיין לעבוד על הקוד; פשוט לא ניתן להריץ את השירותים/ה-Agent. סעיף "ללא Docker" למטה מתאר הרצת API מקומית.
+## Highlights
 
----
+- 🔐 **Signed releases** - Ed25519 over canonical metadata, produced by a network-isolated signing service; the Agent refuses any install without a valid signature and matching SHA-256.
+- 🔄 **Automatic updates** - the Agent polls, verifies and applies updates, with auto-rollback and rollout auto-pause on a high failure rate.
+- 🧪 **Validation pipeline** - every upload is scanned in an isolated worker (ZIP-slip, path traversal, remote code, manifest mismatch) and scored for risk before it can be published.
+- 🌗 **Polished web** - public store plus a developer dashboard; bilingual Hebrew/English, dark by default, SSR + SEO.
+- 🛡️ **Security-first** - Argon2id password hashing, JWT with pinned algorithm, refresh-token rotation with theft detection, IDOR-safe authorization, webhook SSRF guard, and a nonce-based CSP.
 
-## הפעלה מאפס (Quick start)
+## Screenshots
 
-```bash
-# 1. שכפול והגדרת סביבה
-cp .env.example .env
-# ערכו את .env והחליפו את כל ה-change_me_* בסודות אמיתיים:
-#   JWT_SECRET / CSRF_SECRET / SIGNING_INTERNAL_TOKEN  ->  openssl rand -hex 32
+| Public store | Developer dashboard |
+|---|---|
+| [![Store](docs/assets/store.webp)](https://extsync.com/store) | Sign in at [extsync.com](https://extsync.com) |
 
-# 2. יצירת מפתח חתימה לפיתוח (Ed25519) — לא לפרודקשן!
-make gen-dev-signing-key
-#   זה כותב infrastructure/docker/dev-signing-key.pem (ב-.gitignore)
-#   ומדפיס את SIGNING_PUBLIC_KEYS שצריך להעתיק ל-.env
+## Architecture
 
-# 3. הרמת התשתית והשירותים
-docker compose up -d --build
+| Component | Path | Stack | Role |
+|---|---|---|---|
+| Web | `apps/web` | Next.js + TS | Public site, developer dashboard, install page, admin |
+| API | `apps/api` | FastAPI + SQLAlchemy | Source of truth: users, projects, releases, signatures |
+| Worker | `apps/worker` | Python | Isolated ZIP analysis, validation, artifact packaging |
+| Signing | `apps/api` (`extsync_signing`) | Python | Network-isolated Ed25519 signing service |
+| Agent | `apps/agent-windows` | C# / WPF | Windows app that installs and auto-updates extensions |
+| Native Host | `apps/native-host` | C# | Native Messaging bridge between Chrome and the Agent |
+| Bridge | `packages/extension-bridge` | TypeScript | In-extension package for verified reload |
+| CLI | `apps/cli` | Node / TS | `extsync` - init / validate / pack / upload / publish |
+| Schema | `packages/release-schema` | JSON Schema + TS/Py | Cross-language source of truth for release metadata |
 
-# 4. הרצת מיגרציות
-make migrate
+Deep dives: [architecture overview](docs/architecture/overview.md) · [decision records](docs/architecture/adr) · [signing](docs/security/signing.md) · [end-to-end flow](docs/developer-guide/end-to-end.md).
 
-# 5. יצירת משתמש Admin + Seed data
-make seed
+## Source-available, not open source
 
-# 6. בדיקת בריאות
-curl http://localhost:8000/health/ready
-```
+This repository is public so the code can be **read and audited**. ExtSync is a real, hosted product ([extsync.com](https://extsync.com)) - not a self-host kit - and the code is **not** licensed for reuse or production hosting. See [LICENSE](LICENSE).
 
-כתובות מקומיות:
+Building locally to review the code: [developer-guide/getting-started.md](docs/developer-guide/getting-started.md).
 
-| שירות | כתובת |
-|-------|-------|
-| אתר | http://localhost:3000 |
-| API + OpenAPI docs | http://localhost:8000/docs |
-| Mailpit (אימיילים) | http://localhost:8025 |
-| MinIO console | http://localhost:9001 |
+## Contact
 
-פרטי משתמש ה-Admin שנוצר ב-seed מודפסים בסוף `make seed` (ברירת מחדל: `admin@extsync.local`).
-
----
-
-## בניית ה-Agent וה-Installer (Windows)
-
-```powershell
-# Agent + Native Host
-make agent-build           # dotnet build apps/agent-windows ו-apps/native-host
-
-# מתקין (Inno Setup חייב להיות מותקן ב-PATH)
-make installer
-#   הפלט: installers/windows/Output/ExtSyncAgentSetup.exe
-```
-
----
-
-## תהליך מקצה לקצה (קריטריון הקבלה)
-
-1. מפתח נרשם ומאמת אימייל (Mailpit) → 2. יוצר פרויקט → 3. מעלה ZIP →
-4. Worker מנתח ומדווח → 5. מפרסם Stable → 6. יוצר קישור התקנה →
-7. משתמש מתקין את ה-Agent → 8. פותח את הקישור → 9. ה-Agent מוריד+מאמת+מחלץ →
-10. מציג הוראות טעינה → 11. המשתמש טוען ב-Chrome → 12. ה-Bridge נרשם →
-13. מפתח מעלה גרסה חדשה → 14. השרת דוחף ל-Agent → 15. עדכון בטוח + Reload →
-16. דיווח הצלחה → 17. כשל ⇒ Rollback אוטומטי, הגרסה הישנה נשמרת.
-
-המדריך המלא: [docs/developer-guide/end-to-end.md](docs/developer-guide/end-to-end.md).
-בדיקות ידניות חובה ב-Chrome: [docs/security/manual-chrome-tests.md](docs/security/manual-chrome-tests.md).
-
----
-
-## פקודות עיקריות (`make help`)
-
-| פקודה | פעולה |
-|-------|-------|
-| `make up` / `make down` | הרמה/הורדה של docker compose |
-| `make migrate` | הרצת מיגרציות Alembic |
-| `make revision m="..."` | יצירת מיגרציה אוטומטית |
-| `make seed` | Seed data + Admin |
-| `make test` | כל הבדיקות (backend + cli + bridge) |
-| `make test-api` | בדיקות Backend בלבד |
-| `make lint` / `make typecheck` | בדיקות איכות |
-| `make gen-dev-signing-key` | יצירת מפתח Ed25519 לפיתוח |
-| `make agent-build` | בניית Agent + Native Host |
-| `make installer` | בניית מתקין Windows |
-
----
-
-## הרצת API ללא Docker (פיתוח backend)
-
-צריך Postgres + Redis + MinIO זמינים (אפשר רק אותם דרך `docker compose up -d postgres redis minio minio-init mailpit`):
-
-```bash
-cd apps/api
-python -m venv .venv && . .venv/Scripts/activate   # PowerShell: .venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
-alembic upgrade head
-uvicorn extsync_api.main:app --reload
-```
-
----
-
-## אבטחה ומגבלות
-
-- כל Artifact חתום ב-Ed25519 ומאומת SHA-256; ה-Agent מסרב להתקין ללא חתימה תקינה. ראו [docs/security/signing.md](docs/security/signing.md).
-- אין הורדה/הרצה של JavaScript מרוחק בתוך תוסף — כל קוד חייב להיכלל בחבילת הגרסה החתומה.
-- מגבלות Chrome/Windows ידועות מתועדות במפורש: [docs/architecture/limitations.md](docs/architecture/limitations.md).
-
-רישיון: ראו [LICENSE](LICENSE).
+Built by Avraham Glasser - <glasser.avraham@gmail.com>
