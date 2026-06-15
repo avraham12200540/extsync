@@ -205,6 +205,28 @@ function OverviewTab({ project }: { project: Project }) {
 
 const SCANNING = new Set(["uploaded", "validating"]);
 
+// Maps a validator finding code (apps/worker/.../validation/validator.py) to a
+// friendly fix-hint i18n key. Unmapped codes fall back to dash.pd.fix.generic.
+const FIX_HINT: Record<string, string> = {
+  SERVICE_WORKER_MISSING: "dash.pd.fix.fileMissing",
+  CONTENT_SCRIPT_MISSING: "dash.pd.fix.fileMissing",
+  ICON_MISSING: "dash.pd.fix.fileMissing",
+  MANIFEST_VERSION: "dash.pd.fix.manifest",
+  MANIFEST_NAME: "dash.pd.fix.manifest",
+  MANIFEST_VERSION_FIELD: "dash.pd.fix.manifest",
+  INVALID_MANIFEST: "dash.pd.fix.manifest",
+  REMOTE_CODE: "dash.pd.fix.remote",
+  OBFUSCATED_EVAL: "dash.pd.fix.code",
+  CRYPTO_MINER: "dash.pd.fix.code",
+  DISALLOWED_BINARY: "dash.pd.fix.binary",
+  INVALID_ARCHIVE: "dash.pd.fix.zip",
+  ZIP_BOMB: "dash.pd.fix.zip",
+  TOO_MANY_FILES: "dash.pd.fix.zip",
+  DIR_TOO_DEEP: "dash.pd.fix.zip",
+  PATH_TRAVERSAL: "dash.pd.fix.zip",
+  SYMLINK: "dash.pd.fix.zip",
+};
+
 function VersionsTab({ project }: { project: Project }) {
   const { t } = useLocale();
   const qc = useQueryClient();
@@ -357,12 +379,29 @@ function VersionsTab({ project }: { project: Project }) {
                 </div>
               )}
 
-              {/* failure reason */}
-              {r.status === "validation_failed" && r.validationError && (
-                <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 p-3 text-sm text-danger dark:text-red-400">
-                  <span>⛔</span><p>{r.validationError}</p>
-                </div>
-              )}
+              {/* failure reason: each error + a friendly fix hint */}
+              {r.status === "validation_failed" && (() => {
+                const report = r.validationReport as
+                  | { errors?: { code: string; message: string; file?: string | null }[] }
+                  | null | undefined;
+                const errs = report?.errors?.length
+                  ? report.errors
+                  : r.validationError ? [{ code: "", message: r.validationError }] : [];
+                if (errs.length === 0) return null;
+                return (
+                  <div className="mt-3 space-y-2">
+                    {errs.map((err, i) => (
+                      <div key={i} className="flex items-start gap-2 rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 p-3 text-sm text-danger dark:text-red-400">
+                        <span>⛔</span>
+                        <div className="min-w-0">
+                          <p>{err.message}</p>
+                          <p className="mt-1 text-xs opacity-90">💡 {t(FIX_HINT[err.code] ?? "dash.pd.fix.generic")}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </Card>
           );
         })}
