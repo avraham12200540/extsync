@@ -105,6 +105,22 @@ html {
 .glass-btn:hover { filter: brightness(1.07); }
 .glass-btn:hover::before { left: 120%; }
 
+/* Light sweep ("shine") for ALL buttons - a soft white glare that crosses the
+   button on hover. Self-contained (clips itself with overflow:hidden), so it
+   composes with any button variant. The glass variant has its own sweep and is
+   not double-applied. */
+.btn-shine { position: relative; overflow: hidden; }
+.btn-shine::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: -60%; width: 45%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: skewX(-18deg);
+  transition: left 0.6s ease;
+  pointer-events: none;
+}
+.btn-shine:hover::before { left: 120%; }
+
 /* ---- Luminous glass tile: lit gradient edge + brand glow (echoes the hero art) ---- */
 .glass-tile {
   position: relative;
@@ -145,6 +161,7 @@ html {
 }
 @media (prefers-reduced-motion: reduce) {
   .glass-btn::before { transition: none; }
+  .btn-shine::before { transition: none; }
   .glass-tile { transition: none; }
   .glass-tile:hover { transform: none; }
 }

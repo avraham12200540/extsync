@@ -23,6 +23,7 @@ export function Button({
     <button
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-all duration-200 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed",
+        variant !== "glass" && "btn-shine",
         variants[variant], sizes[size], className,
       )}
       {...props}
