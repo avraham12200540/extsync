@@ -24,6 +24,7 @@ from ..schemas.auth import (
     TwoFactorEnabledResponse,
     TwoFactorSetupResponse,
     TwoFactorVerifyRequest,
+    UpdateMeRequest,
     VerifyEmailRequest,
 )
 from ..schemas.common import OkResponse
@@ -215,4 +216,13 @@ async def device_flow_token(req: DeviceFlowTokenRequest, db: DBSession) -> Devic
 
 @router.get("/me", response_model=MeResponse)
 async def me(user: CurrentUser) -> MeResponse:
+    return MeResponse.model_validate(user)
+
+
+@router.patch("/me", response_model=MeResponse)
+async def update_me(req: UpdateMeRequest, user: CurrentUser, db: DBSession) -> MeResponse:
+    # Public-facing display name (shown as the publisher in the store). Bound to
+    # the request session, so the get_session dependency commits on success.
+    user.display_name = req.display_name.strip()
+    await db.flush()
     return MeResponse.model_validate(user)

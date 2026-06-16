@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { api, type CatalogItem } from "@/lib/api";
 import { SiteHeader } from "@/components/site-header";
@@ -24,6 +24,16 @@ export default function HomePage() {
     api.get<CatalogItem[]>("/catalog").then(setItems)
       .catch(() => { setLoadError(true); setItems([]); });
   }, []);
+
+  // Home shows only the 3 top-rated extensions; the full list lives in /store.
+  const topItems = useMemo(
+    () => [...(items ?? [])]
+      .sort((a, b) =>
+        (b.avgRating ?? 0) - (a.avgRating ?? 0) ||
+        (b.ratingsCount ?? 0) - (a.ratingsCount ?? 0))
+      .slice(0, 3),
+    [items],
+  );
 
   const securityItems = [
     { Icon: FileSignature, t: t("home.sec1.t"), d: t("home.sec1.d") },
@@ -126,15 +136,15 @@ export default function HomePage() {
             </p>
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {items.map((item, idx) => (
+              {topItems.map((item, idx) => (
                 <ExtensionCard key={item.slug} item={item} delay={idx * 90} />
               ))}
             </div>
           )}
 
           <div className="mt-10 text-center">
-            <Link href="/store" className="text-sm font-medium text-brand hover:underline">
-              {t("home.gallery.all")}
+            <Link href="/store">
+              <Button variant="secondary" size="md">{t("home.gallery.all")}</Button>
             </Link>
           </div>
         </section>

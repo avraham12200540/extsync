@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { Settings as SettingsIcon } from "lucide-react";
 import { useAuth } from "@/components/providers";
@@ -19,6 +19,23 @@ export default function SettingsPage() {
   const [showDisable, setShowDisable] = useState(false);
   const [disablePw, setDisablePw] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const [nameSaved, setNameSaved] = useState(false);
+
+  useEffect(() => { if (user) setDisplayName(user.displayName); }, [user]);
+
+  const saveName = async () => {
+    setError(null);
+    setNameSaved(false);
+    setSavingName(true);
+    try {
+      await api.patch("/auth/me", { displayName: displayName.trim() });
+      await refreshMe();
+      setNameSaved(true);
+    } catch (e) { setError(e instanceof ApiError ? e.message : t("dash.err")); }
+    finally { setSavingName(false); }
+  };
 
   const begin2fa = async () => {
     setError(null);
@@ -50,7 +67,25 @@ export default function SettingsPage() {
 
       <Card className="mb-4">
         <h2 className="mb-2 font-semibold text-ink">{t("dash.st.account")}</h2>
-        <p className="text-sm text-ink-muted">{user?.displayName} • {user?.email} • {user?.role}</p>
+        <p className="mb-4 text-sm text-ink-muted">{user?.email} • {user?.role}</p>
+        <Field label={t("dash.st.name")}>
+          <Input
+            value={displayName}
+            maxLength={120}
+            onChange={(e) => { setDisplayName(e.target.value); setNameSaved(false); }}
+          />
+        </Field>
+        <p className="-mt-2 mb-3 text-xs text-ink-muted">{t("dash.st.name.hint")}</p>
+        <div className="flex items-center gap-3">
+          <Button
+            size="sm"
+            onClick={saveName}
+            disabled={savingName || !displayName.trim() || displayName.trim() === user?.displayName}
+          >
+            {t("dash.st.name.save")}
+          </Button>
+          {nameSaved && <span className="text-sm text-success">{t("dash.st.name.saved")}</span>}
+        </div>
       </Card>
 
       <Card className="mb-4">

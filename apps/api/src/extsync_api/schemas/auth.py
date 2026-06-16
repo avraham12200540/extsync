@@ -103,6 +103,10 @@ class DeviceFlowTokenResponse(CamelModel):
     device_id: str | None = None
 
 
+class UpdateMeRequest(CamelModel):
+    display_name: str = Field(min_length=1, max_length=120)
+
+
 class MeResponse(CamelModel):
     id: str
     email: EmailStr
