@@ -189,6 +189,31 @@ def test_forum_limit_flag_snaps_to_cap(client, monkeypatch):
     assert client.get(f"{BASE}/today", headers=_forum_header("good")).json()["likesToday"] == 1
 
 
+def test_forum_rolling_window_expiry(client, monkeypatch, sessionmaker_factory):
+    from extsync_api.models.likes_quota import LikesQuotaState
+
+    monkeypatch.setattr(svc, "verify_forum_session", _fake_verify)
+    monkeypatch.setattr(svc, "fetch_upvoted_page1", _upvoted([(10, 502, "A")]))
+    client.get(f"{BASE}/today", headers=_forum_header("good"))  # baseline {10}
+
+    # A new like is counted...
+    monkeypatch.setattr(svc, "fetch_upvoted_page1", _upvoted([(20, 502, "A"), (10, 502, "A")]))
+    assert client.get(f"{BASE}/today", headers=_forum_header("good")).json()["likesToday"] == 1
+
+    # ...until it ages past the rolling window. Backdate its timestamp to epoch.
+    async def _backdate():
+        async with sessionmaker_factory() as s:
+            st = await s.get(LikesQuotaState, "forum:777")
+            ev = dict(st.events)
+            ev["20"] = dict(ev["20"], ts=0)
+            st.events = ev
+            await s.commit()
+    asyncio.run(_backdate())
+
+    # Same forum list, but the aged-out like no longer counts (it refilled).
+    assert client.get(f"{BASE}/today", headers=_forum_header("good")).json()["likesToday"] == 0
+
+
 def test_verify_forum_session_unit(monkeypatch):
     respx = pytest.importorskip("respx")
     import httpx

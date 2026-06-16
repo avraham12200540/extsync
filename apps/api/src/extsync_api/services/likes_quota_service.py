@@ -197,6 +197,152 @@ async def sync_today_from_forum(
     return build_state(row, day)
 
 
+# ---- rolling-window model (the mitmachim limit is a moving window) ----------
+
+def _now_ms() -> int:
+    return int(dt.datetime.now(dt.timezone.utc).timestamp() * 1000)
+
+
+async def _get_or_create_state(db: AsyncSession, principal_id: str, forum):
+    from ..models.likes_quota import LikesQuotaState
+    state = await db.get(LikesQuotaState, principal_id)
+    if state is None:
+        state = LikesQuotaState(
+            user_id=principal_id, baseline_pids={}, events={}, limit_hit=False,
+            daily_limit=settings.likes_quota_daily_limit,
+            per_user_limit=settings.likes_quota_per_user_limit,
+            window_seconds=settings.likes_quota_window_seconds,
+        )
+        _apply_forum_metadata(state, forum)
+        db.add(state)
+        await db.flush()
+    else:
+        _apply_forum_metadata(state, forum)
+    return state
+
+
+def _rolling_recompute(state) -> tuple[int, dict, int | None]:
+    """Age out events past the window (into baseline), expire a stale limit clamp,
+    and compute (likes_used, target_users, next_free_at_ms)."""
+    now = _now_ms()
+    window_ms = (state.window_seconds or settings.likes_quota_window_seconds) * 1000
+
+    events = dict(state.events or {})
+    baseline = set((state.baseline_pids or {}).get("pids") or [])
+    for pid, ev in list(events.items()):
+        if int(ev.get("ts", 0)) < now - window_ms:
+            baseline.add(pid)   # aged out -> stop counting, but it is still upvoted
+            del events[pid]
+    state.events = events
+    state.baseline_pids = {"pids": sorted(baseline)}
+
+    # The clamp from an under-observed cap can't last longer than a full window.
+    if state.limit_hit and state.limit_hit_at is not None:
+        if state.limit_hit_at.timestamp() * 1000 < now - window_ms:
+            state.limit_hit = False
+            state.limit_hit_at = None
+
+    cap = state.daily_limit
+    likes_used = cap if state.limit_hit else min(len(events), cap)
+
+    tu: dict = {}
+    for ev in events.values():
+        key = ev.get("uid") or _UNKNOWN
+        entry = tu.setdefault(key, {"username": ev.get("username"), "count": 0})
+        entry["count"] += 1
+        if ev.get("username"):
+            entry["username"] = ev["username"]
+
+    next_free = (min(int(ev.get("ts", 0)) for ev in events.values()) + window_ms) if events else None
+    return likes_used, tu, next_free
+
+
+def _build_rolling(state, likes_used: int, tu: dict, next_free_ms: int | None) -> dict:
+    now = dt.datetime.now(dt.timezone.utc)
+    resets_in = None
+    if next_free_ms is not None:
+        resets_in = max(0, int(next_free_ms / 1000 - now.timestamp()))
+    return {
+        "ok": True,
+        "date": israel_today().isoformat(),
+        "likesToday": likes_used,          # likes used within the rolling window
+        "dailyLimit": state.daily_limit,
+        "perUserLimit": state.per_user_limit,
+        "targetUsers": tu,
+        "updatedAt": _iso(now),
+        "windowSeconds": state.window_seconds,
+        "resetsInSeconds": resets_in,       # until the oldest like frees a slot
+    }
+
+
+async def sync_forum_rolling(
+    db: AsyncSession, principal_id: str, userslug: str | None,
+    cookie_value: str | None, forum, *, fresh: bool = False,
+) -> dict:
+    """Rolling-window count: each newly-seen upvote counts for `window_seconds`,
+    then ages out. Un-likes drop immediately. Posts already upvoted at the first
+    sync are the baseline (never counted)."""
+    state = await _get_or_create_state(db, principal_id, forum)
+    upvoted = await fetch_upvoted_page1(userslug, cookie_value, fresh=fresh)
+    if upvoted is None:
+        likes_used, tu, nf = _rolling_recompute(state)
+        return _build_rolling(state, likes_used, tu, nf)
+
+    by_pid = {p["pid"]: p for p in upvoted}
+    current = set(by_pid)
+    events = dict(state.events or {})
+    fb = dict(state.baseline_pids or {})
+    first_sync = "pids" not in fb
+
+    if first_sync:
+        fb["pids"] = sorted(current)  # everything already upvoted = pre-existing
+    baseline = set(fb.get("pids") or [])
+    baseline &= current               # drop pre-existing posts that were un-liked
+
+    now = _now_ms()
+    for pid in list(events):          # un-likes: gone from the forum list
+        if pid not in current:
+            del events[pid]
+    if not first_sync:
+        for pid in current:           # newly given likes (seen while watching)
+            if pid not in baseline and pid not in events:
+                info = by_pid[pid]
+                events[pid] = {"ts": now, "uid": info.get("authorUid"), "username": info.get("authorUsername")}
+
+    state.events = events
+    state.baseline_pids = {"pids": sorted(baseline)}
+    likes_used, tu, nf = _rolling_recompute(state)
+    return _build_rolling(state, likes_used, tu, nf)
+
+
+async def set_forum_limit_rolling(db: AsyncSession, principal_id: str, reached: bool, forum) -> dict:
+    """Forum reported the daily-limit error (reached) or an un-like / success freed
+    a slot (not reached). Sets a sticky clamp only if our observed count is below
+    the cap (i.e. we under-observed some likes)."""
+    state = await _get_or_create_state(db, principal_id, forum)
+    likes_used, _, _ = _rolling_recompute(state)
+    if reached:
+        if likes_used < state.daily_limit:
+            state.limit_hit = True
+            state.limit_hit_at = dt.datetime.now(dt.timezone.utc)
+    else:
+        state.limit_hit = False
+        state.limit_hit_at = None
+    likes_used, tu, nf = _rolling_recompute(state)
+    return _build_rolling(state, likes_used, tu, nf)
+
+
+async def reset_forum_rolling(db: AsyncSession, principal_id: str, forum) -> dict:
+    """Re-baseline: forget all counted likes; the next sync treats whatever is
+    currently upvoted as pre-existing, so the meter restarts from 0."""
+    state = await _get_or_create_state(db, principal_id, forum)
+    state.events = {}
+    state.baseline_pids = {}
+    state.limit_hit = False
+    state.limit_hit_at = None
+    return _build_rolling(state, 0, {}, None)
+
+
 async def set_forum_limit(db: AsyncSession, principal_id: str, reached: bool, forum) -> dict:
     """Record (or clear) that the forum reported the daily-limit error today.
 

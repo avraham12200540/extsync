@@ -24,7 +24,7 @@ from .device import (
     UpdateAttempt,
 )
 from .install_link import InstallLink
-from .likes_quota import LikesQuotaDaily, LikesQuotaEvent
+from .likes_quota import LikesQuotaDaily, LikesQuotaEvent, LikesQuotaState
 from .notification import Notification
 from .project import Project, ProjectKey
 from .rating import ProjectRating
@@ -56,6 +56,7 @@ __all__ = [
     "InstallLink",
     "LikesQuotaDaily",
     "LikesQuotaEvent",
+    "LikesQuotaState",
     "Notification",
     "PasswordReset",
     "Project",

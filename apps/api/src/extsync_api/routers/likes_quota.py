@@ -88,9 +88,9 @@ async def get_today(
     fresh: bool = Query(default=False),
 ) -> dict:
     principal = await get_quota_principal(request, user)
-    # Forum login: derive today's count from the forum itself (self-correcting).
+    # Forum login: derive the count from the forum with a rolling window.
     if principal.source == "forum" and principal.forum:
-        return await svc.sync_today_from_forum(
+        return await svc.sync_forum_rolling(
             db, principal.id, principal.forum.userslug, principal.cookie, principal.forum, fresh=fresh,
         )
     # Other identities: return the stored counter (click/manual model).
@@ -123,6 +123,12 @@ async def set_today(
     body: SetRequest, request: Request, user: OptionalUser, db: DBSession
 ) -> dict:
     principal = await get_quota_principal(request, user)
+    if principal.source == "forum" and principal.forum:
+        # Manual set is not meaningful in rolling mode (the forum drives it);
+        # return the live state. Use reset to re-baseline.
+        return await svc.sync_forum_rolling(
+            db, principal.id, principal.forum.userslug, principal.cookie, principal.forum,
+        )
     forum = principal.forum or body.forum_user
     return await svc.set_today(db, principal.id, body.likes_today, body.reason, forum)
 
@@ -132,6 +138,8 @@ async def reset_today(
     body: ResetRequest, request: Request, user: OptionalUser, db: DBSession
 ) -> dict:
     principal = await get_quota_principal(request, user)
+    if principal.source == "forum" and principal.forum:
+        return await svc.reset_forum_rolling(db, principal.id, principal.forum)
     forum = principal.forum or body.forum_user
     return await svc.reset_today(db, principal.id, body.reason, forum)
 
@@ -140,8 +148,10 @@ async def reset_today(
 async def limit_reached(
     body: LimitRequest, request: Request, user: OptionalUser, db: DBSession
 ) -> dict:
-    """The extension intercepted the forum's daily-limit error (or an un-like that
-    clears it). Records it so the meter snaps to / releases the cap."""
+    """The extension intercepted the forum's daily-limit error (reached) or a
+    success/un-like that frees a slot (cleared). Sets/clears the rolling clamp."""
     principal = await get_quota_principal(request, user)
+    if principal.source == "forum" and principal.forum:
+        return await svc.set_forum_limit_rolling(db, principal.id, body.reached, principal.forum)
     forum = principal.forum or body.forum_user
     return await svc.set_forum_limit(db, principal.id, body.reached, forum)

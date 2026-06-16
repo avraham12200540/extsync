@@ -120,6 +120,9 @@ class Settings(BaseSettings):
     likes_quota_forum_base_url: str = "https://mitmachim.top"
     likes_quota_forum_verify: bool = True
     likes_quota_forum_cache_ttl: int = 120  # seconds to cache a verified cookie->uid mapping
+    # The mitmachim like limit is a moving window, not a midnight reset: a like
+    # frees up this many seconds after it was given. Tunable if the window differs.
+    likes_quota_window_seconds: int = 86400  # 24h
     # DEV ONLY: when true (and not production) the meter accepts an
     # `X-Dev-Quota-User` header instead of a real auth token, so the extension can
     # be tested without a full login. Forced off in production by the principal guard.

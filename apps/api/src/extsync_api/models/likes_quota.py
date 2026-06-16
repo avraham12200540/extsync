@@ -71,6 +71,38 @@ class LikesQuotaDaily(Base, TimestampMixin):
     manual_override: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
+class LikesQuotaState(Base, TimestampMixin):
+    """Rolling-window state for a forum principal (the mitmachim limit is a moving
+    24h window, not a midnight reset). One row per principal, not per day.
+
+    A like counts against the quota for `window_seconds` from when we first saw it,
+    then ages out (moved from `events` into `baseline_pids` so it is not recounted).
+    `baseline_pids` are posts already upvoted at the first sync (given before we
+    started watching) - never counted. `limit_hit` is a sticky clamp set only when
+    the forum rejected a vote while our observed `events` were below the cap.
+    """
+
+    __tablename__ = "likes_quota_state"
+
+    user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+
+    forum_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    forum_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    forum_userslug: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # {"pids": [...]} - upvoted posts that do NOT count (pre-existing or aged out).
+    baseline_pids: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    # {"<pid>": {"ts": <ms>, "uid": str, "username": str|None}} - in-window likes.
+    events: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+    limit_hit: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    limit_hit_at: Mapped[dt.datetime | None] = mapped_column(UtcDateTime, nullable=True, default=None)
+
+    daily_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=20)
+    per_user_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=6)
+    window_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=86400)
+
+
 class LikesQuotaEvent(Base):
     """Append-only audit + idempotency log. (user_id, client_event_id) is unique
     so a re-sent client event is recognised and never counted twice."""
