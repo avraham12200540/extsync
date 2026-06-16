@@ -21,7 +21,7 @@ from ..models.install_link import InstallLink
 from ..models.project import Project
 from ..models.rating import ProjectRating
 from ..models.release import ChannelState, Release, ReleaseArtifact, ReleasePermissionSnapshot
-from ..models.user import DeveloperProfile
+from ..models.user import User
 from ..schemas.common import CamelModel, OkResponse
 from ..storage import storage
 from typing import Annotated
@@ -90,10 +90,10 @@ def _iso(v) -> str | None:
 
 
 async def _developer_name(db: AsyncSession, owner_user_id: str) -> str:
-    profile = await db.scalar(
-        select(DeveloperProfile).where(DeveloperProfile.user_id == owner_user_id)
-    )
-    return (profile.org_name if profile and profile.org_name else None) or "מפתח ExtSync"
+    # Public publisher name in the store = the developer's display name.
+    # org_name is registration-only metadata and is intentionally NOT shown.
+    user = await db.get(User, owner_user_id)
+    return (user.display_name.strip() if user and user.display_name else "") or "מפתח ExtSync"
 
 
 async def _ratings_map(db: AsyncSession, project_ids: list[str]) -> dict[str, tuple[float, int]]:

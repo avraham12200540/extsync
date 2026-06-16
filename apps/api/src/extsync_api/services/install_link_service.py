@@ -16,7 +16,7 @@ from ..models.release import (
     ReleaseArtifact,
     ReleasePermissionSnapshot,
 )
-from ..models.user import DeveloperProfile, User
+from ..models.user import User
 from ..storage import storage
 from ..schemas.install_link import (
     InstallLinkCreate,
@@ -81,10 +81,8 @@ async def resolve_install_link(db: AsyncSession, token: str) -> InstallPageResol
 
     usable, reason = link.is_usable()
 
-    profile = await db.scalar(
-        select(DeveloperProfile).where(DeveloperProfile.user_id == project.owner_user_id)
-    )
-    developer_name = (profile.org_name if profile and profile.org_name else None) or "מפתח ExtSync"
+    owner = await db.get(User, project.owner_user_id)
+    developer_name = (owner.display_name.strip() if owner and owner.display_name else "") or "מפתח ExtSync"
 
     rel = await _active_release(db, project.id, link.channel)
     perms = InstallPagePermissions()

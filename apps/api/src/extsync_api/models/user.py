@@ -47,7 +47,9 @@ class DeveloperProfile(Base, TimestampMixin):
     user_id: Mapped[str] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
     )
-    # Developer / organization display name shown on install pages.
+    # Optional developer / organization name captured at registration (metadata
+    # only). The PUBLIC publisher name shown in the store/install pages is the
+    # user's display_name, not this field.
     org_name: Mapped[str] = mapped_column(String(160), nullable=False, default="")
     support_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     website: Mapped[str | None] = mapped_column(String(500), nullable=True)
