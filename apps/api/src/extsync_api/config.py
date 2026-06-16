@@ -113,6 +113,13 @@ class Settings(BaseSettings):
     likes_quota_daily_limit: int = 20
     likes_quota_per_user_limit: int = 6
     likes_quota_timezone: str = "Asia/Jerusalem"  # daily reset uses this tz, not the client clock
+    # Forum-login identity: the meter verifies the user's mitmachim.top (NodeBB)
+    # session server-side by calling {base}/api/self with the forwarded session
+    # cookie, so the forum uid is confirmed by NodeBB and never trusted from the
+    # client. This lets any forum user sync with no ExtSync token.
+    likes_quota_forum_base_url: str = "https://mitmachim.top"
+    likes_quota_forum_verify: bool = True
+    likes_quota_forum_cache_ttl: int = 120  # seconds to cache a verified cookie->uid mapping
     # DEV ONLY: when true (and not production) the meter accepts an
     # `X-Dev-Quota-User` header instead of a real auth token, so the extension can
     # be tested without a full login. Forced off in production by the principal guard.

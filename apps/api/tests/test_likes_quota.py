@@ -1,12 +1,20 @@
 """Likes-quota meter: end-to-end behavior over the SQLite test app."""
 from __future__ import annotations
 
+import asyncio
+import base64
+
 import pytest
 
 from extsync_api.config import settings
+from extsync_api.services import likes_quota_service as svc
 
 DEV_HEADER = {"X-Dev-Quota-User": "tester-1"}
 BASE = "/api/likes-quota"
+
+
+def _forum_header(cookie: str = "good") -> dict:
+    return {"X-Forum-Session": base64.b64encode(cookie.encode()).decode()}
 
 
 @pytest.fixture(autouse=True)
@@ -106,3 +114,57 @@ def test_principals_are_isolated(client):
     # bob sees his own empty meter, not alice's
     r = client.get(f"{BASE}/today", headers={"X-Dev-Quota-User": "bob"})
     assert r.json()["likesToday"] == 0
+
+
+# ---- forum-login identity (server-verified via NodeBB) ---------------------
+
+async def _fake_verify(cookie_value):
+    """Stand in for the real NodeBB /api/self call."""
+    if cookie_value == "good":
+        return {"forumUserId": "777", "username": "Tester", "userslug": "tester"}
+    return None
+
+
+def test_forum_login_identifies_and_isolates(client, monkeypatch):
+    monkeypatch.setattr(svc, "verify_forum_session", _fake_verify)
+
+    # A valid forum session works with NO ExtSync token and NO dev header.
+    r = client.post(f"{BASE}/increment", headers=_forum_header("good"), json={
+        "postId": "p1", "targetUserId": "502", "targetUsername": "YAHBDK", "clientEventId": "f1"})
+    assert r.status_code == 200
+    assert r.json()["likesToday"] == 1
+
+    # The row is keyed by the verified forum uid (forum:777), isolated from others.
+    r2 = client.get(f"{BASE}/today", headers=_forum_header("good"))
+    assert r2.json()["likesToday"] == 1
+
+    # A different (invalid) session is unauthorized, not someone else's data.
+    r3 = client.get(f"{BASE}/today", headers=_forum_header("bad"))
+    assert r3.status_code == 401
+
+
+def test_forum_session_takes_precedence_over_client_uid(client, monkeypatch):
+    monkeypatch.setattr(svc, "verify_forum_session", _fake_verify)
+    # Client lies about forumUser in the body; the verified session (uid 777) must win.
+    client.post(f"{BASE}/increment", headers=_forum_header("good"), json={
+        "postId": "p1", "targetUserId": "1", "clientEventId": "f2",
+        "forumUser": {"forumUserId": "999999", "username": "spoofed"}})
+    # The real principal (forum:777) holds the count; the spoofed id never got a row.
+    assert client.get(f"{BASE}/today", headers=_forum_header("good")).json()["likesToday"] == 1
+
+
+def test_verify_forum_session_unit(monkeypatch):
+    respx = pytest.importorskip("respx")
+    import httpx
+
+    settings.likes_quota_forum_verify = True
+    with respx.mock:
+        respx.get("https://mitmachim.top/api/self").mock(
+            return_value=httpx.Response(200, json={"uid": 502, "username": "YAHBDK", "userslug": "yahbdk"}))
+        out = asyncio.run(svc.verify_forum_session("anycookie"))
+    assert out == {"forumUserId": "502", "username": "YAHBDK", "userslug": "yahbdk"}
+
+    with respx.mock:
+        respx.get("https://mitmachim.top/api/self").mock(return_value=httpx.Response(401, json="not-authorized"))
+        out2 = asyncio.run(svc.verify_forum_session("anycookie"))
+    assert out2 is None

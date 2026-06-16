@@ -10,6 +10,8 @@ Invariants enforced here (server is the source of truth):
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
+import json
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -21,6 +23,66 @@ from ..models.likes_quota import LikesQuotaDaily, LikesQuotaEvent
 from ..schemas.likes_quota import ForumUser
 
 _UNKNOWN = "unknown"
+
+
+# ---- forum (NodeBB) session verification -----------------------------------
+
+async def verify_forum_session(cookie_value: str | None) -> dict | None:
+    """Confirm a mitmachim.top (NodeBB) login server-side.
+
+    Calls {forum_base}/api/self with the user's forwarded `express.sid` session
+    cookie; NodeBB returns the real user only for a valid session. The uid is
+    therefore confirmed by the forum itself and never trusted from the client.
+
+    Returns {"forumUserId","username","userslug"} on success, else None. The
+    cookie->identity mapping is cached briefly (best-effort) to spare the forum;
+    nothing about the cookie is persisted beyond a salted hash cache key.
+    """
+    if not cookie_value or not settings.likes_quota_forum_verify:
+        return None
+
+    cache_key = "lq:forum:" + hashlib.sha256(cookie_value.encode("utf-8")).hexdigest()
+    try:
+        from ..redis_client import get_redis
+        cached = await get_redis().get(cache_key)
+        if cached:
+            return json.loads(cached)
+    except Exception:  # noqa: BLE001 - cache is best-effort
+        pass
+
+    url = settings.likes_quota_forum_base_url.rstrip("/") + "/api/self"
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(url, headers={
+                "Accept": "application/json",
+                "Cookie": f"express.sid={cookie_value}",
+                "User-Agent": "ExtSync-LikesQuota/1.0",
+            })
+    except Exception:  # noqa: BLE001 - network/forum errors -> treat as unverified
+        return None
+
+    if resp.status_code != 200:
+        return None
+    try:
+        data = resp.json()
+        uid = int(data.get("uid") or 0)
+    except Exception:  # noqa: BLE001
+        return None
+    if uid <= 0:
+        return None
+
+    identity = {
+        "forumUserId": str(uid),
+        "username": data.get("username"),
+        "userslug": data.get("userslug"),
+    }
+    try:
+        from ..redis_client import get_redis
+        await get_redis().setex(cache_key, settings.likes_quota_forum_cache_ttl, json.dumps(identity))
+    except Exception:  # noqa: BLE001
+        pass
+    return identity
 
 
 def _israel_tz() -> dt.tzinfo:
