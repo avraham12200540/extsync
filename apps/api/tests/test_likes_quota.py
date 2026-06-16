@@ -171,6 +171,24 @@ def test_forum_sync_isolated_per_uid(client, monkeypatch):
     assert client.get(f"{BASE}/today", headers=_forum_header("good2")).json()["likesToday"] == 0
 
 
+def test_forum_limit_flag_snaps_to_cap(client, monkeypatch):
+    monkeypatch.setattr(svc, "verify_forum_session", _fake_verify)
+    monkeypatch.setattr(svc, "fetch_upvoted_page1", _upvoted([(10, 502, "A")]))
+    client.get(f"{BASE}/today", headers=_forum_header("good"))  # baseline {10}, today 0
+
+    # Forum reported the daily-limit error -> snap to the cap.
+    r = client.post(f"{BASE}/limit", headers=_forum_header("good"), json={"reached": True}).json()
+    assert r["likesToday"] == r["dailyLimit"] == 20
+
+    # A normal sync keeps it pinned at the cap while the flag is set.
+    monkeypatch.setattr(svc, "fetch_upvoted_page1", _upvoted([(11, 502, "A"), (10, 502, "A")]))
+    assert client.get(f"{BASE}/today", headers=_forum_header("good")).json()["likesToday"] == 20
+
+    # Clearing the flag (un-like) recomputes from the diff (pid 11 is new vs baseline {10}).
+    client.post(f"{BASE}/limit", headers=_forum_header("good"), json={"reached": False})
+    assert client.get(f"{BASE}/today", headers=_forum_header("good")).json()["likesToday"] == 1
+
+
 def test_verify_forum_session_unit(monkeypatch):
     respx = pytest.importorskip("respx")
     import httpx

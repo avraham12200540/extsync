@@ -26,6 +26,7 @@ from ..schemas.likes_quota import (
     DecrementRequest,
     ForumUser,
     IncrementRequest,
+    LimitRequest,
     ResetRequest,
     SetRequest,
 )
@@ -133,3 +134,14 @@ async def reset_today(
     principal = await get_quota_principal(request, user)
     forum = principal.forum or body.forum_user
     return await svc.reset_today(db, principal.id, body.reason, forum)
+
+
+@router.post("/limit")
+async def limit_reached(
+    body: LimitRequest, request: Request, user: OptionalUser, db: DBSession
+) -> dict:
+    """The extension intercepted the forum's daily-limit error (or an un-like that
+    clears it). Records it so the meter snaps to / releases the cap."""
+    principal = await get_quota_principal(request, user)
+    forum = principal.forum or body.forum_user
+    return await svc.set_forum_limit(db, principal.id, body.reached, forum)

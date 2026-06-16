@@ -165,10 +165,11 @@ async def sync_today_from_forum(
     current = {p["pid"]: p for p in upvoted}
     current_pids = set(current.keys())
 
-    if not row.forum_baseline:
+    fb = dict(row.forum_baseline or {})
+    if "pids" not in fb:
         # First sync of the day: everything already upvoted counts as "before today".
-        row.forum_baseline = {"pids": sorted(current_pids)}
-    baseline = set((row.forum_baseline or {}).get("pids") or [])
+        fb["pids"] = sorted(current_pids)
+    baseline = set(fb.get("pids") or [])
 
     today_pids = current_pids - baseline
     tu: dict = {}
@@ -182,9 +183,33 @@ async def sync_today_from_forum(
             entry["username"] = info["authorUsername"]
         liked[pid] = key
 
+    count = min(len(today_pids), row.daily_limit)
+    # If the forum itself rejected a vote today with the daily-limit error, we
+    # KNOW the real count is the cap - snap to it (corrects any undercount from
+    # likes given before the first sync of the day). Cleared on an un-like.
+    if fb.get("limitHit"):
+        count = row.daily_limit
+
+    row.forum_baseline = fb
     row.target_users = tu
     row.liked_posts = liked
-    row.likes_today = min(len(today_pids), row.daily_limit)
+    row.likes_today = count
+    return build_state(row, day)
+
+
+async def set_forum_limit(db: AsyncSession, principal_id: str, reached: bool, forum) -> dict:
+    """Record (or clear) that the forum reported the daily-limit error today.
+
+    The extension calls this when it intercepts the NodeBB vote response: reached
+    on the "20 per day" 400, and cleared on an un-like (which frees a slot).
+    """
+    day = israel_today()
+    row = await _get_or_create_row(db, principal_id, day, forum)
+    fb = dict(row.forum_baseline or {})
+    fb["limitHit"] = bool(reached)
+    row.forum_baseline = fb
+    if reached:
+        row.likes_today = row.daily_limit
     return build_state(row, day)
 
 

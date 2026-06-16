@@ -41,6 +41,12 @@ class ResetRequest(CamelModel):
     forum_user: ForumUser | None = None
 
 
+class LimitRequest(CamelModel):
+    # True when the forum returned the daily-limit error; False to clear (on un-like).
+    reached: bool = True
+    forum_user: ForumUser | None = None
+
+
 class TargetUserState(CamelModel):
     username: str | None = None
     count: int = 0
