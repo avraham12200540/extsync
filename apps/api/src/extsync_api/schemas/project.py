@@ -19,7 +19,7 @@ def slugify(value: str) -> str:
 class ProjectCreate(CamelModel):
     name: str = Field(min_length=2, max_length=160)
     slug: str | None = Field(default=None, max_length=80)
-    short_description: str = Field(default="", max_length=280)
+    short_description: str = Field(min_length=1, max_length=280)
     full_description: str | None = Field(default=None, max_length=8000)
     website: str | None = Field(default=None, max_length=500)
     repo_url: str | None = Field(default=None, max_length=500)

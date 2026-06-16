@@ -63,10 +63,11 @@ export default function ProjectsPage() {
 function NewProjectForm({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { t } = useLocale();
   const [name, setName] = useState("");
+  const [shortDescription, setShortDescription] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("private");
   const [error, setError] = useState<string | null>(null);
   const mutation = useMutation({
-    mutationFn: () => api.post<Project>("/projects", { name, visibility, shortDescription: "" }),
+    mutationFn: () => api.post<Project>("/projects", { name, visibility, shortDescription: shortDescription.trim() }),
     onSuccess: () => { onCreated(); onClose(); },
     onError: (e) => setError(e instanceof ApiError ? e.message : t("dash.err")),
   });
@@ -77,6 +78,11 @@ function NewProjectForm({ onClose, onCreated }: { onClose: () => void; onCreated
       {error && <p className="mb-3 rounded-md bg-red-50 dark:bg-red-500/10 p-2 text-sm text-danger dark:text-red-400">{error}</p>}
       <Field label={t("dash.pr.form.name")}>
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="My Cool Extension" />
+      </Field>
+      <Field label={t("dash.pr.form.desc")}>
+        <Input value={shortDescription} maxLength={280}
+               onChange={(e) => setShortDescription(e.target.value)}
+               placeholder={t("dash.pr.form.desc.ph")} />
       </Field>
       <Field label={t("dash.pr.form.vis")}>
         <select
@@ -89,7 +95,7 @@ function NewProjectForm({ onClose, onCreated }: { onClose: () => void; onCreated
         </select>
       </Field>
       <div className="flex gap-2">
-        <Button onClick={() => mutation.mutate()} disabled={!name || mutation.isPending}>
+        <Button onClick={() => mutation.mutate()} disabled={!name || !shortDescription.trim() || mutation.isPending}>
           {mutation.isPending ? t("dash.pr.creating") : t("dash.pr.create")}
         </Button>
         <Button variant="ghost" onClick={onClose}>{t("dash.pr.cancel")}</Button>
