@@ -125,32 +125,50 @@ async def _fake_verify(cookie_value):
     return None
 
 
-def test_forum_login_identifies_and_isolates(client, monkeypatch):
+def _upvoted(rows):
+    """Build a fake fetch_upvoted_page1 returning (pid, authorUid, authorUsername) rows."""
+    async def _f(userslug, cookie_value, *, fresh=False):
+        return [{"pid": str(p), "authorUid": str(a), "authorUsername": n} for (p, a, n) in rows]
+    return _f
+
+
+def test_forum_sync_counts_today_via_diff(client, monkeypatch):
     monkeypatch.setattr(svc, "verify_forum_session", _fake_verify)
 
-    # A valid forum session works with NO ExtSync token and NO dev header.
-    r = client.post(f"{BASE}/increment", headers=_forum_header("good"), json={
-        "postId": "p1", "targetUserId": "502", "targetUsername": "YAHBDK", "clientEventId": "f1"})
-    assert r.status_code == 200
-    assert r.json()["likesToday"] == 1
+    # First sync: 2 posts already upvoted -> baseline, so today = 0 (no token needed).
+    monkeypatch.setattr(svc, "fetch_upvoted_page1", _upvoted([(10, 502, "A"), (11, 503, "B")]))
+    assert client.get(f"{BASE}/today", headers=_forum_header("good")).json()["likesToday"] == 0
 
-    # The row is keyed by the verified forum uid (forum:777), isolated from others.
-    r2 = client.get(f"{BASE}/today", headers=_forum_header("good"))
-    assert r2.json()["likesToday"] == 1
+    # A new like (pid 12 by author 502) appears at the top of the list.
+    monkeypatch.setattr(svc, "fetch_upvoted_page1", _upvoted([(12, 502, "A"), (10, 502, "A"), (11, 503, "B")]))
+    r = client.get(f"{BASE}/today", headers=_forum_header("good")).json()
+    assert r["likesToday"] == 1
+    assert r["targetUsers"]["502"]["count"] == 1
 
-    # A different (invalid) session is unauthorized, not someone else's data.
-    r3 = client.get(f"{BASE}/today", headers=_forum_header("bad"))
-    assert r3.status_code == 401
+    # Un-like it (pid 12 drops out) -> back to 0.
+    monkeypatch.setattr(svc, "fetch_upvoted_page1", _upvoted([(10, 502, "A"), (11, 503, "B")]))
+    assert client.get(f"{BASE}/today", headers=_forum_header("good")).json()["likesToday"] == 0
 
 
-def test_forum_session_takes_precedence_over_client_uid(client, monkeypatch):
+def test_forum_sync_requires_valid_session(client, monkeypatch):
     monkeypatch.setattr(svc, "verify_forum_session", _fake_verify)
-    # Client lies about forumUser in the body; the verified session (uid 777) must win.
-    client.post(f"{BASE}/increment", headers=_forum_header("good"), json={
-        "postId": "p1", "targetUserId": "1", "clientEventId": "f2",
-        "forumUser": {"forumUserId": "999999", "username": "spoofed"}})
-    # The real principal (forum:777) holds the count; the spoofed id never got a row.
-    assert client.get(f"{BASE}/today", headers=_forum_header("good")).json()["likesToday"] == 1
+    monkeypatch.setattr(svc, "fetch_upvoted_page1", _upvoted([(10, 502, "A")]))
+    # An invalid session is unauthorized - never someone else's data.
+    assert client.get(f"{BASE}/today", headers=_forum_header("bad")).status_code == 401
+
+
+def test_forum_sync_isolated_per_uid(client, monkeypatch):
+    monkeypatch.setattr(svc, "verify_forum_session", _fake_verify)
+    monkeypatch.setattr(svc, "fetch_upvoted_page1", _upvoted([(10, 502, "A"), (12, 502, "A")]))
+    client.get(f"{BASE}/today", headers=_forum_header("good"))  # baselines forum:777
+
+    async def verify2(c):
+        return {"forumUserId": "888", "username": "X", "userslug": "x"} if c == "good2" else None
+
+    monkeypatch.setattr(svc, "verify_forum_session", verify2)
+    monkeypatch.setattr(svc, "fetch_upvoted_page1", _upvoted([(99, 1, "Z")]))
+    # uid 888 gets its own fresh baseline and sees 0, not 777's data.
+    assert client.get(f"{BASE}/today", headers=_forum_header("good2")).json()["likesToday"] == 0
 
 
 def test_verify_forum_session_unit(monkeypatch):

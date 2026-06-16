@@ -62,6 +62,11 @@ class LikesQuotaDaily(Base, TimestampMixin):
     # decrement only fires for a post that was actually counted.
     liked_posts: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
+    # Forum-sync mode (preferred): snapshot of the user's upvoted post ids at the
+    # first sync of this Israel-day. "Likes today" = current upvoted set minus this
+    # baseline (see services.sync_today_from_forum). None until the first sync.
+    forum_baseline: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=None)
+
     # set/reset from the popup flips this so the UI can show "manual override".
     manual_override: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 

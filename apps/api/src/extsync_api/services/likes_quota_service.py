@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -83,6 +84,108 @@ async def verify_forum_session(cookie_value: str | None) -> dict | None:
     except Exception:  # noqa: BLE001
         pass
     return identity
+
+
+# ---- forum-sync: derive today's likes from the user's upvoted list ----------
+
+async def fetch_upvoted_page1(userslug: str | None, cookie_value: str | None, *, fresh: bool = False) -> list[dict] | None:
+    """The user's 20 most-recently-upvoted posts from NodeBB (newest vote first).
+
+    Returns [{"pid","authorUid","authorUsername"}] or None on error. NodeBB does
+    not expose a per-vote timestamp, but the list is ordered by vote recency and
+    today's likes (<= daily limit) always fit on page 1. Cached ~12s per cookie
+    (best-effort) unless `fresh`, to avoid hammering the forum on every poll.
+    """
+    if not userslug or not cookie_value:
+        return None
+    cache_key = "lq:upv:" + hashlib.sha256((userslug + "|" + cookie_value).encode("utf-8")).hexdigest()
+    if not fresh:
+        try:
+            from ..redis_client import get_redis
+            cached = await get_redis().get(cache_key)
+            if cached:
+                return json.loads(cached)
+        except Exception:  # noqa: BLE001
+            pass
+
+    url = settings.likes_quota_forum_base_url.rstrip("/") + "/api/user/" + quote(userslug, safe="") + "/upvoted"
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=6.0) as client:
+            resp = await client.get(url, headers={
+                "Accept": "application/json",
+                "Cookie": f"express.sid={cookie_value}",
+                "User-Agent": "ExtSync-LikesQuota/1.0",
+            })
+    except Exception:  # noqa: BLE001
+        return None
+    if resp.status_code != 200:
+        return None
+    try:
+        posts = resp.json().get("posts") or []
+    except Exception:  # noqa: BLE001
+        return None
+
+    out: list[dict] = []
+    for p in posts:
+        pid = p.get("pid")
+        if pid is None:
+            continue
+        author = p.get("user") or {}
+        out.append({
+            "pid": str(pid),
+            "authorUid": str(p.get("uid") or author.get("uid") or ""),
+            "authorUsername": author.get("username"),
+        })
+    try:
+        from ..redis_client import get_redis
+        await get_redis().setex(cache_key, 12, json.dumps(out))
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
+async def sync_today_from_forum(
+    db: AsyncSession, principal_id: str, userslug: str | None,
+    cookie_value: str | None, forum, *, fresh: bool = False,
+) -> dict:
+    """Recompute today's likes from the forum itself (self-correcting).
+
+    likes_today = (current upvoted set) - (baseline snapshot taken at the first
+    sync of this Israel-day). A like given today is a pid that is in the current
+    list but not the baseline; an un-like simply drops out. Author uids give the
+    per-user (6/user) breakdown. No click-counting required.
+    """
+    day = israel_today()
+    row = await _get_or_create_row(db, principal_id, day, forum)
+    upvoted = await fetch_upvoted_page1(userslug, cookie_value, fresh=fresh)
+    if upvoted is None:
+        return build_state(row, day)  # forum unreachable -> keep last known state
+
+    current = {p["pid"]: p for p in upvoted}
+    current_pids = set(current.keys())
+
+    if not row.forum_baseline:
+        # First sync of the day: everything already upvoted counts as "before today".
+        row.forum_baseline = {"pids": sorted(current_pids)}
+    baseline = set((row.forum_baseline or {}).get("pids") or [])
+
+    today_pids = current_pids - baseline
+    tu: dict = {}
+    liked: dict = {}
+    for pid in today_pids:
+        info = current[pid]
+        key = info["authorUid"] or _UNKNOWN
+        entry = tu.setdefault(key, {"username": info.get("authorUsername"), "count": 0})
+        entry["count"] += 1
+        if info.get("authorUsername"):
+            entry["username"] = info["authorUsername"]
+        liked[pid] = key
+
+    row.target_users = tu
+    row.liked_posts = liked
+    row.likes_today = min(len(today_pids), row.daily_limit)
+    return build_state(row, day)
 
 
 def _israel_tz() -> dt.tzinfo:
@@ -365,6 +468,9 @@ async def reset_today(db: AsyncSession, principal_id: str, reason: str | None, f
     row.likes_today = 0
     row.target_users = {}
     row.liked_posts = {}
+    # Forum-sync mode: clearing the baseline makes the next sync re-snapshot the
+    # current upvoted set, so the meter restarts from 0 ("re-baseline").
+    row.forum_baseline = None
     row.manual_override = True
     _record_event(
         db, principal_id=principal_id, day=day, type_="reset",

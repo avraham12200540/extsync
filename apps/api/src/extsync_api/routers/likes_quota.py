@@ -39,6 +39,7 @@ class QuotaPrincipal:
     id: str
     source: str  # "forum" | "user" | "dev"
     forum: ForumUser | None = None
+    cookie: str | None = None  # raw forum session cookie (forum source only)
 
 
 def _decode_forum_cookie(raw: str | None) -> str | None:
@@ -60,7 +61,7 @@ async def get_quota_principal(request: Request, user: OptionalUser) -> QuotaPrin
             username=identity.get("username"),
             userslug=identity.get("userslug"),
         )
-        return QuotaPrincipal(id=f"forum:{identity['forumUserId']}", source="forum", forum=forum)
+        return QuotaPrincipal(id=f"forum:{identity['forumUserId']}", source="forum", forum=forum, cookie=cookie)
 
     # 2) ExtSync platform user (admin / fallback)
     if user is not None:
@@ -83,9 +84,15 @@ async def get_today(
     forumUserId: str | None = Query(default=None),
     username: str | None = Query(default=None),
     userslug: str | None = Query(default=None),
+    fresh: bool = Query(default=False),
 ) -> dict:
     principal = await get_quota_principal(request, user)
-    # A server-verified forum identity always wins over client-supplied hints.
+    # Forum login: derive today's count from the forum itself (self-correcting).
+    if principal.source == "forum" and principal.forum:
+        return await svc.sync_today_from_forum(
+            db, principal.id, principal.forum.userslug, principal.cookie, principal.forum, fresh=fresh,
+        )
+    # Other identities: return the stored counter (click/manual model).
     forum = principal.forum or ForumUser(forum_user_id=forumUserId, username=username, userslug=userslug)
     return await svc.get_today(db, principal.id, forum)
 
