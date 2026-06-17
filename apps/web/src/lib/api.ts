@@ -106,6 +106,12 @@ export interface Me {
   twoFactorEnabled: boolean;
 }
 
+export interface Screenshot {
+  id: string;
+  url: string;
+  position: number;
+}
+
 export interface Project {
   id: string;
   slug: string;
@@ -121,6 +127,7 @@ export interface Project {
   bridgeMode: string;
   version: number;
   permissions: string[];
+  screenshots?: Screenshot[];
 }
 
 export interface Release {
@@ -194,6 +201,7 @@ export interface CatalogDetail {
   extensionId?: string | null;
   category?: string | null;
   installs?: number;
+  screenshots?: string[];
   channels: CatalogChannelInfo[];
   permissions: string[];
   hostPermissions: string[];

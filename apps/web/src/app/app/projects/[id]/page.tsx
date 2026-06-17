@@ -4,7 +4,7 @@ import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MonitorSmartphone, CircleCheck, CircleX, Loader2, Lightbulb } from "lucide-react";
+import { MonitorSmartphone, CircleCheck, CircleX, Loader2, Lightbulb, X } from "lucide-react";
 import { api, ApiError, type InstallLink, type Project, type Release } from "@/lib/api";
 import { useLocale } from "@/components/locale-context";
 import { Badge, Button, Card, Field, Input, Spinner } from "@/components/ui";
@@ -108,6 +108,23 @@ function OverviewTab({ project }: { project: Project }) {
     },
   });
 
+  const [shotErr, setShotErr] = useState<string | null>(null);
+  const screenshots = project.screenshots ?? [];
+  const uploadShot = useMutation({
+    mutationFn: async (file: File) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      return api.upload<Project>(`/projects/${project.id}/screenshots`, fd);
+    },
+    onSuccess: () => { setShotErr(null); qc.invalidateQueries({ queryKey: ["project", project.id] }); },
+    onError: (e) => setShotErr(e instanceof ApiError ? e.message : t("dash.pd.upfailed")),
+  });
+  const deleteShot = useMutation({
+    mutationFn: (sid: string) => api.del<Project>(`/projects/${project.id}/screenshots/${sid}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["project", project.id] }),
+    onError: (e) => setShotErr(e instanceof ApiError ? e.message : t("dash.pd.upfailed")),
+  });
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <Card>
@@ -189,6 +206,43 @@ function OverviewTab({ project }: { project: Project }) {
             {iconErr && <p className="mt-1 text-xs text-danger">{iconErr}</p>}
           </div>
         </div>
+      </Card>
+
+      {/* screenshots / promo images */}
+      <Card className="sm:col-span-2">
+        <h3 className="mb-1 font-semibold text-ink">{t("dash.pd.shots.title")}</h3>
+        <p className="mb-3 text-xs text-ink-muted">{t("dash.pd.shots.help")} ({screenshots.length}/10)</p>
+        {screenshots.length > 0 && (
+          <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {screenshots.map((s) => (
+              <div key={s.id} className="group relative overflow-hidden rounded-lg border border-line">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={s.url} alt="" className="h-28 w-full object-cover" />
+                <button
+                  onClick={() => deleteShot.mutate(s.id)}
+                  disabled={deleteShot.isPending}
+                  aria-label={t("dash.pd.shots.remove")}
+                  className="absolute end-1.5 top-1.5 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity hover:bg-danger group-hover:opacity-100"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {screenshots.length < 10 ? (
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            disabled={uploadShot.isPending}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadShot.mutate(f); e.target.value = ""; }}
+            className="block text-sm text-ink-muted"
+          />
+        ) : (
+          <p className="text-xs text-ink-muted">{t("dash.pd.shots.max")}</p>
+        )}
+        {uploadShot.isPending && <p className="mt-1 text-xs text-ink-muted">{t("dash.pd.icon.uploading")}</p>}
+        {shotErr && <p className="mt-1 text-xs text-danger">{shotErr}</p>}
       </Card>
 
       {/* danger zone */}

@@ -56,6 +56,20 @@ class Project(Base, TimestampMixin, SoftDeleteMixin):
     __mapper_args__ = {"version_id_col": version}
 
 
+class ProjectScreenshot(Base, TimestampMixin):
+    """A promotional/preview image shown on the extension's public detail page.
+    Up to 10 per project (enforced in the API). Ordered by `position`."""
+
+    __tablename__ = "project_screenshots"
+
+    id: Mapped[str] = mapped_column(String(40), primary_key=True, default=generic_id)
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
 class ProjectKey(Base, TimestampMixin):
     """RSA keypair that yields the stable extension id. Private key encrypted at rest;
     NEVER returned to clients or placed in a ZIP (ADR-0005)."""

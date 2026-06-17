@@ -18,7 +18,7 @@ from ..ids import secret_token
 from ..models.device import Installation
 from ..models.enums import Channel, InstallationStatus, InstallLinkType, ProjectStatus, ProjectVisibility, ReleaseStatus
 from ..models.install_link import InstallLink
-from ..models.project import Project
+from ..models.project import Project, ProjectScreenshot
 from ..models.rating import ProjectRating
 from ..models.release import ChannelState, Release, ReleaseArtifact, ReleasePermissionSnapshot
 from ..models.user import User
@@ -75,6 +75,7 @@ class CatalogDetail(CamelModel):
     extension_id: str | None = None
     category: str | None = None
     installs: int = 0
+    screenshots: list[str] = []      # promo/preview image URLs, ordered
     channels: list[CatalogChannelInfo] = []
     permissions: list[str] = []
     host_permissions: list[str] = []
@@ -293,6 +294,13 @@ async def catalog_detail(slug: str, db: DBSession, user: OptionalUser) -> Catalo
     mine = await _my_ratings(db, user.id if user else None, [project.id])
     avg, cnt = ratings.get(project.id, (0.0, 0))
 
+    shots = await db.scalars(
+        select(ProjectScreenshot)
+        .where(ProjectScreenshot.project_id == project.id)
+        .order_by(ProjectScreenshot.position, ProjectScreenshot.created_at)
+    )
+    screenshots = [s.url for s in shots]
+
     return CatalogDetail(
         slug=project.slug, name=project.name, short_description=project.short_description,
         full_description=project.full_description, icon_url=project.icon_url,
@@ -301,6 +309,7 @@ async def catalog_detail(slug: str, db: DBSession, user: OptionalUser) -> Catalo
         privacy_policy_url=project.privacy_policy_url, extension_id=project.extension_id,
         category=project.category,
         installs=(await _installs_map(db, [project.id])).get(project.id, 0),
+        screenshots=screenshots,
         channels=channels, permissions=perms,
         host_permissions=host_perms, uses_native_messaging=native, install_uri=install_uri,
         avg_rating=avg, ratings_count=cnt, my_rating=mine.get(project.id),

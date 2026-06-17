@@ -55,6 +55,12 @@ class ProjectUpdate(CamelModel):
     expected_version: int | None = None
 
 
+class ScreenshotItem(CamelModel):
+    id: str
+    url: str
+    position: int
+
+
 class ProjectResponse(CamelModel):
     id: str
     slug: str
@@ -76,3 +82,5 @@ class ProjectResponse(CamelModel):
     version: int
     # Caller's resolved permissions on this project (drives UI gating).
     permissions: list[str] = []
+    # Promo/preview images shown on the public detail page (ordered).
+    screenshots: list[ScreenshotItem] = []

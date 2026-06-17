@@ -8,6 +8,7 @@ import { Download } from "lucide-react";
 import type { CatalogDetail } from "@/lib/api";
 import { MarketingShell } from "@/components/marketing";
 import { RatingSection } from "@/components/rating-section";
+import { ScreenshotGallery } from "@/components/screenshot-gallery";
 import { Badge } from "@/components/ui";
 import { formatDate, safeJsonLd } from "@/lib/utils";
 import { getLocale } from "@/lib/locale-server";
@@ -145,6 +146,13 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
           {d.fullDescription && (
             <div className="md-body mt-2 text-sm text-ink-muted">
               <ReactMarkdown>{d.fullDescription}</ReactMarkdown>
+            </div>
+          )}
+
+          {d.screenshots && d.screenshots.length > 0 && (
+            <div className="mt-5">
+              <h2 className="mb-2 text-sm font-semibold text-ink">{t("detail.screenshots")}</h2>
+              <ScreenshotGallery images={d.screenshots} alt={d.name} />
             </div>
           )}
 
