@@ -22,14 +22,16 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 function linkify(text: string): ReactNode[] {
   const out: ReactNode[] = [];
   let last = 0;
-  for (const m of Array.from(text.matchAll(/(https?:\/\/[^\s<]+)/g))) {
+  for (const m of Array.from(text.matchAll(/(https?:\/\/[^\s<]+|\bwww\.[^\s<]+)/gi))) {
     const start = m.index ?? 0;
     if (start > last) out.push(text.slice(last, start));
     let url = m[0];
     const trail = url.match(/[).,;:!?]+$/)?.[0] ?? "";  // keep trailing punctuation out of the link
     if (trail) url = url.slice(0, url.length - trail.length);
+    // a bare www.* link gets an https:// scheme; only http/https hrefs are ever produced (XSS-safe).
+    const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
     out.push(
-      <a key={start} href={url} target="_blank" rel="noopener noreferrer nofollow ugc"
+      <a key={start} href={href} target="_blank" rel="noopener noreferrer nofollow ugc"
          className="text-brand underline-offset-2 hover:underline break-words">{url}</a>,
     );
     if (trail) out.push(trail);
