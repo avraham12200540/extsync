@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -13,6 +14,30 @@ import { getLocale } from "@/lib/locale-server";
 import { t as tr } from "@/lib/i18n";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+/** Turn plain http(s) URLs in developer-supplied text into clickable links.
+ *  Detail page only - the gallery card keeps the description as plain text.
+ *  Built as React nodes (text is auto-escaped) and only http/https is matched,
+ *  so no javascript:/data: scheme can sneak into an href (XSS-safe). */
+function linkify(text: string): ReactNode[] {
+  const out: ReactNode[] = [];
+  let last = 0;
+  for (const m of Array.from(text.matchAll(/(https?:\/\/[^\s<]+)/g))) {
+    const start = m.index ?? 0;
+    if (start > last) out.push(text.slice(last, start));
+    let url = m[0];
+    const trail = url.match(/[).,;:!?]+$/)?.[0] ?? "";  // keep trailing punctuation out of the link
+    if (trail) url = url.slice(0, url.length - trail.length);
+    out.push(
+      <a key={start} href={url} target="_blank" rel="noopener noreferrer nofollow ugc"
+         className="text-brand underline-offset-2 hover:underline break-words">{url}</a>,
+    );
+    if (trail) out.push(trail);
+    last = start + m[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
 
 /** Server-side fetch so every public extension is a real, indexable page
  *  (the old client-only fetch rendered an empty shell for crawlers). */
@@ -114,7 +139,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
           {/* ratings (client island: live average + voting) */}
           <RatingSection slug={d.slug} initialAvg={d.avgRating} initialCount={d.ratingsCount} />
 
-          {d.shortDescription && <p className="mt-4 text-ink">{d.shortDescription}</p>}
+          {d.shortDescription && <p className="mt-4 whitespace-pre-line text-ink">{linkify(d.shortDescription)}</p>}
           {d.fullDescription && (
             <div className="md-body mt-2 text-sm text-ink-muted">
               <ReactMarkdown>{d.fullDescription}</ReactMarkdown>
