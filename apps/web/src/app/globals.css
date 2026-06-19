@@ -19,6 +19,7 @@
 }
 
 body {
+  font-family: var(--font-sans), system-ui, sans-serif;
   background-color: rgb(var(--surface-2));
   color: rgb(var(--ink));
 }

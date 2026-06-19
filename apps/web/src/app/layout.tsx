@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { Assistant } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { LocaleProvider } from "@/components/locale-context";
 import { getLocale } from "@/lib/locale-server";
 import { isRtl } from "@/lib/i18n";
 import { safeJsonLd } from "@/lib/utils";
+
+// Hebrew-first UI font. Self-hosted by next/font (downloaded at build, served
+// same-origin) so it works under the strict `font-src 'self'` CSP. Variable font
+// -> full weight range; exposed as --font-sans (consumed by tailwind fontFamily.sans).
+const assistant = Assistant({ subsets: ["hebrew", "latin"], variable: "--font-sans", display: "swap" });
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
@@ -66,13 +72,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang={locale}
+      className={assistant.variable}
       dir={isRtl(locale) ? "rtl" : "ltr"}
       // Next 16 no longer suppresses CSS smooth-scrolling during navigations;
       // this attribute restores instant scroll-to-top on route changes.
       data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
-      <body style={{ "--font-sans": "'Segoe UI', system-ui, sans-serif" } as React.CSSProperties}>
+      <body>
         <script
           type="application/ld+json"
           nonce={nonce}
