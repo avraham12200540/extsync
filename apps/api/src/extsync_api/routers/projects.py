@@ -11,6 +11,7 @@ from ..config import settings
 from ..deps import CurrentUser, DBSession
 from ..errors import APIError, ErrorCode, not_found
 from ..storage import storage
+from ..models.enums import UserRole
 from ..models.project import Project, ProjectScreenshot
 from ..rbac import Permission, effective_project_permissions, global_permissions
 from ..schemas.common import OkResponse
@@ -86,6 +87,16 @@ async def delete_project(project_id: str, request: Request, user: CurrentUser, d
 _ICON_TYPES = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/svg+xml": "svg"}
 
 
+def _admin_ext(filename: str | None, content_type: str | None, default: str) -> str:
+    """Platform-admin override: derive a safe file extension (alnum, short) from the
+    upload's filename or MIME subtype, so an admin can upload ANY file type."""
+    cand = filename.rsplit(".", 1)[1] if (filename and "." in filename) else ""
+    if not cand and content_type and "/" in content_type:
+        cand = content_type.split("/", 1)[1].split(";")[0]
+    cand = "".join(ch for ch in cand.lower() if ch.isalnum())[:8]
+    return cand or default
+
+
 @router.post("/{project_id}/icon", response_model=ProjectResponse)
 async def upload_icon(project_id: str, user: CurrentUser, db: DBSession,
                       file: UploadFile = File(...)) -> ProjectResponse:
@@ -93,7 +104,11 @@ async def upload_icon(project_id: str, user: CurrentUser, db: DBSession,
     project, perms = await load_project_for_user(db, project_id, user, Permission.PROJECT_UPDATE)
     ext = _ICON_TYPES.get(file.content_type or "")
     if ext is None:
-        raise APIError(ErrorCode.VALIDATION_ERROR, "פורמט תמונה לא נתמך (PNG/JPG/WebP/SVG)", status_code=422)
+        # Platform admins may upload any file type; everyone else is limited to images.
+        if user.role == UserRole.platform_admin:
+            ext = _admin_ext(file.filename, file.content_type, "png")
+        else:
+            raise APIError(ErrorCode.VALIDATION_ERROR, "פורמט תמונה לא נתמך (PNG/JPG/WebP/SVG)", status_code=422)
     data = await file.read()
     if len(data) > 2 * 1024 * 1024:
         raise APIError(ErrorCode.VALIDATION_ERROR, "התמונה גדולה מ-2MB", status_code=413)
@@ -116,7 +131,11 @@ async def add_screenshot(project_id: str, user: CurrentUser, db: DBSession,
     project, perms = await load_project_for_user(db, project_id, user, Permission.PROJECT_UPDATE)
     ext = _SHOT_TYPES.get(file.content_type or "")
     if ext is None:
-        raise APIError(ErrorCode.VALIDATION_ERROR, "פורמט תמונה לא נתמך (PNG/JPG/WebP)", status_code=422)
+        # Platform admins may upload any file type; everyone else is limited to images.
+        if user.role == UserRole.platform_admin:
+            ext = _admin_ext(file.filename, file.content_type, "png")
+        else:
+            raise APIError(ErrorCode.VALIDATION_ERROR, "פורמט תמונה לא נתמך (PNG/JPG/WebP)", status_code=422)
     existing = await _load_screenshots(db, project.id)
     if len(existing) >= _MAX_SCREENSHOTS:
         raise APIError(ErrorCode.VALIDATION_ERROR,

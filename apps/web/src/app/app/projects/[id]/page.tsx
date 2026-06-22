@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MonitorSmartphone, CircleCheck, CircleX, Loader2, Lightbulb, X } from "lucide-react";
 import { api, ApiError, type InstallLink, type Project, type Release } from "@/lib/api";
 import { useLocale } from "@/components/locale-context";
+import { useAuth } from "@/components/providers";
 import { Badge, Button, Card, Field, Input, Spinner } from "@/components/ui";
 import { StatCard, TrendChart, type TrendDay } from "@/components/dashboard";
 import { formatDate } from "@/lib/utils";
@@ -62,6 +63,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
 function OverviewTab({ project }: { project: Project }) {
   const { t } = useLocale();
+  // Platform admins may upload any file type (no picker filter); see the API side.
+  const isAdmin = useAuth().user?.role === "platform_admin";
   const qc = useQueryClient();
   const router = useRouter();
   const [iconErr, setIconErr] = useState<string | null>(null);
@@ -195,7 +198,7 @@ function OverviewTab({ project }: { project: Project }) {
           <div>
             <input
               type="file"
-              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              accept={isAdmin ? undefined : "image/png,image/jpeg,image/webp,image/svg+xml"}
               onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadIcon.mutate(f); }}
               className="block text-sm text-ink-muted"
             />
@@ -233,7 +236,7 @@ function OverviewTab({ project }: { project: Project }) {
         {screenshots.length < 10 ? (
           <input
             type="file"
-            accept="image/png,image/jpeg,image/webp"
+            accept={isAdmin ? undefined : "image/png,image/jpeg,image/webp"}
             disabled={uploadShot.isPending}
             onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadShot.mutate(f); e.target.value = ""; }}
             className="block text-sm text-ink-muted"
