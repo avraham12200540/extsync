@@ -35,5 +35,13 @@ api.{$DOMAIN} {
 files.{$DOMAIN} {
 	import security_headers
 	encode gzip
+	# Force the browser to SAVE artifact ZIPs ("Download ZIP" button) rather than
+	# navigate to / preview them. The <a download> hint in the web app is ignored
+	# because the file is cross-origin (files. vs the site), so the attachment
+	# disposition must come from the server. Matches *.zip only (the artifacts);
+	# icons/screenshots are images and are untouched, and the Agent downloads
+	# programmatically so this header is a no-op for it.
+	@zip path *.zip
+	header @zip Content-Disposition attachment
 	reverse_proxy minio:9000
 }
