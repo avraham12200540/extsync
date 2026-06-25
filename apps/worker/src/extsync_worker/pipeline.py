@@ -19,6 +19,8 @@ from extsync_api.models.release import (
     ReleaseArtifact,
     ReleasePermissionSnapshot,
 )
+from extsync_api.models.user import User
+from extsync_api.services.audit import record_security_event
 from extsync_api.services.events import emit_event, notify_owner
 from extsync_api.storage import artifact_key, storage
 
@@ -35,6 +37,25 @@ def _limits() -> Limits:
         max_file_count=settings.max_file_count,
         max_dir_depth=settings.max_dir_depth,
     )
+
+
+async def _uploader_allows_binaries(db: AsyncSession, release: Release) -> bool:
+    """Whether this release's uploader is allow-listed (config
+    BINARY_UPLOAD_ALLOWLIST) to ship binary/executable files inside the ZIP.
+
+    Fail-closed: returns False unless the allow-list is non-empty AND the uploader
+    is a known, active, non-suspended user with a VERIFIED email that matches the
+    list (case-insensitively). Requiring email_verified blocks an attacker who
+    self-registers an allow-listed address without owning that mailbox."""
+    allow = settings.binary_upload_allowlist_set()
+    if not allow:
+        return False
+    user = await db.get(User, release.uploaded_by_user_id)
+    if user is None or not user.email:
+        return False
+    if not user.email_verified or not user.is_active or user.is_suspended:
+        return False
+    return user.email.strip().lower() in allow
 
 
 async def _previous_permissions(db: AsyncSession, release: Release) -> dict | None:
@@ -107,7 +128,18 @@ async def process_validation_job(db: AsyncSession, release_id: str) -> str:
 
     raw = await asyncio.to_thread(storage.get_bytes, original.s3_bucket, original.s3_key)
 
-    result = validate_extension_zip(raw, _limits())
+    allow_binaries = await _uploader_allows_binaries(db, release)
+    if allow_binaries:
+        logger.info("release %s: binary/executable files permitted for uploader %s",
+                    release.id, release.uploaded_by_user_id)
+        # Durable, indexed audit trail for the exemption (independent of log retention).
+        await record_security_event(
+            db, type="binary_upload_permitted", severity="warning",
+            user_id=release.uploaded_by_user_id, project_id=release.project_id,
+            message="binary/executable files permitted inside extension ZIP",
+            detail={"releaseId": release.id},
+        )
+    result = validate_extension_zip(raw, _limits(), allow_binaries=allow_binaries)
     release.validation_report = result.to_report()
     release.risk_score = result.risk_score
 

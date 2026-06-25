@@ -78,7 +78,17 @@ def _is_symlink(info: zipfile.ZipInfo) -> bool:
     return stat.S_ISLNK(mode)
 
 
-def validate_extension_zip(data: bytes, limits: Limits | None = None) -> ValidationResult:
+def validate_extension_zip(
+    data: bytes, limits: Limits | None = None, *, allow_binaries: bool = False
+) -> ValidationResult:
+    """Run every required check over an extension ZIP.
+
+    `allow_binaries=True` exempts the uploader from the binary/executable file-type
+    block ONLY: such files are reported as a non-fatal warning instead of a fatal
+    error (every other security check - zip-bomb, path traversal, remote code,
+    miners, manifest rules - is unaffected). The policy of WHO is exempt lives in
+    the worker pipeline; this function stays pure.
+    """
     limits = limits or Limits()
     result = ValidationResult()
     result.sha256 = hashlib.sha256(data).hexdigest()
@@ -123,8 +133,14 @@ def validate_extension_zip(data: bytes, limits: Limits | None = None) -> Validat
 
         ext = posixpath.splitext(name)[1].lower()
         if ext in _BINARY_EXT:
-            result.add(Finding("DISALLOWED_BINARY", Severity.error,
-                               f"קובץ בינארי/הרצה אסור: {ext}", file=name))
+            if allow_binaries:
+                # Uploader is allow-listed for binaries: keep the finding visible
+                # in the report (audit) but as a non-fatal warning so it can ship.
+                result.add(Finding("DISALLOWED_BINARY", Severity.warning,
+                                   f"קובץ בינארי/הרצה: {ext} (הותר לחשבון זה).", file=name))
+            else:
+                result.add(Finding("DISALLOWED_BINARY", Severity.error,
+                                   f"קובץ בינארי/הרצה אסור: {ext}", file=name))
 
         total += info.file_size
         # ZIP-bomb: extreme per-file ratio.

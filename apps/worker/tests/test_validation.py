@@ -145,6 +145,32 @@ def test_disallowed_binary_blocked():
     assert not res.ok
 
 
+def test_disallowed_binary_allowed_for_permitted_uploader():
+    # allow_binaries=True (uploader is allow-listed): a binary/executable file is
+    # reported as a non-fatal WARNING, so the package still validates and can ship.
+    data = _zip({"manifest.json": _manifest(), "icon16.png": b"x", "tool.exe": b"MZ\x90\x00"})
+    res = validate_extension_zip(data, allow_binaries=True)
+    assert "DISALLOWED_BINARY" in _codes(res)
+    assert res.ok
+    assert all(f.severity == Severity.warning
+               for f in res.findings if f.code == "DISALLOWED_BINARY")
+
+
+def test_allow_binaries_does_not_relax_other_checks():
+    # The exemption is scoped to the binary file-type block ONLY: a second,
+    # independent violation must still fail the package even with allow_binaries=True.
+    data = _zip(
+        {"manifest.json": _manifest(), "icon16.png": b"x", "tool.exe": b"MZ\x90\x00"},
+        extra_entries=[("../evil.js", "stealEverything()")],
+    )
+    res = validate_extension_zip(data, allow_binaries=True)
+    assert not res.ok  # still blocked - by the path traversal, not the binary
+    assert any(f.code == "DISALLOWED_BINARY" and f.severity == Severity.warning
+               for f in res.findings)
+    assert any(f.code == "PATH_TRAVERSAL" and f.severity == Severity.error
+               for f in res.findings)
+
+
 def test_remote_code_blocked():
     data = _zip({
         "manifest.json": _manifest(background={"service_worker": "sw.js"}),

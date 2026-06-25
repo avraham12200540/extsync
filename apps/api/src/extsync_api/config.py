@@ -92,6 +92,11 @@ class Settings(BaseSettings):
     max_file_count: int = 5_000
     max_dir_depth: int = 20
     validation_timeout_seconds: int = 120
+    # Uploaders (by email) permitted to ship otherwise-disallowed binary/executable
+    # files INSIDE an extension ZIP (e.g. a bundled native-messaging host .exe). CSV
+    # of emails, matched case-insensitively against the release's uploader. Empty
+    # (default) -> nobody; every other ZIP security check still applies.
+    binary_upload_allowlist: str = ""
 
     # rate limits (anti-abuse; generous defaults, tunable via env)
     rate_limit_login_per_min: int = 10
@@ -156,6 +161,14 @@ class Settings(BaseSettings):
             key_id, b64 = entry.split(":", 1)
             out[key_id.strip()] = b64.strip()
         return out
+
+    def binary_upload_allowlist_set(self) -> set[str]:
+        """Parse BINARY_UPLOAD_ALLOWLIST into a set of normalized (lowercased) emails."""
+        return {
+            email.strip().lower()
+            for email in self.binary_upload_allowlist.split(",")
+            if email.strip()
+        }
 
 
 @lru_cache
