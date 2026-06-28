@@ -304,6 +304,7 @@ function VersionsTab({ project }: { project: Project }) {
   const upload = useMutation({
     mutationFn: async () => {
       if (!file) throw new ApiError(400, t("dash.pd.up.choose"));
+      if (file.size > 200 * 1024 * 1024) throw new ApiError(413, t("dash.pd.up.toobig"));
       const fd = new FormData();
       fd.append("file", file);
       fd.append("version", version);
@@ -312,7 +313,7 @@ function VersionsTab({ project }: { project: Project }) {
       return api.upload(`/projects/${project.id}/releases`, fd);
     },
     onSuccess: () => { setFile(null); setVersion(""); setNotes(""); qc.invalidateQueries({ queryKey: ["releases", project.id] }); },
-    onError: (e) => setError(e instanceof ApiError ? e.message : t("dash.pd.upfailed")),
+    onError: (e) => setError(e instanceof ApiError ? e.message : t("dash.pd.upnetwork")),
   });
 
   const publish = useMutation({

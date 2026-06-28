@@ -39,13 +39,27 @@ def _now() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
 
 
+def uploader_size_exempt(user: User) -> bool:
+    """Whether this uploader is allow-listed (UNLIMITED_UPLOAD_ALLOWLIST) to bypass the
+    ZIP upload size cap. Fail-closed: requires a non-empty list AND a verified, active,
+    non-suspended user whose email matches (case-insensitively). Mirrors the worker's
+    binary-allowlist gate."""
+    allow = settings.unlimited_upload_allowlist_set()
+    if not allow or not user.email:
+        return False
+    if not user.email_verified or not user.is_active or user.is_suspended:
+        return False
+    return user.email.strip().lower() in allow
+
+
 # --------------------------------------------------------------------------- upload
 async def create_release_with_upload(
     db: AsyncSession, project: Project, *, version: str, channel: Channel,
     release_notes: str | None, minimum_agent_version: str, raw: bytes,
     user: User, ip: str | None,
 ) -> Release:
-    if len(raw) > settings.max_upload_zip_bytes:
+    oversize = len(raw) > settings.max_upload_zip_bytes
+    if oversize and not uploader_size_exempt(user):
         raise APIError(ErrorCode.UPLOAD_TOO_LARGE,
                        "קובץ ה-ZIP גדול מהמותר", status_code=413)
 
@@ -84,6 +98,10 @@ async def create_release_with_upload(
     ))
     await record_audit(db, action="release.uploaded", actor_user_id=user.id,
                        target_type="release", target_id=release.id, project_id=project.id, ip_address=ip)
+    if oversize:
+        await record_audit(db, action="release.oversize_permitted", actor_user_id=user.id,
+                           target_type="release", target_id=release.id, project_id=project.id,
+                           ip_address=ip, extra={"size": len(raw)})
     await emit_event(db, project.id, "release.uploaded",
                      {"releaseId": release.id, "version": version, "channel": channel.value})
 

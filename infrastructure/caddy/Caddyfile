@@ -21,10 +21,12 @@
 # API
 api.{$DOMAIN} {
 	import security_headers
-	# Reject oversized bodies at the edge before the app buffers them into memory
-	# (the upload cap is 50MB; this leaves headroom for multipart overhead).
+	# Reject oversized bodies at the edge before the app buffers them into memory.
+	# Non-exempt uploads are capped at 50MB by the API; this higher edge ceiling lets
+	# UNLIMITED_UPLOAD_ALLOWLIST publishers ship large binary-bearing extensions and
+	# bounds the absolute body the droplet will buffer into RAM (mind droplet memory).
 	request_body {
-		max_size 60MB
+		max_size 210MB
 	}
 	encode gzip zstd
 	reverse_proxy api:8000

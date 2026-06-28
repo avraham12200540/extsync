@@ -88,7 +88,7 @@ class Settings(BaseSettings):
 
     # upload / validation limits
     max_upload_zip_bytes: int = 52_428_800
-    max_extracted_bytes: int = 209_715_200
+    max_extracted_bytes: int = 314_572_800  # 300MB - headroom for large binary-bearing extensions
     max_file_count: int = 5_000
     max_dir_depth: int = 20
     validation_timeout_seconds: int = 120
@@ -97,6 +97,12 @@ class Settings(BaseSettings):
     # of emails, matched case-insensitively against the release's uploader. Empty
     # (default) -> nobody; every other ZIP security check still applies.
     binary_upload_allowlist: str = ""
+    # Uploaders (by email) exempt from the ZIP upload SIZE cap (max_upload_zip_bytes),
+    # so allow-listed publishers can ship large binary-bearing extensions (e.g. a
+    # bundled ffmpeg / yt-dlp). CSV of emails, matched case-insensitively. Empty
+    # (default) -> nobody; non-exempt uploaders keep the normal cap. The global Caddy
+    # request_body cap still bounds the absolute body the droplet will buffer.
+    unlimited_upload_allowlist: str = ""
 
     # rate limits (anti-abuse; generous defaults, tunable via env)
     rate_limit_login_per_min: int = 10
@@ -167,6 +173,14 @@ class Settings(BaseSettings):
         return {
             email.strip().lower()
             for email in self.binary_upload_allowlist.split(",")
+            if email.strip()
+        }
+
+    def unlimited_upload_allowlist_set(self) -> set[str]:
+        """Parse UNLIMITED_UPLOAD_ALLOWLIST into a set of normalized (lowercased) emails."""
+        return {
+            email.strip().lower()
+            for email in self.unlimited_upload_allowlist.split(",")
             if email.strip()
         }
 
