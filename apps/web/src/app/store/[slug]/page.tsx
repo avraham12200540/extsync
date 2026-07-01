@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import ReactMarkdown from "react-markdown";
 import { Download } from "lucide-react";
+import { Markdown } from "@/components/markdown";
 import type { CatalogDetail } from "@/lib/api";
 import { MarketingShell } from "@/components/marketing";
 import { RatingSection } from "@/components/rating-section";
@@ -145,7 +145,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
           {d.shortDescription && <p className="mt-4 whitespace-pre-line text-ink">{linkify(d.shortDescription)}</p>}
           {d.fullDescription && (
             <div className="md-body mt-2 text-sm text-ink-muted">
-              <ReactMarkdown>{d.fullDescription}</ReactMarkdown>
+              <Markdown>{d.fullDescription}</Markdown>
             </div>
           )}
 

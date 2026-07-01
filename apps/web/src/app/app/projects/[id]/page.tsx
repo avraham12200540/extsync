@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -10,6 +10,7 @@ import { useLocale } from "@/components/locale-context";
 import { useAuth } from "@/components/providers";
 import { Badge, Button, Card, Field, Input, Spinner } from "@/components/ui";
 import { StatCard, TrendChart, type TrendDay } from "@/components/dashboard";
+import { Markdown } from "@/components/markdown";
 import { formatDate } from "@/lib/utils";
 
 type Tab = "overview" | "versions" | "links" | "analytics";
@@ -100,6 +101,8 @@ function OverviewTab({ project }: { project: Project }) {
 
   const [shortDesc, setShortDesc] = useState(project.shortDescription ?? "");
   const [fullDesc, setFullDesc] = useState(project.fullDescription ?? "");
+  const fullDescRef = useRef<HTMLTextAreaElement>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const [descSaved, setDescSaved] = useState(false);
   const saveDesc = useMutation({
     mutationFn: () =>
@@ -110,6 +113,25 @@ function OverviewTab({ project }: { project: Project }) {
       qc.invalidateQueries({ queryKey: ["project", project.id] });
     },
   });
+
+  // Lightweight Markdown editing helpers for the full-description textarea.
+  function mdSurround(before: string, after: string, placeholder: string) {
+    const ta = fullDescRef.current;
+    if (!ta) return;
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    const sel = fullDesc.slice(s, e) || placeholder;
+    setFullDesc(fullDesc.slice(0, s) + before + sel + after + fullDesc.slice(e));
+    const from = s + before.length;
+    requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(from, from + sel.length); });
+  }
+  function mdPrefixLine(prefix: string) {
+    const ta = fullDescRef.current;
+    if (!ta) return;
+    const s = ta.selectionStart;
+    const ls = fullDesc.lastIndexOf("\n", s - 1) + 1;
+    setFullDesc(fullDesc.slice(0, ls) + prefix + fullDesc.slice(ls));
+    requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(s + prefix.length, s + prefix.length); });
+  }
 
   const [shotErr, setShotErr] = useState<string | null>(null);
   const screenshots = project.screenshots ?? [];
@@ -165,13 +187,27 @@ function OverviewTab({ project }: { project: Project }) {
           />
         </Field>
         <Field label={t("dash.pd.desc.full")}>
+          <div className="mb-1.5 flex flex-wrap items-center gap-1">
+            <button type="button" onClick={() => mdSurround("**", "**", t("dash.pd.md.boldph"))} title={t("dash.pd.md.bold")} className="rounded border border-line px-2 py-0.5 text-xs font-semibold text-ink hover:bg-surface-2">B</button>
+            <button type="button" onClick={() => mdPrefixLine("## ")} className="rounded border border-line px-2 py-0.5 text-xs text-ink hover:bg-surface-2">{t("dash.pd.md.heading")}</button>
+            <button type="button" onClick={() => mdSurround("[", "](https://)", t("dash.pd.md.linkph"))} className="rounded border border-line px-2 py-0.5 text-xs text-ink hover:bg-surface-2">{t("dash.pd.md.link")}</button>
+            <button type="button" onClick={() => mdPrefixLine("- ")} className="rounded border border-line px-2 py-0.5 text-xs text-ink hover:bg-surface-2">{t("dash.pd.md.list")}</button>
+            <button type="button" onClick={() => setShowPreview((v) => !v)} className="ms-auto rounded border border-line px-2 py-0.5 text-xs text-ink hover:bg-surface-2">{t("dash.pd.md.preview")}</button>
+          </div>
           <textarea
+            ref={fullDescRef}
             value={fullDesc}
             onChange={(e) => setFullDesc(e.target.value)}
-            rows={3}
+            rows={6}
             className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-brand outline-none"
             placeholder={t("dash.pd.desc.full.ph")}
           />
+          <p className="mt-1 text-xs text-ink-muted">{t("dash.pd.md.hint")}</p>
+          {showPreview && fullDesc.trim() && (
+            <div className="md-body mt-2 rounded-md border border-line bg-surface-2 px-3 py-2 text-sm text-ink">
+              <Markdown>{fullDesc}</Markdown>
+            </div>
+          )}
         </Field>
         <div className="flex items-center gap-3">
           <Button
