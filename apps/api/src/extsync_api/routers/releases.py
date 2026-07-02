@@ -3,7 +3,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, File, Form, Request, UploadFile, status
 
+from ..config import settings
 from ..deps import CurrentUser, DBSession, PublisherUser
+from ..errors import APIError, ErrorCode
 from ..models.enums import Channel
 from ..models.release import Release
 from ..rbac import Permission
@@ -63,6 +65,14 @@ async def upload_release(
     project, _ = await load_project_for_user(db, project_id, user, Permission.RELEASE_CREATE)
     ensure_project_active(project)
     await enforce_rate_limit(f"upload:{user.id}", limit=60, window_seconds=3600)
+    # Reject an oversize non-exempt upload by Content-Length BEFORE buffering the whole
+    # body into RAM (await file.read() has no size bound; the only edge cap is Caddy's
+    # 210MB). Exempt uploaders skip this so they may still ship large binaries.
+    content_length = request.headers.get("content-length")
+    if (content_length and content_length.isdigit()
+            and int(content_length) > settings.max_upload_zip_bytes
+            and not svc.uploader_size_exempt(user)):
+        raise APIError(ErrorCode.UPLOAD_TOO_LARGE, "קובץ ה-ZIP גדול מהמותר", status_code=413)
     raw = await file.read()
     release = await svc.create_release_with_upload(
         db, project, version=version, channel=channel, release_notes=release_notes,

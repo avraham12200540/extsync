@@ -6,7 +6,7 @@ extsync:// install URI for the managed (auto-updating) install path.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +24,7 @@ from ..models.release import ChannelState, Release, ReleaseArtifact, ReleasePerm
 from ..models.user import User
 from ..schemas.common import CamelModel, OkResponse
 from ..storage import storage
+from ..services.ratelimit import client_ip, enforce_rate_limit
 from typing import Annotated
 from fastapi import Depends
 
@@ -134,8 +135,9 @@ async def _my_ratings(db: AsyncSession, user_id: str | None, project_ids: list[s
 
 
 @router.get("", response_model=list[CatalogItem])
-async def list_catalog(db: DBSession, user: OptionalUser, q: str | None = None,
+async def list_catalog(request: Request, db: DBSession, user: OptionalUser, q: str | None = None,
                        category: str | None = None) -> list[CatalogItem]:
+    await enforce_rate_limit(f"catalog:{client_ip(request)}", limit=120, window_seconds=60)
     # Public projects that have at least one published release (an active channel).
     stmt = (
         select(Project)

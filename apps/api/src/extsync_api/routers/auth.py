@@ -73,9 +73,15 @@ async def register(req: RegisterRequest, request: Request, db: DBSession) -> OkR
 async def login(req: LoginRequest, request: Request, response: Response, db: DBSession) -> LoginResponse:
     ip = client_ip(request)
     await enforce_rate_limit(f"login:{ip}", limit=settings.rate_limit_login_per_min, window_seconds=60)
-    await enforce_rate_limit(f"login:{req.email.lower()}", limit=settings.rate_limit_login_per_min, window_seconds=60)
 
-    user = await svc.authenticate(db, email=req.email, password=req.password, ip=ip)
+    try:
+        user = await svc.authenticate(db, email=req.email, password=req.password, ip=ip)
+    except Exception:
+        # Throttle FAILED attempts per-email (brute-force defense) but never on success,
+        # so an attacker spamming a victim's address with wrong passwords cannot lock the
+        # victim out - the victim's correct password never reaches this limiter.
+        await enforce_rate_limit(f"login-fail:{req.email.lower()}", limit=10, window_seconds=300)
+        raise
     if user.two_factor_enabled:
         return LoginResponse(two_factor_required=True, challenge=svc._make_challenge(user.id))
 
