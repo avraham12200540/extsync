@@ -61,9 +61,22 @@ public sealed class AgentController
     {
         var inst = _store.Get(projectId);
         if (inst is null) return;
+        // Do not let a pipe message OVERWRITE an established ExtensionId: a same-user local
+        // process could otherwise hijack a real installation's native-host origin. Accept an
+        // incoming extensionId only for a first registration or when it matches what we stored;
+        // on a mismatch, ignore the message entirely (no origin refresh).
+        if (!string.IsNullOrEmpty(extensionId)
+            && !string.IsNullOrEmpty(inst.ExtensionId)
+            && !string.Equals(inst.ExtensionId, extensionId, StringComparison.OrdinalIgnoreCase))
+        {
+            _log.Warning("bridge: extensionId mismatch for {Project} (have {Have}, got {Got}) - ignoring",
+                projectId, inst.ExtensionId, extensionId);
+            return;
+        }
         inst.BridgeConnected = true;
         inst.HasBridge = true;
-        if (!string.IsNullOrEmpty(extensionId)) inst.ExtensionId = extensionId;
+        if (!string.IsNullOrEmpty(extensionId) && string.IsNullOrEmpty(inst.ExtensionId))
+            inst.ExtensionId = extensionId;
         // Bridge connecting confirms Chrome loaded the extension.
         if (inst.Status is InstallationStatus.AwaitingManualLoad or InstallationStatus.ReloadRequired)
             inst.Status = InstallationStatus.UpToDate;

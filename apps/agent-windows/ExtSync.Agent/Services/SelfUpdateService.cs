@@ -49,6 +49,16 @@ public sealed class SelfUpdateService
         var signature = root.GetProperty("signature").GetString()!;
         var keyId = root.GetProperty("keyId").GetString()!;
 
+        // Anti-downgrade: refuse any build not strictly newer than the running one, even
+        // with a valid PAST signature (old signatures verify forever) - a last-resort
+        // defense against a replayed/rolled-back build if the server/DB is ever tampered.
+        if (VersionUtil.Gte(_settings.AgentVersion, version))
+        {
+            _log.Warning("self-update: offered {Version} is not newer than current {Current} - refusing",
+                version, _settings.AgentVersion);
+            return false;
+        }
+
         // The server signed the canonical JSON of exactly this object (admin
         // register endpoint); rebuilding it locally pins version+hash to the key.
         var signedMeta = JsonSerializer.SerializeToElement(new Dictionary<string, string>
@@ -65,12 +75,38 @@ public sealed class SelfUpdateService
             return false;
         }
 
+        // Only fetch over https. The content is hash-pinned below, so this just avoids an
+        // attacker-chosen plaintext fetch target if downloadUrl were ever tampered.
+        if (!downloadUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            _log.Warning("self-update: downloadUrl is not https - refusing {Url}", downloadUrl);
+            return false;
+        }
+
         AgentPaths.EnsureCreated();
         var installer = Path.Combine(AgentPaths.TempDir, $"ExtSyncAgentSetup-{version}.exe");
         _log.Information("self-update: downloading {Version}", version);
+        // Cap the write: the signed sha256 below is the real integrity gate, but bound the
+        // download so a tampered/oversized response can't exhaust the disk before we hash it.
         await using (var src = await _http.GetStreamAsync(downloadUrl, ct))
         await using (var dst = File.Create(installer))
-            await src.CopyToAsync(dst, ct);
+        {
+            var buffer = new byte[81920];
+            long total = 0;
+            const long cap = 200L * 1024 * 1024;
+            int read;
+            while ((read = await src.ReadAsync(buffer, ct)) > 0)
+            {
+                total += read;
+                if (total > cap)
+                {
+                    _log.Warning("self-update: installer exceeds the size cap - refusing");
+                    try { dst.Close(); File.Delete(installer); } catch { /* best effort */ }
+                    return false;
+                }
+                await dst.WriteAsync(buffer.AsMemory(0, read), ct);
+            }
+        }
 
         if (!ReleaseVerifier.VerifySha256(installer, sha256))
         {
