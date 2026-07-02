@@ -59,7 +59,7 @@ def _publish(client, h, project_id, version, rollout=100):
 
 def test_agent_install_and_update_cycle(client):
     h = _dev(client)
-    project_id = client.post("/projects", headers=h, json={"name": "AgentDemo", "visibility": "public"}).json()["id"]
+    project_id = client.post("/projects", headers=h, json={"name": "AgentDemo", "shortDescription": "t", "visibility": "public"}).json()["id"]
     r1 = _publish(client, h, project_id, "1.0.0")
 
     link = client.post(f"/projects/{project_id}/install-links", headers=h,
@@ -136,7 +136,7 @@ def test_agent_install_and_update_cycle(client):
 
 def test_rollout_is_deterministic(client):
     h = _dev(client, email="dev2@a.com")
-    project_id = client.post("/projects", headers=h, json={"name": "RollDemo", "visibility": "public"}).json()["id"]
+    project_id = client.post("/projects", headers=h, json={"name": "RollDemo", "shortDescription": "t", "visibility": "public"}).json()["id"]
     _publish(client, h, project_id, "1.0.0", rollout=1)  # 1% rollout
 
     anon = "device-rollout-test-1"
@@ -157,7 +157,7 @@ def test_rollout_is_deterministic(client):
 
 def test_rollout_auto_stop_on_failures(client):
     h = _dev(client, email="dev3@a.com")
-    project_id = client.post("/projects", headers=h, json={"name": "StopDemo", "visibility": "public"}).json()["id"]
+    project_id = client.post("/projects", headers=h, json={"name": "StopDemo", "shortDescription": "t", "visibility": "public"}).json()["id"]
     rid = _publish(client, h, project_id, "1.0.0")
     token = client.post(f"/projects/{project_id}/install-links", headers=h,
                         json={"channel": "stable"}).json()["token"]

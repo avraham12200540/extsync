@@ -23,6 +23,8 @@ export default function SettingsPage() {
   const [savingName, setSavingName] = useState(false);
   const [nameSaved, setNameSaved] = useState(false);
 
+  // Intentional one-way sync of the editable field with the async-loaded user.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (user) setDisplayName(user.displayName); }, [user]);
 
   const saveName = async () => {

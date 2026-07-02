@@ -118,7 +118,7 @@ def test_full_pipeline_upload_validate_publish(client, test_public_keys):
 
 def test_invalid_zip_marks_validation_failed(client):
     h = _auth(client, email="owner2@example.com")
-    project_id = client.post("/projects", headers=h, json={"name": "Bad Ext"}).json()["id"]
+    project_id = client.post("/projects", headers=h, json={"name": "Bad Ext", "shortDescription": "t"}).json()["id"]
 
     # a zip whose manifest is MV2 -> validation must fail
     manifest = {"manifest_version": 2, "name": "Bad", "version": "1.0.0"}
@@ -159,7 +159,7 @@ def test_wrapped_zip_is_rerooted_in_validated_artifact(client, store):
     """A wrapped upload must validate AND the built artifact must have
     manifest.json at the root (so Chrome + the Agent load it)."""
     h = _auth(client, email="wrap@example.com")
-    project_id = client.post("/projects", headers=h, json={"name": "Wrapped Ext"}).json()["id"]
+    project_id = client.post("/projects", headers=h, json={"name": "Wrapped Ext", "shortDescription": "t"}).json()["id"]
 
     up = client.post(f"/projects/{project_id}/releases", headers=h,
                      files={"file": ("w.zip", _make_wrapped_zip("2.5.4"), "application/zip")},
@@ -184,7 +184,7 @@ def test_pipeline_auto_injects_bridge(client, store):
     """An ordinary (no-bridge) upload gets the Bridge auto-injected and is flagged
     hasBridge, so the Agent can reload it in place — zero developer work."""
     h = _auth(client, email="bridge@example.com")
-    project_id = client.post("/projects", headers=h, json={"name": "Bridge Ext"}).json()["id"]
+    project_id = client.post("/projects", headers=h, json={"name": "Bridge Ext", "shortDescription": "t"}).json()["id"]
 
     up = client.post(f"/projects/{project_id}/releases", headers=h,
                      files={"file": ("b.zip", _make_zip("1.0.0"), "application/zip")},
@@ -206,7 +206,7 @@ def test_pipeline_auto_injects_bridge(client, store):
 
 def test_delete_release(client):
     h = _auth(client, email="del@example.com")
-    project_id = client.post("/projects", headers=h, json={"name": "Del Ext"}).json()["id"]
+    project_id = client.post("/projects", headers=h, json={"name": "Del Ext", "shortDescription": "t"}).json()["id"]
 
     # a ready-but-unpublished release can be deleted
     up = client.post(f"/projects/{project_id}/releases", headers=h,
@@ -236,7 +236,7 @@ def test_publish_blocked_until_email_verified_when_enforced(client, monkeypatch)
     monkeypatch.setattr(_settings, "enforce_email_verification", True)
 
     h = _auth(client, email="unverified@example.com")  # registers unverified
-    project_id = client.post("/projects", headers=h, json={"name": "Gated Ext"}).json()["id"]
+    project_id = client.post("/projects", headers=h, json={"name": "Gated Ext", "shortDescription": "t"}).json()["id"]
     up = client.post(f"/projects/{project_id}/releases", headers=h,
                      files={"file": ("v.zip", _make_zip("1.0.0"), "application/zip")},
                      data={"version": "1.0.0", "channel": "stable", "minimumAgentVersion": "1.0.0"})
@@ -270,7 +270,7 @@ def test_publish_blocked_until_email_verified_when_enforced(client, monkeypatch)
 
 def test_cannot_delete_published_release(client):
     h = _auth(client, email="delpub@example.com")
-    project_id = client.post("/projects", headers=h, json={"name": "DelPub Ext"}).json()["id"]
+    project_id = client.post("/projects", headers=h, json={"name": "DelPub Ext", "shortDescription": "t"}).json()["id"]
     up = client.post(f"/projects/{project_id}/releases", headers=h,
                      files={"file": ("v.zip", _make_zip("1.0.0"), "application/zip")},
                      data={"version": "1.0.0", "channel": "stable", "minimumAgentVersion": "1.0.0"})
@@ -286,7 +286,7 @@ def test_cannot_delete_published_release(client):
 
 def test_rollback_keeps_old_release(client, test_public_keys):
     h = _auth(client, email="owner3@example.com")
-    project_id = client.post("/projects", headers=h, json={"name": "RB Ext"}).json()["id"]
+    project_id = client.post("/projects", headers=h, json={"name": "RB Ext", "shortDescription": "t"}).json()["id"]
 
     # publish v1
     up1 = client.post(f"/projects/{project_id}/releases", headers=h,

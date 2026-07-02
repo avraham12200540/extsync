@@ -28,7 +28,7 @@ def _auth(client, email):
 def _publish(client, h, name, version="1.0.0"):
     from extsync_api.db import get_sessionmaker
     from extsync_worker.pipeline import process_validation_job
-    pid = client.post("/projects", headers=h, json={"name": name, "visibility": "public"}).json()["id"]
+    pid = client.post("/projects", headers=h, json={"name": name, "shortDescription": "t", "visibility": "public"}).json()["id"]
     rid = client.post(f"/projects/{pid}/releases", headers=h,
                       files={"file": ("e.zip", _zip(version), "application/zip")},
                       data={"version": version, "channel": "stable"}).json()["id"]
