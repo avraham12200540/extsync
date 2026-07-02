@@ -7,13 +7,15 @@ import hashlib
 import hmac
 import json
 
+from urllib.parse import urlparse, urlunparse
+
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from extsync_api.logging import get_logger
 from extsync_api.models.webhook import Webhook, WebhookDelivery
 from extsync_api.security.crypto import decrypt_str
-from extsync_api.security.ssrf import UnsafeUrlError, assert_safe_public_url
+from extsync_api.security.ssrf import UnsafeUrlError, resolve_safe_public_url
 
 logger = get_logger("extsync.worker.webhook")
 
@@ -35,16 +37,27 @@ async def deliver_webhook(db: AsyncSession, delivery_id: str) -> str:
         delivery.status = "failed"
         return "failed"
 
-    # SSRF guard at delivery time: re-resolve and reject internal targets, in
-    # case DNS for this host was repointed inward after the webhook was created.
+    # SSRF guard at delivery time: resolve + validate, then PIN the connection to the
+    # validated public IP. httpx would otherwise re-resolve the hostname at connect
+    # time, reopening the DNS-rebinding TOCTOU (public IP during the check, internal IP
+    # at connect). We connect to the pinned IP and carry the original Host header + TLS
+    # SNI/verification hostname, so a rebind can no longer reach an internal target.
     try:
-        await asyncio.to_thread(assert_safe_public_url, webhook.url)
+        pinned_ips = await asyncio.to_thread(resolve_safe_public_url, webhook.url)
     except UnsafeUrlError as exc:
         logger.warning("webhook %s blocked unsafe url: %s", webhook.id, exc)
         delivery.status = "failed"
         delivery.response_body = f"blocked: {exc}"
         delivery.next_retry_at = None
         return "failed"
+
+    parsed = urlparse(webhook.url)
+    host = parsed.hostname or ""
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    pinned = pinned_ips[0]
+    ip_netloc = f"[{pinned}]:{port}" if ":" in pinned else f"{pinned}:{port}"
+    target_url = urlunparse((parsed.scheme, ip_netloc, parsed.path or "/", "", parsed.query, ""))
+    host_header = host if parsed.port is None else f"{host}:{parsed.port}"
 
     # Count this as an attempt up front so that ANY failure below (HTTP error,
     # un-decryptable secret after a key rotation, JSON/serialisation error) is a
@@ -56,6 +69,7 @@ async def deliver_webhook(db: AsyncSession, delivery_id: str) -> str:
         ts = str(int(dt.datetime.now(dt.timezone.utc).timestamp()))
         secret = decrypt_str(webhook.secret_encrypted)
         headers = {
+            "Host": host_header,                                # original vhost (we connect to a pinned IP)
             "Content-Type": "application/json",
             "X-ExtSync-Event": delivery.event_type,
             "X-ExtSync-Event-Id": delivery.event_id,           # replay protection key
@@ -64,9 +78,14 @@ async def deliver_webhook(db: AsyncSession, delivery_id: str) -> str:
             "User-Agent": "ExtSync-Webhook/1.0",
         }
         # follow_redirects=False: a 30x to an internal URL would bypass the SSRF
-        # guard above, so never follow redirects on webhook delivery.
+        # guard above, so never follow redirects on webhook delivery. sni_hostname
+        # makes TLS handshake + cert verification use the real hostname even though we
+        # dialed the pinned IP literal.
+        extensions = {"sni_hostname": host} if parsed.scheme == "https" else {}
         async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
-            resp = await client.post(webhook.url, content=body, headers=headers)
+            request = client.build_request("POST", target_url, content=body,
+                                           headers=headers, extensions=extensions)
+            resp = await client.send(request)
         delivery.response_code = resp.status_code
         delivery.response_body = resp.text[:2000]
         if 200 <= resp.status_code < 300:

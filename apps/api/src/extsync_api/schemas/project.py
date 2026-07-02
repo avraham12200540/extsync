@@ -37,6 +37,15 @@ class ProjectCreate(CamelModel):
             raise ValueError("Slug חייב להכיל אותיות קטנות, ספרות ומקפים בלבד")
         return v
 
+    @field_validator("website", "repo_url", "support_url", "privacy_policy_url", mode="after")
+    @classmethod
+    def _http_url(cls, v: str | None) -> str | None:
+        # These render into <a href> on public store/install pages - allow only http(s)
+        # so a javascript:/data:/custom scheme can never reach an href.
+        if v and v.strip() and not re.match(r"^https?://", v.strip(), re.IGNORECASE):
+            raise ValueError("כתובת URL חייבת להתחיל ב-http:// או https://")
+        return v
+
 
 class ProjectUpdate(CamelModel):
     name: str | None = Field(default=None, min_length=2, max_length=160)
@@ -53,6 +62,15 @@ class ProjectUpdate(CamelModel):
     bridge_mode: str | None = Field(default=None, pattern="^(basic|integrated)$")
     # Optimistic-lock guard supplied by the client.
     expected_version: int | None = None
+
+    @field_validator("website", "repo_url", "support_url", "privacy_policy_url", "icon_url", mode="after")
+    @classmethod
+    def _http_url(cls, v: str | None) -> str | None:
+        # These render into <a href> on public store/install pages - allow only http(s)
+        # so a javascript:/data:/custom scheme can never reach an href.
+        if v and v.strip() and not re.match(r"^https?://", v.strip(), re.IGNORECASE):
+            raise ValueError("כתובת URL חייבת להתחיל ב-http:// או https://")
+        return v
 
 
 class ScreenshotItem(CamelModel):

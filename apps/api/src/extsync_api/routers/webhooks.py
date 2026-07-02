@@ -99,6 +99,9 @@ async def delete_webhook(project_id: str, webhook_id: str, user: CurrentUser, db
 @router.get("/projects/{project_id}/webhooks/{webhook_id}/deliveries", response_model=list[DeliveryInfo])
 async def list_deliveries(project_id: str, webhook_id: str, user: CurrentUser, db: DBSession) -> list[DeliveryInfo]:
     await load_project_for_user(db, project_id, user, Permission.WEBHOOK_MANAGE)
+    wh = await db.get(Webhook, webhook_id)
+    if wh is None or wh.project_id != project_id:
+        raise not_found("ה-webhook לא נמצא")
     rows = (await db.scalars(
         select(WebhookDelivery).where(WebhookDelivery.webhook_id == webhook_id)
         .order_by(WebhookDelivery.created_at.desc()).limit(100)
@@ -112,6 +115,9 @@ async def list_deliveries(project_id: str, webhook_id: str, user: CurrentUser, d
 async def resend_delivery(project_id: str, webhook_id: str, delivery_id: str,
                           user: CurrentUser, db: DBSession) -> OkResponse:
     await load_project_for_user(db, project_id, user, Permission.WEBHOOK_MANAGE)
+    wh = await db.get(Webhook, webhook_id)
+    if wh is None or wh.project_id != project_id:
+        raise not_found("ה-webhook לא נמצא")
     delivery = await db.get(WebhookDelivery, delivery_id)
     if delivery is None or delivery.webhook_id != webhook_id:
         raise not_found("המשלוח לא נמצא")

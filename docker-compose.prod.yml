@@ -154,6 +154,9 @@ services:
       redis: { condition: service_healthy }
     command: ["python", "-m", "extsync_worker.main"]
     restart: unless-stopped
+    # Backstop for validation/artifact memory: the zip-bomb fix caps REAL extracted
+    # size, this caps a runaway so a single job can't OOM the host. Tune to droplet RAM.
+    mem_limit: 1536m
     healthcheck:
       test: ["CMD", "python", "-c", "import os,sys,redis; sys.exit(0 if redis.from_url(os.environ['REDIS_URL']).get('extsync:worker:heartbeat') else 1)"]
       interval: 30s

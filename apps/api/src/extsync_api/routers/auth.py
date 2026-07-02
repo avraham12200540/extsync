@@ -114,7 +114,8 @@ async def logout_all(user: CurrentUser, response: Response, db: DBSession) -> Ok
 
 
 @router.post("/verify-email", response_model=OkResponse)
-async def verify_email(req: VerifyEmailRequest, db: DBSession) -> OkResponse:
+async def verify_email(req: VerifyEmailRequest, request: Request, db: DBSession) -> OkResponse:
+    await enforce_rate_limit(f"verify-email:{client_ip(request)}", limit=20, window_seconds=3600)
     await svc.verify_email(db, req.token)
     return OkResponse()
 
@@ -134,7 +135,8 @@ async def forgot_password(req: ForgotPasswordRequest, request: Request, db: DBSe
 
 
 @router.post("/reset-password", response_model=OkResponse)
-async def reset_password(req: ResetPasswordRequest, db: DBSession) -> OkResponse:
+async def reset_password(req: ResetPasswordRequest, request: Request, db: DBSession) -> OkResponse:
+    await enforce_rate_limit(f"reset-pw:{client_ip(request)}", limit=20, window_seconds=3600)
     try:
         await svc.reset_password(db, token=req.token, new_password=req.new_password)
     except ValueError as exc:

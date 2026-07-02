@@ -144,18 +144,27 @@ class Settings(BaseSettings):
         return self.environment == "production"
 
     def insecure_production_defaults(self) -> list[str]:
-        """In production, return the names of secrets still set to a dev default.
+        """In production, return the names of secrets that are UNSAFE: still a dev
+        default, empty/whitespace, a CHANGE_ME placeholder, or too short (<32 chars).
 
         Checked at startup (see main.lifespan) so a misconfigured prod boot fails
-        closed instead of silently shipping a publicly-known secret from the repo.
+        closed. Sentinel-only matching used to miss an unset ($VAR -> "") or CHANGE_ME
+        secret - an empty jwt/csrf/signing secret would let an attacker forge tokens
+        signed with a known/empty key.
         """
         if not self.is_production:
             return []
-        return [
-            name
-            for name, dev_value in _DEV_SECRET_DEFAULTS.items()
-            if getattr(self, name) == dev_value
-        ]
+        bad: list[str] = []
+        for name, dev_value in _DEV_SECRET_DEFAULTS.items():
+            value = str(getattr(self, name) or "")
+            if (
+                value == dev_value
+                or not value.strip()
+                or value.upper().startswith("CHANGE_ME")
+                or len(value) < 32
+            ):
+                bad.append(name)
+        return bad
 
     def public_keys_map(self) -> dict[str, str]:
         """Parse SIGNING_PUBLIC_KEYS into {keyId: base64}."""

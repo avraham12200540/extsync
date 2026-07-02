@@ -35,6 +35,8 @@ def _read_rerooted(zip_bytes: bytes) -> tuple[dict[str, bytes], str]:
     prefix = manifest_path[: -len("manifest.json")]
 
     files: dict[str, bytes] = {}
+    total = 0
+    cap = 314_572_800  # ~300MB, matches the validator's max_extracted ceiling (defense in depth)
     for info in src.infolist():
         if info.is_dir():
             continue
@@ -42,7 +44,11 @@ def _read_rerooted(zip_bytes: bytes) -> tuple[dict[str, bytes], str]:
         new = name[len(prefix):] if prefix and name.startswith(prefix) else name
         if not new or new in files:
             continue
-        files[new] = src.read(name)
+        data = src.read(name)
+        total += len(data)
+        if total > cap:
+            raise ValueError("extracted artifact exceeds the size cap")
+        files[new] = data
     return files, "manifest.json"
 
 

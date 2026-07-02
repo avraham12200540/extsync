@@ -78,6 +78,29 @@ def _is_symlink(info: zipfile.ZipInfo) -> bool:
     return stat.S_ISLNK(mode)
 
 
+def _actual_extracted_size(zf: zipfile.ZipFile, infos: list, limit: int) -> tuple[int, bool]:
+    """Sum the REAL decompressed size by streaming every member in bounded chunks.
+    ZipInfo.file_size is attacker-controlled central-directory metadata and is not
+    verified until .read() actually decompresses the stream, so trusting it lets a
+    zip-bomb (tiny declared size, huge real stream) slip past the size guard and OOM the
+    worker. Returns (total_bytes, exceeded); stops early the moment it exceeds the cap."""
+    total = 0
+    cap = limit + 1
+    for info in infos:
+        try:
+            with zf.open(info) as fh:
+                while True:
+                    chunk = fh.read(65536)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > cap:
+                        return total, True
+        except Exception:  # noqa: BLE001 - a member that won't decompress is caught elsewhere
+            continue
+    return total, False
+
+
 def validate_extension_zip(
     data: bytes, limits: Limits | None = None, *, allow_binaries: bool = False
 ) -> ValidationResult:
@@ -110,7 +133,6 @@ def validate_extension_zip(
         result.add(Finding("TOO_MANY_FILES", Severity.error,
                            f"החבילה מכילה יותר מדי קבצים ({result.file_count})."))
 
-    total = 0
     names: set[str] = set()
     for info in infos:
         name = info.filename
@@ -142,8 +164,8 @@ def validate_extension_zip(
                 result.add(Finding("DISALLOWED_BINARY", Severity.error,
                                    f"קובץ בינארי/הרצה אסור: {ext}", file=name))
 
-        total += info.file_size
-        # ZIP-bomb: extreme per-file ratio.
+        # ZIP-bomb: extreme per-file ratio (declared metadata; the real-size streaming
+        # check below is the authoritative guard).
         if info.compress_size > 0 and info.file_size / info.compress_size > limits.max_compression_ratio \
                 and info.file_size > 1_000_000:
             result.add(Finding("ZIP_BOMB", Severity.error,
@@ -155,11 +177,16 @@ def validate_extension_zip(
                                detail={"size": info.file_size}))
         result.file_inventory.append({"path": name, "size": info.file_size})
 
-    result.total_uncompressed_size = total
-    if total > limits.max_extracted_bytes:
+    # The per-file loop used ZipInfo.file_size (attacker-controlled, unverified until
+    # decompression). Compute the REAL decompressed total by streaming, so a member that
+    # lies (declares ~10 bytes, expands to GBs) cannot slip past and OOM the worker. This
+    # runs BEFORE any zf.read() of content below, so a bomb is rejected before decompression.
+    real_total, exceeded = _actual_extracted_size(zf, infos, limits.max_extracted_bytes)
+    result.total_uncompressed_size = real_total
+    if exceeded:
         result.add(Finding("ZIP_BOMB", Severity.error,
                            "הגודל הכולל לאחר חילוץ חורג מהמותר.",
-                           detail={"total": total, "limit": limits.max_extracted_bytes}))
+                           detail={"limit": limits.max_extracted_bytes}))
         return result  # do not proceed to read contents
 
     # ---- manifest ----

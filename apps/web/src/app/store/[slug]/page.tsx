@@ -10,7 +10,7 @@ import { MarketingShell } from "@/components/marketing";
 import { RatingSection } from "@/components/rating-section";
 import { ScreenshotGallery } from "@/components/screenshot-gallery";
 import { Badge } from "@/components/ui";
-import { formatDate, safeJsonLd } from "@/lib/utils";
+import { formatDate, safeHref, safeJsonLd } from "@/lib/utils";
 import { getLocale } from "@/lib/locale-server";
 import { t as tr } from "@/lib/i18n";
 
@@ -212,9 +212,9 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
           )}
 
           <div className="mt-6 flex flex-wrap gap-4 text-sm">
-            {d.website && <a href={d.website} className="text-brand hover:underline">{t("detail.website")}</a>}
-            {d.repoUrl && <a href={d.repoUrl} className="text-brand hover:underline">{t("detail.source")}</a>}
-            {d.privacyPolicyUrl && <a href={d.privacyPolicyUrl} className="text-brand hover:underline">{t("detail.privacy")}</a>}
+            {safeHref(d.website) && <a href={safeHref(d.website)} className="text-brand hover:underline">{t("detail.website")}</a>}
+            {safeHref(d.repoUrl) && <a href={safeHref(d.repoUrl)} className="text-brand hover:underline">{t("detail.source")}</a>}
+            {safeHref(d.privacyPolicyUrl) && <a href={safeHref(d.privacyPolicyUrl)} className="text-brand hover:underline">{t("detail.privacy")}</a>}
           </div>
         </div>
       </main>

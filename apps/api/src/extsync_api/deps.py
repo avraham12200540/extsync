@@ -35,7 +35,12 @@ async def _user_from_api_token(db: AsyncSession, token: str) -> User | None:
     if row is None or not row.is_active:
         return None
     row.last_used_at = dt.datetime.now(dt.timezone.utc)
-    return await db.get(User, row.user_id)
+    user = await db.get(User, row.user_id)
+    # Mirror the access-token path: a suspended/deactivated user must lose API-token
+    # access immediately (suspension does not revoke existing tokens).
+    if user is None or not user.is_active or user.is_suspended:
+        return None
+    return user
 
 
 async def _user_from_access_token(db: AsyncSession, token: str) -> User | None:

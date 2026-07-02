@@ -7,7 +7,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { useLocale } from "@/components/locale-context";
 import { Badge, Button, Card, Spinner } from "@/components/ui";
-import { formatDate } from "@/lib/utils";
+import { formatDate, safeHref } from "@/lib/utils";
 
 export default function InstallTokenPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
@@ -105,8 +105,8 @@ function InstallContent({ data }: { data: InstallPage }) {
 
       <div className="mt-4 flex flex-wrap gap-4 text-sm text-ink-muted">
         {data.publishedAt && <span>{t("inst.published")} {formatDate(data.publishedAt)}</span>}
-        {data.repoUrl && <a href={data.repoUrl} className="text-brand hover:underline">{t("inst.source")}</a>}
-        {data.privacyPolicyUrl && <a href={data.privacyPolicyUrl} className="text-brand hover:underline">{t("inst.privacy")}</a>}
+        {safeHref(data.repoUrl) && <a href={safeHref(data.repoUrl)} className="text-brand hover:underline">{t("inst.source")}</a>}
+        {safeHref(data.privacyPolicyUrl) && <a href={safeHref(data.privacyPolicyUrl)} className="text-brand hover:underline">{t("inst.privacy")}</a>}
       </div>
 
       {!data.usable ? (

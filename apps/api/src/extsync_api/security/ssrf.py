@@ -37,9 +37,12 @@ def _ip_is_public(ip: str) -> bool:
     )
 
 
-def assert_safe_public_url(url: str) -> None:
-    """Raise UnsafeUrlError unless `url` is an http(s) URL that resolves only to
-    public IP addresses."""
+def resolve_safe_public_url(url: str) -> list[str]:
+    """Validate `url` is an http(s) URL resolving ONLY to public IPs, and return the
+    resolved public IPs (sorted). The caller should CONNECT to one of these IPs while
+    carrying the original Host header + TLS SNI - re-resolving the hostname at connect
+    time (httpx's default) reopens the DNS-rebinding TOCTOU this guard exists to close.
+    """
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise UnsafeUrlError("ה-URL של ה-webhook חייב להשתמש ב-http או https")
@@ -59,3 +62,11 @@ def assert_safe_public_url(url: str) -> None:
             raise UnsafeUrlError(
                 "כתובת ה-webhook מצביעה על כתובת רשת פנימית - אסור מטעמי אבטחה"
             )
+    return sorted(addrs)
+
+
+def assert_safe_public_url(url: str) -> None:
+    """Raise UnsafeUrlError unless `url` is an http(s) URL that resolves only to
+    public IP addresses. Prefer resolve_safe_public_url + pinning the connection to the
+    returned IP; this thin wrapper is for creation-time validation only."""
+    resolve_safe_public_url(url)

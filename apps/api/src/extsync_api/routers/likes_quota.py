@@ -31,6 +31,7 @@ from ..schemas.likes_quota import (
     SetRequest,
 )
 from ..services import likes_quota_service as svc
+from ..services.ratelimit import client_ip, enforce_rate_limit
 
 router = APIRouter(prefix="/api/likes-quota", tags=["likes-quota"])
 
@@ -53,6 +54,10 @@ def _decode_forum_cookie(raw: str | None) -> str | None:
 
 
 async def get_quota_principal(request: Request, user: OptionalUser) -> QuotaPrincipal:
+    # Gate all six endpoints per-IP BEFORE the outbound ~5s forum verification, so a
+    # flood of random X-Forum-Session values can't exhaust our sockets / async slots
+    # or reflect onto the forum. (Fails open on a Redis outage, like the other limiters.)
+    await enforce_rate_limit(f"likes-quota:{client_ip(request)}", limit=60, window_seconds=60)
     # 1) forum login, verified server-side against NodeBB (primary path)
     cookie = _decode_forum_cookie(request.headers.get("x-forum-session"))
     identity = await svc.verify_forum_session(cookie)
