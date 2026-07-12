@@ -104,6 +104,7 @@ export interface Me {
   role: string;
   emailVerified: boolean;
   twoFactorEnabled: boolean;
+  emailNotifOptout: string[];
 }
 
 export interface Screenshot {

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from sqlalchemy import Boolean, ForeignKey, String, Text
+from sqlalchemy import JSON, Boolean, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..db import Base
@@ -34,6 +34,12 @@ class User(Base, TimestampMixin, SoftDeleteMixin):
     )
 
     last_login_at: Mapped[dt.datetime | None] = mapped_column(nullable=True)
+
+    # NotificationKind values the user has opted OUT of receiving by EMAIL. Empty =
+    # receive all (the default). In-app notifications are unaffected by this list.
+    email_notif_optout: Mapped[list[str]] = mapped_column(
+        JSON, nullable=False, default=list, server_default="[]"
+    )
 
     developer_profile: Mapped["DeveloperProfile | None"] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"

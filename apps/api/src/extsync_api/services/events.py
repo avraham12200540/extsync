@@ -46,7 +46,9 @@ async def notify_owner(
     ))
     if email:
         owner = await db.get(User, project.owner_user_id)
-        if owner is not None and owner.email:
+        # Respect the owner's per-kind email opt-outs. The in-app notification above is
+        # created regardless; only the EMAIL is suppressed for opted-out kinds.
+        if owner is not None and owner.email and kind.value not in (owner.email_notif_optout or []):
             try:
                 await send_notification_email(owner.email, title, f"{project.name} - {body or ''}")
             except Exception:

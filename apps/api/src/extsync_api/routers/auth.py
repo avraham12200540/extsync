@@ -6,7 +6,7 @@ from fastapi import APIRouter, Request, Response, status
 from ..config import settings
 from ..deps import CurrentUser, DBSession, OptionalUser
 from ..errors import APIError, ErrorCode, unauthorized
-from ..models.enums import DeviceOS
+from ..models.enums import DeviceOS, NotificationKind
 from ..schemas.auth import (
     DeviceFlowApproveRequest,
     DeviceFlowStartRequest,
@@ -231,6 +231,11 @@ async def me(user: CurrentUser) -> MeResponse:
 async def update_me(req: UpdateMeRequest, user: CurrentUser, db: DBSession) -> MeResponse:
     # Public-facing display name (shown as the publisher in the store). Bound to
     # the request session, so the get_session dependency commits on success.
-    user.display_name = req.display_name.strip()
+    if req.display_name is not None:
+        user.display_name = req.display_name.strip()
+    if req.email_notif_optout is not None:
+        # Store only known NotificationKind values (drop anything unrecognized).
+        valid = {k.value for k in NotificationKind}
+        user.email_notif_optout = [k for k in req.email_notif_optout if k in valid]
     await db.flush()
     return MeResponse.model_validate(user)

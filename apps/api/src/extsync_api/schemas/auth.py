@@ -104,7 +104,9 @@ class DeviceFlowTokenResponse(CamelModel):
 
 
 class UpdateMeRequest(CamelModel):
-    display_name: str = Field(min_length=1, max_length=120)
+    # Both optional so the client can PATCH just the name OR just the email prefs.
+    display_name: str | None = Field(default=None, min_length=1, max_length=120)
+    email_notif_optout: list[str] | None = None
 
 
 class MeResponse(CamelModel):
@@ -114,3 +116,4 @@ class MeResponse(CamelModel):
     role: UserRole
     email_verified: bool
     two_factor_enabled: bool
+    email_notif_optout: list[str] = []

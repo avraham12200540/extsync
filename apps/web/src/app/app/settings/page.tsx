@@ -9,6 +9,18 @@ import { api, ApiError } from "@/lib/api";
 import { Button, Card, Field, Input } from "@/components/ui";
 import { DashHeader } from "@/components/dashboard";
 
+// The developer-alert notification kinds that can be emailed, with their label keys.
+// A checkbox = "email me this"; unchecking adds the kind to the server-side opt-out.
+const NOTIF_KINDS: { kind: string; key: string }[] = [
+  { kind: "release.validation_failed", key: "dash.st.notif.validationFailed" },
+  { kind: "release.published", key: "dash.st.notif.published" },
+  { kind: "rollout.paused", key: "dash.st.notif.rolloutPaused" },
+  { kind: "rollback.done", key: "dash.st.notif.rollbackDone" },
+  { kind: "install_link.used", key: "dash.st.notif.installUsed" },
+  { kind: "high_failure_rate", key: "dash.st.notif.highFailure" },
+  { kind: "new_login", key: "dash.st.notif.newLogin" },
+];
+
 export default function SettingsPage() {
   const { user, refreshMe } = useAuth();
   const { t } = useLocale();
@@ -22,6 +34,20 @@ export default function SettingsPage() {
   const [displayName, setDisplayName] = useState("");
   const [savingName, setSavingName] = useState(false);
   const [nameSaved, setNameSaved] = useState(false);
+  const [savingNotif, setSavingNotif] = useState<string | null>(null);
+
+  const toggleNotif = async (kind: string, enabled: boolean) => {
+    if (!user) return;
+    const current = user.emailNotifOptout ?? [];
+    const next = enabled ? current.filter((k) => k !== kind) : [...current, kind];
+    setSavingNotif(kind);
+    setError(null);
+    try {
+      await api.patch("/auth/me", { emailNotifOptout: next });
+      await refreshMe();
+    } catch (e) { setError(e instanceof ApiError ? e.message : t("dash.err")); }
+    finally { setSavingNotif(null); }
+  };
 
   // Intentional one-way sync of the editable field with the async-loaded user.
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -96,6 +122,28 @@ export default function SettingsPage() {
           <Button size="sm" variant={theme === "light" ? "primary" : "secondary"} onClick={() => setTheme("light")}>{t("dash.st.light")}</Button>
           <Button size="sm" variant={theme === "dark" ? "primary" : "secondary"} onClick={() => setTheme("dark")}>{t("dash.st.dark")}</Button>
           <Button size="sm" variant={theme === "system" ? "primary" : "secondary"} onClick={() => setTheme("system")}>{t("dash.st.system")}</Button>
+        </div>
+      </Card>
+
+      <Card className="mb-4">
+        <h2 className="mb-2 font-semibold text-ink">{t("dash.st.notif")}</h2>
+        <p className="mb-3 text-sm text-ink-muted">{t("dash.st.notif.hint")}</p>
+        <div className="space-y-0.5">
+          {NOTIF_KINDS.map(({ kind, key }) => {
+            const enabled = !(user?.emailNotifOptout ?? []).includes(kind);
+            return (
+              <label key={kind} className="flex cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-2 hover:bg-surface-2">
+                <span className="text-sm text-ink">{t(key)}</span>
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-brand"
+                  checked={enabled}
+                  disabled={savingNotif === kind}
+                  onChange={(e) => toggleNotif(kind, e.target.checked)}
+                />
+              </label>
+            );
+          })}
         </div>
       </Card>
 
