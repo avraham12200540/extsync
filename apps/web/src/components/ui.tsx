@@ -5,7 +5,7 @@ export function Button({
   className, variant = "primary", size = "md", ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost" | "danger" | "warning" | "glass";
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
 }) {
   const variants: Record<string, string> = {
     primary: "bg-brand text-brand-fg hover:bg-blue-700",
@@ -18,6 +18,7 @@ export function Button({
   const sizes: Record<string, string> = {
     sm: "px-3 py-1.5 text-sm",
     md: "px-4 py-2 text-sm",
+    lg: "px-6 py-2.5 text-base",
   };
   return (
     <button

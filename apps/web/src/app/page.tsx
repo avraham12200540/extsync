@@ -144,7 +144,7 @@ export default function HomePage() {
 
           <div className="mt-10 text-center">
             <Link href="/store">
-              <Button variant="secondary" size="md">{t("home.gallery.all")}</Button>
+              <Button variant="primary" size="lg">{t("home.gallery.all")}</Button>
             </Link>
           </div>
         </section>
