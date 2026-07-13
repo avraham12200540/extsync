@@ -190,6 +190,17 @@ public partial class App : Application
                 return;
             }
         }
+        else if (parsed?.Action == "install-batch")
+        {
+            // "Install all my extensions" from the site's My-library page.
+            var token = parsed.Query["token"];
+            if (!string.IsNullOrEmpty(token))
+            {
+                WindowHelpers.BringToFront(MainWindow);
+                await vm.StartBatchInstallAsync(token);
+                return;
+            }
+        }
         WindowHelpers.BringToFront(MainWindow);
     }
 

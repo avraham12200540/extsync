@@ -105,6 +105,9 @@ public sealed class AgentController
     public Task<JsonElement> ResolveAsync(string token, CancellationToken ct = default) =>
         _api.ResolveInstallLinkAsync(token, ct);
 
+    public Task<List<ApiClient.BatchItem>> ResolveBatchAsync(string token, CancellationToken ct = default) =>
+        _api.ResolveInstallBatchAsync(token, ct);
+
     public async Task<LocalInstallation> InstallFromTokenAsync(string token, JsonElement resolved,
                                                                CancellationToken ct = default)
     {

@@ -156,6 +156,13 @@ public static class L10n
         ["Wiz.LoadedStatus"] = "מצוין! התוסף סומן כמותקן ועדכונים עתידיים ינוהלו אוטומטית. אפשר לסגור.",
         ["Wiz.HelpBody"] = "אם התוסף לא נטען:\n• ודא ש'מצב מפתח' מופעל בדף chrome://extensions.\n• ודא שבחרת את תיקיית active (בתוכה manifest.json).\n• לחץ 'העתק נתיב התיקייה' והדבק שוב ב'טען פריט לא ארוז'.\n• אפשר ללחוץ '▶ פתח את ההסבר המצולם' לצפייה בסרטון ההדרכה.",
         ["Wiz.HelpTitle"] = "עזרה",
+        // batch install (extsync://install-batch - "install all my extensions")
+        ["Batch.Progress"] = "תוסף {0} מתוך {1}",
+        ["Batch.Skip"] = "דלג על התוסף הזה",
+        ["Batch.Invalid"] = "קישור ההתקנה המרוכזת אינו תקין או שפג תוקפו. היכנס ל'הספרייה שלי' באתר ולחץ שוב על 'התקן את כל התוספים שלי'.",
+        ["Batch.AllInstalled"] = "כל התוספים מהספרייה שלך כבר מותקנים במחשב הזה.",
+        ["Batch.Summary"] = "התקנת התוספים הסתיימה:\nהותקנו: {0}\nדולגו: {1}\nכבר היו מותקנים: {2}",
+        ["Batch.SummaryTitle"] = "התקנת התוספים שלי",
         // tray
         ["Tray.Open"] = "פתח ExtSync",
         ["Tray.Check"] = "בדוק עדכונים",
@@ -282,6 +289,13 @@ public static class L10n
         ["Wiz.LoadedStatus"] = "Great! The extension is marked installed and future updates are managed automatically. You can close this window.",
         ["Wiz.HelpBody"] = "If the extension didn't load:\n• Make sure 'Developer mode' is enabled on chrome://extensions.\n• Make sure you picked the active folder (manifest.json is inside).\n• Click 'Copy folder path' and paste it again into 'Load unpacked'.\n• You can click '▶ Open the video guide' to watch the walkthrough.",
         ["Wiz.HelpTitle"] = "Help",
+        // batch install (extsync://install-batch - "install all my extensions")
+        ["Batch.Progress"] = "Extension {0} of {1}",
+        ["Batch.Skip"] = "Skip this extension",
+        ["Batch.Invalid"] = "The bulk install link is invalid or expired. Open 'My library' on the site and click 'Install all my extensions' again.",
+        ["Batch.AllInstalled"] = "All your library extensions are already installed on this computer.",
+        ["Batch.Summary"] = "Finished installing your extensions:\nInstalled: {0}\nSkipped: {1}\nAlready installed: {2}",
+        ["Batch.SummaryTitle"] = "Install my extensions",
         // tray
         ["Tray.Open"] = "Open ExtSync",
         ["Tray.Check"] = "Check for updates",

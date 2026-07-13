@@ -93,6 +93,16 @@ public sealed class ApiClient
         return await resp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
     }
 
+    /// <summary>Resolve an extsync://install-batch token ("install all my extensions"
+    /// from the site's My-library page) into per-extension install-link tokens.</summary>
+    public async Task<List<BatchItem>> ResolveInstallBatchAsync(string token, CancellationToken ct = default)
+    {
+        using var resp = await _http.PostAsJsonAsync("/install-batches/resolve", new { token }, ct);
+        resp.EnsureSuccessStatusCode();
+        var doc = await resp.Content.ReadFromJsonAsync<BatchResolveResult>(cancellationToken: ct);
+        return doc?.Items ?? new();
+    }
+
     // ---- DTOs ----
     public sealed record RegisterResult(string DeviceId, string DeviceToken, string ServerTime)
     {
@@ -111,4 +121,6 @@ public sealed class ApiClient
     public sealed record ReportUpdate(string ProjectId, string ReleaseId, string IdempotencyKey,
         string? FromVersion, string ToVersion, string Status, string? ErrorCode, bool ReloadCompleted,
         string? NewStatus = null);
+    public sealed record BatchResolveResult(List<BatchItem> Items);
+    public sealed record BatchItem(string ProjectId, string Name, string Token);
 }

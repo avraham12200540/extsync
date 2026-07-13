@@ -12,19 +12,40 @@ namespace ExtSync.Agent.Views;
 
 public partial class InstallWizardWindow : Window
 {
+    /// <summary>How the wizard ended - drives the batch queue's advance/abort logic.</summary>
+    public enum WizardOutcome { Cancelled, Skipped, Installed, Loaded }
+
     private readonly string _token;
     private readonly JsonElement _resolved;
     private readonly AgentController _controller;
     private readonly ILogger _log;
+    private readonly int _batchTotal;
     private LocalInstallation? _installation;
 
-    public InstallWizardWindow(string token, JsonElement resolved, AgentController controller, ILogger log)
+    public WizardOutcome Outcome { get; private set; } = WizardOutcome.Cancelled;
+    private bool IsBatch => _batchTotal > 0;
+
+    public InstallWizardWindow(string token, JsonElement resolved, AgentController controller, ILogger log,
+                               int batchPosition = 0, int batchTotal = 0)
     {
         InitializeComponent();
         _token = token;
         _resolved = resolved;
         _controller = controller;
         _log = log;
+        _batchTotal = batchTotal;
+        if (IsBatch)
+        {
+            // Queue mode ("install all my extensions"): show the position and a
+            // skip button, so the user can walk the whole library item by item.
+            var progress = L10n.F("Batch.Progress", batchPosition, batchTotal);
+            TxtBatchConfirm.Text = progress;
+            TxtBatchConfirm.Visibility = Visibility.Visible;
+            TxtBatchGuide.Text = progress;
+            TxtBatchGuide.Visibility = Visibility.Visible;
+            BtnSkipConfirm.Visibility = Visibility.Visible;
+            BtnSkipGuide.Visibility = Visibility.Visible;
+        }
         PopulateConfirm();
     }
 
@@ -67,6 +88,7 @@ public partial class InstallWizardWindow : Window
         try
         {
             _installation = await _controller.InstallFromTokenAsync(_token, _resolved);
+            Outcome = WizardOutcome.Installed;
             // We no longer try to auto-open chrome://extensions - Chrome drops the URL
             // unreliably across profiles/cold starts (the blank-tab saga). Instead the
             // guide explains it in plain steps + a short video, the folder path is
@@ -132,6 +154,13 @@ public partial class InstallWizardWindow : Window
     {
         if (_installation == null) return;
         _controller.MarkManuallyLoaded(_installation.ProjectId);
+        Outcome = WizardOutcome.Loaded;
+        if (IsBatch)
+        {
+            // Queue mode: confirming the load advances straight to the next extension.
+            Close();
+            return;
+        }
         TxtGuideStatus.Text = L10n.T("Wiz.LoadedStatus");
         BtnConfirmLoaded.IsEnabled = false;
     }
@@ -143,4 +172,14 @@ public partial class InstallWizardWindow : Window
     }
 
     private void OnCancel(object sender, RoutedEventArgs e) => Close();
+
+    /// <summary>Queue mode only: move on to the next extension. Skipping BEFORE
+    /// installing counts as skipped; skipping on the guide page AFTER a successful
+    /// install keeps Outcome=Installed so the summary and next-run "already
+    /// installed" bookkeeping agree (the files were placed and registered).</summary>
+    private void OnSkip(object sender, RoutedEventArgs e)
+    {
+        if (_installation == null) Outcome = WizardOutcome.Skipped;
+        Close();
+    }
 }

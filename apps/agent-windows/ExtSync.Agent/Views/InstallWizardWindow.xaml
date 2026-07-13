@@ -9,6 +9,8 @@
     <Grid Margin="24">
         <!-- Phase 1: confirm -->
         <StackPanel x:Name="ConfirmPanel">
+            <TextBlock x:Name="TxtBatchConfirm" Visibility="Collapsed" FontSize="13" FontWeight="SemiBold"
+                       Margin="0,0,0,6" Foreground="{StaticResource TextMuted}"/>
             <TextBlock Text="{DynamicResource S.Wiz.Header}" FontSize="22" FontWeight="SemiBold"
                        Foreground="{StaticResource TextPrimary}"/>
             <Border Background="{StaticResource Surface}" CornerRadius="12" Padding="18" Margin="0,16"
@@ -47,6 +49,8 @@
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,8,0,0">
                 <Button x:Name="BtnInstall" Content="{DynamicResource S.Wiz.Install}" Click="OnInstall"
                         Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
+                <Button x:Name="BtnSkipConfirm" Content="{DynamicResource S.Batch.Skip}" Click="OnSkip"
+                        Visibility="Collapsed" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
                 <Button Content="{DynamicResource S.Wiz.Cancel}" Click="OnCancel" Style="{StaticResource SecondaryButton}"/>
             </StackPanel>
         </StackPanel>
@@ -60,6 +64,8 @@
 
             <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
                 <StackPanel>
+                    <TextBlock x:Name="TxtBatchGuide" Visibility="Collapsed" FontSize="13" FontWeight="SemiBold"
+                               Margin="0,0,0,6" Foreground="{StaticResource TextMuted}"/>
                     <TextBlock Text="{DynamicResource S.Wiz.GuideHeader}" FontSize="20" FontWeight="SemiBold"
                                Foreground="{StaticResource TextPrimary}"/>
 
@@ -110,6 +116,8 @@
                 <Button x:Name="BtnConfirmLoaded" Content="{DynamicResource S.Wiz.Loaded}" Click="OnConfirmLoaded"
                         Style="{StaticResource SuccessButton}" Margin="0,0,8,0"/>
                 <Button x:Name="BtnDone" Content="{DynamicResource S.Wiz.Done}" Click="OnCancel" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
+                <Button x:Name="BtnSkipGuide" Content="{DynamicResource S.Batch.Skip}" Click="OnSkip"
+                        Visibility="Collapsed" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
                 <Button Content="{DynamicResource S.Wiz.Help}" Click="OnHelp" Style="{StaticResource SecondaryButton}"/>
             </StackPanel>
         </Grid>
