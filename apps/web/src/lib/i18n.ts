@@ -19,7 +19,7 @@ const he: Dict = {
   "nav.docs": "מדריך",
   "nav.security": "אבטחה",
   "nav.login": "התחברות",
-  "nav.register": "הרשמת מפתחים",
+  "nav.register": "הרשמה",
   "nav.dashboard": "לוח הבקרה",
   "nav.menu": "תפריט",
   "theme.light": "בהיר",
@@ -237,7 +237,7 @@ const he: Dict = {
   "login.failed": "ההתחברות נכשלה",
 
   // ---- register ----
-  "reg.title": "פתיחת חשבון מפתח",
+  "reg.title": "פתיחת חשבון",
   "reg.name": "שם תצוגה",
   "reg.org": "שם מפתח / ארגון",
   "reg.email": "אימייל",
@@ -331,10 +331,26 @@ const he: Dict = {
 
   // ---- dashboard ----
   "dash.nav.overview": "סקירה",
+  "dash.nav.library": "הספרייה שלי",
   "dash.nav.extensions": "תוספים",
   "dash.nav.team": "צוות",
   "dash.nav.api": "API",
   "dash.nav.settings": "הגדרות",
+
+  // ---- my library (installed-from-the-site extensions) ----
+  "lib.title": "הספרייה שלי",
+  "lib.sub": "תוספים שהתקנת מהאתר. עוברים מחשב? מתקינים את כולם בלחיצה אחת.",
+  "lib.installall.title": "התקנה במחשב הזה",
+  "lib.installall.hint": "פותח את תוכנת ExtSync Agent ומתקין את התוספים אחד אחרי השני. אפשר לדלג על כל תוסף.",
+  "lib.installall": "התקן את כל התוספים שלי",
+  "lib.installall.error": "משהו השתבש. נסה שוב בעוד רגע.",
+  "lib.installall.caption": "אם אשף ההתקנה לא נפתח, ייתכן שתוכנת ExtSync Agent צריכה עדכון - היא מתעדכנת לבד, או שאפשר להתקין אותה מחדש מדף ההורדה.",
+  "lib.load.failed": "טעינת הספרייה נכשלה.",
+  "lib.retry": "נסה שוב",
+  "lib.empty": "אין עדיין תוספים בספרייה. כשאתה מחובר לחשבון ומתקין תוסף מהחנות - הוא נשמר כאן אוטומטית.",
+  "lib.empty.cta": "לחנות התוספים",
+  "lib.remove": "הסר",
+  "lib.unavailable": "לא זמין יותר בחנות",
   "dash.logout": "התנתקות",
   "dash.verify.pre": "כתובת המייל",
   "dash.verify.post": "עדיין לא אומתה - אימות נדרש כדי לפרסם לחנות.",
@@ -550,7 +566,7 @@ const en: Dict = {
   "nav.docs": "Guide",
   "nav.security": "Security",
   "nav.login": "Sign in",
-  "nav.register": "Developer Sign-up",
+  "nav.register": "Sign up",
   "nav.dashboard": "Dashboard",
   "nav.menu": "Menu",
   "theme.light": "Light",
@@ -768,7 +784,7 @@ const en: Dict = {
   "login.failed": "Sign-in failed",
 
   // ---- register ----
-  "reg.title": "Create a developer account",
+  "reg.title": "Create an account",
   "reg.name": "Display name",
   "reg.org": "Developer / organization name",
   "reg.email": "Email",
@@ -862,10 +878,26 @@ const en: Dict = {
 
   // ---- dashboard ----
   "dash.nav.overview": "Overview",
+  "dash.nav.library": "My library",
   "dash.nav.extensions": "Extensions",
   "dash.nav.team": "Team",
   "dash.nav.api": "API",
   "dash.nav.settings": "Settings",
+
+  // ---- my library (installed-from-the-site extensions) ----
+  "lib.title": "My library",
+  "lib.sub": "Extensions you installed from the site. Moving to a new computer? Install them all in one click.",
+  "lib.installall.title": "Install on this computer",
+  "lib.installall.hint": "Opens the ExtSync Agent and installs your extensions one after another. You can skip any of them.",
+  "lib.installall": "Install all my extensions",
+  "lib.installall.error": "Something went wrong. Try again in a moment.",
+  "lib.installall.caption": "If the install wizard didn't open, your ExtSync Agent may need an update - it updates itself automatically, or you can reinstall it from the download page.",
+  "lib.load.failed": "Failed to load your library.",
+  "lib.retry": "Try again",
+  "lib.empty": "No extensions in your library yet. When you install an extension from the store while signed in - it is saved here automatically.",
+  "lib.empty.cta": "Browse the store",
+  "lib.remove": "Remove",
+  "lib.unavailable": "No longer available in the store",
   "dash.logout": "Sign out",
   "dash.verify.pre": "The email address",
   "dash.verify.post": "is not verified yet - verification is required to publish to the store.",

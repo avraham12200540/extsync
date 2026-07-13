@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Download } from "lucide-react";
+import { InstallButton } from "@/components/install-button";
 import { Markdown } from "@/components/markdown";
 import type { CatalogDetail } from "@/lib/api";
 import { MarketingShell } from "@/components/marketing";
@@ -167,10 +168,10 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
           {/* Install / download */}
           <div className="mt-6 flex flex-wrap gap-3">
             {d.installUri && (
-              <a href={d.installUri}
+              <InstallButton installUri={d.installUri} slug={d.slug}
                  className="rounded-md bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-glow hover:brightness-110">
                 {t("detail.install")}
-              </a>
+              </InstallButton>
             )}
             {stable?.downloadUrl && (
               <a href={stable.downloadUrl} download

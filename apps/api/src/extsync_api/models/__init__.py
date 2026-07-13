@@ -37,6 +37,7 @@ from .release import (
 )
 from .team import Team, TeamMember
 from .user import DeveloperProfile, User
+from .user_extension import UserExtension
 from .webhook import Webhook, WebhookDelivery
 
 __all__ = [
@@ -72,6 +73,7 @@ __all__ = [
     "TwoFactorSecret",
     "UpdateAttempt",
     "User",
+    "UserExtension",
     "UserSession",
     "Webhook",
     "WebhookDelivery",

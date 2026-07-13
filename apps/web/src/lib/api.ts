@@ -239,3 +239,18 @@ export interface InstallPage {
   usable: boolean;
   reason?: string | null;
 }
+
+/** A store extension in the signed-in user's library (installed from the site). */
+export interface LibraryItem {
+  projectId: string;
+  slug: string;
+  name: string;
+  iconUrl?: string | null;
+  developerName: string;
+  available: boolean;
+}
+
+export interface InstallBatch {
+  uri: string;
+  count: number;
+}
