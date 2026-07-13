@@ -40,12 +40,13 @@ function VerifyEmailBanner({ email }: { email: string }) {
   );
 }
 
+// devOnly items are hidden for a personal (end_user) account.
 const nav = [
-  { href: "/app", key: "dash.nav.overview", icon: LayoutDashboard },
+  { href: "/app", key: "dash.nav.overview", icon: LayoutDashboard, devOnly: true },
   { href: "/app/library", key: "dash.nav.library", icon: LibraryBig },
-  { href: "/app/projects", key: "dash.nav.extensions", icon: Puzzle },
-  { href: "/app/team", key: "dash.nav.team", icon: Users },
-  { href: "/app/api", key: "dash.nav.api", icon: KeyRound },
+  { href: "/app/projects", key: "dash.nav.extensions", icon: Puzzle, devOnly: true },
+  { href: "/app/team", key: "dash.nav.team", icon: Users, devOnly: true },
+  { href: "/app/api", key: "dash.nav.api", icon: KeyRound, devOnly: true },
   { href: "/app/settings", key: "dash.nav.settings", icon: SettingsIcon },
 ];
 
@@ -55,15 +56,31 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  useEffect(() => {
-    if (!loading && !user) router.replace("/login");
-  }, [loading, user, router]);
+  // Team/admin roles have developer access too; only a plain end_user is limited.
+  const isDeveloper = !!user && user.role !== "end_user" && user.role !== "guest";
+  // Overview + projects/team/api are developer-only.
+  const onDevPath =
+    pathname === "/app" ||
+    pathname.startsWith("/app/projects") ||
+    pathname.startsWith("/app/team") ||
+    pathname.startsWith("/app/api");
+  const blockedForPersonal = !!user && !isDeveloper && onDevPath;
 
-  if (loading || !user) {
+  useEffect(() => {
+    if (loading) return;
+    if (!user) { router.replace("/login"); return; }
+    // A personal account has no developer pages - send it to its library.
+    if (blockedForPersonal) router.replace("/app/library");
+  }, [loading, user, blockedForPersonal, router]);
+
+  // Show a spinner (not the dev page) while unauthenticated OR while a personal
+  // account is being redirected off a dev path - so the developer page never
+  // mounts and fires its developer-only API calls for an end_user.
+  if (loading || !user || blockedForPersonal) {
     return <div className="flex min-h-screen items-center justify-center"><Spinner /></div>;
   }
 
-  const navLinks = nav.map((item) => {
+  const navLinks = nav.filter((item) => !item.devOnly || isDeveloper).map((item) => {
     const active = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href));
     const Icon = item.icon;
     return (

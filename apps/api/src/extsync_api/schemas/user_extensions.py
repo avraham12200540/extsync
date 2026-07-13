@@ -12,6 +12,17 @@ class LibraryAddRequest(CamelModel):
     slug: str = Field(min_length=1, max_length=120)
 
 
+class LibraryBulkAddRequest(CamelModel):
+    """Add several store extensions at once (the gallery multi-select picker)."""
+
+    slugs: list[str] = Field(min_length=1, max_length=200)
+
+
+class LibraryBulkAddResponse(CamelModel):
+    added: int  # rows newly inserted (skips ones already in the library / non-public)
+    requested: int
+
+
 class LibraryItem(CamelModel):
     project_id: str
     slug: str

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { LibraryBig, MonitorDown, Puzzle, Trash2 } from "lucide-react";
+import { LibraryBig, ListPlus, MonitorDown, Puzzle, Trash2 } from "lucide-react";
 import { DashHeader } from "@/components/dashboard";
 import { useLocale } from "@/components/locale-context";
 import { api, ApiError, type InstallBatch, type LibraryItem } from "@/lib/api";
@@ -98,12 +98,21 @@ export default function LibraryPage() {
       ) : items.length === 0 ? (
         <Card className="text-center">
           <p className="text-ink-muted">{t("lib.empty")}</p>
-          <Link href="/store" className="mt-4 inline-block">
-            <Button variant="primary">{t("lib.empty.cta")}</Button>
-          </Link>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <Link href="/app/library/add">
+              <Button variant="primary" className="gap-2"><ListPlus className="h-4 w-4" /> {t("lib.add.cta")}</Button>
+            </Link>
+            <Link href="/store"><Button variant="secondary">{t("lib.empty.cta")}</Button></Link>
+          </div>
         </Card>
       ) : (
         <>
+          <div className="mb-4 flex justify-end">
+            <Link href="/app/library/add">
+              <Button variant="secondary" size="sm" className="gap-2"><ListPlus className="h-4 w-4" /> {t("lib.add.cta")}</Button>
+            </Link>
+          </div>
+
           <Card className="mb-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>

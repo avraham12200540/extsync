@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Settings as SettingsIcon } from "lucide-react";
+import { Code2, Settings as SettingsIcon } from "lucide-react";
 import { useAuth } from "@/components/providers";
 import { useLocale } from "@/components/locale-context";
 import { api, ApiError } from "@/lib/api";
@@ -24,7 +25,9 @@ const NOTIF_KINDS: { kind: string; key: string }[] = [
 export default function SettingsPage() {
   const { user, refreshMe } = useAuth();
   const { t } = useLocale();
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const [upgrading, setUpgrading] = useState(false);
   const [setup, setSetup] = useState<{ secret: string; otpauthUri: string } | null>(null);
   const [code, setCode] = useState("");
   const [recovery, setRecovery] = useState<string[] | null>(null);
@@ -63,6 +66,17 @@ export default function SettingsPage() {
       setNameSaved(true);
     } catch (e) { setError(e instanceof ApiError ? e.message : t("dash.err")); }
     finally { setSavingName(false); }
+  };
+
+  const becomeDeveloper = async () => {
+    setError(null);
+    setUpgrading(true);
+    try {
+      await api.post("/auth/become-developer");
+      await refreshMe();
+      router.push("/app"); // now a developer - open the developer dashboard
+    } catch (e) { setError(e instanceof ApiError ? e.message : t("dash.err")); }
+    finally { setUpgrading(false); }
   };
 
   const begin2fa = async () => {
@@ -115,6 +129,18 @@ export default function SettingsPage() {
           {nameSaved && <span className="text-sm text-success">{t("dash.st.name.saved")}</span>}
         </div>
       </Card>
+
+      {user?.role === "end_user" && (
+        <Card className="mb-4">
+          <h2 className="mb-2 flex items-center gap-2 font-semibold text-ink">
+            <Code2 size={17} className="text-brand" /> {t("dash.st.becomedev")}
+          </h2>
+          <p className="mb-3 text-sm text-ink-muted">{t("dash.st.becomedev.body")}</p>
+          <Button size="sm" onClick={becomeDeveloper} disabled={upgrading}>
+            {upgrading ? t("dash.st.becomedev.busy") : t("dash.st.becomedev.cta")}
+          </Button>
+        </Card>
+      )}
 
       <Card className="mb-4">
         <h2 className="mb-2 font-semibold text-ink">{t("dash.st.appearance")}</h2>

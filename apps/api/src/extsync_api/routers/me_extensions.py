@@ -32,6 +32,8 @@ from ..schemas.user_extensions import (
     InstallBatchResolveResponse,
     InstallBatchResponse,
     LibraryAddRequest,
+    LibraryBulkAddRequest,
+    LibraryBulkAddResponse,
     LibraryItem,
 )
 from ..services.ratelimit import client_ip, enforce_rate_limit
@@ -128,6 +130,32 @@ async def add_to_library(req: LibraryAddRequest, user: CurrentUser, db: DBSessio
             # unique constraint makes the double-add a no-op, not a 500.
             await db.rollback()
     return OkResponse()
+
+
+@router.post("/me/extensions/bulk", response_model=LibraryBulkAddResponse)
+async def bulk_add_to_library(
+    req: LibraryBulkAddRequest, user: CurrentUser, db: DBSession
+) -> LibraryBulkAddResponse:
+    """Add many store extensions at once (the gallery multi-select picker). Each
+    row is inserted inside its own savepoint, so a slug that is already in the
+    library (or non-public) is skipped without aborting the rest of the batch."""
+    await enforce_rate_limit(f"lib-bulk:{user.id}", limit=20, window_seconds=60)
+    unique = list(dict.fromkeys(req.slugs))
+    # Resolve every slug in ONE query (not a per-slug N+1).
+    projects = (await db.scalars(select(Project).where(Project.slug.in_(unique)))).all()
+    added = 0
+    for project in projects:
+        if not _is_public(project):
+            continue
+        try:
+            async with db.begin_nested():
+                db.add(UserExtension(user_id=user.id, project_id=project.id))
+                await db.flush()
+            added += 1
+        except IntegrityError:
+            pass  # already in the library (concurrent add)
+    await db.commit()
+    return LibraryBulkAddResponse(added=added, requested=len(req.slugs))
 
 
 @router.delete("/me/extensions/{project_id}", response_model=OkResponse)

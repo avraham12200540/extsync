@@ -14,9 +14,10 @@ from extsync_api.security.crypto import hash_token
 COOKIE = settings.session_cookie_name
 
 
-def _register(client, email="dev@example.com", password="Sup3r-Secret!"):
+def _register(client, email="dev@example.com", password="Sup3r-Secret!",
+              account_type="developer"):
     r = client.post("/auth/register", json={
-        "email": email, "password": password,
+        "email": email, "password": password, "accountType": account_type,
         "displayName": "Dev One", "orgName": "Acme", "acceptTerms": True,
     })
     assert r.status_code == 201, r.text

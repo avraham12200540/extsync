@@ -1,6 +1,8 @@
 """Auth request/response schemas (§20, §23)."""
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import EmailStr, Field, field_validator
 
 from ..models.enums import UserRole
@@ -12,6 +14,9 @@ class RegisterRequest(CamelModel):
     password: str = Field(min_length=10, max_length=256)
     display_name: str = Field(min_length=1, max_length=120)
     org_name: str = Field(default="", max_length=160)
+    # "personal" = a plain account (rate extensions + build a library);
+    # "developer" = can also publish (gets a DeveloperProfile + the dev dashboard).
+    account_type: Literal["personal", "developer"] = "personal"
     accept_terms: bool
 
     @field_validator("accept_terms")

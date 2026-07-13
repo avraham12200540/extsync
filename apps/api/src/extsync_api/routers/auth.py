@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Request, Response, status
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from ..config import settings
 from ..deps import CurrentUser, DBSession, OptionalUser
 from ..errors import APIError, ErrorCode, unauthorized
-from ..models.enums import DeviceOS, NotificationKind
+from ..models.base import utcnow
+from ..models.enums import DeviceOS, NotificationKind, UserRole
+from ..models.user import DeveloperProfile
 from ..schemas.auth import (
     DeviceFlowApproveRequest,
     DeviceFlowStartRequest,
@@ -63,6 +67,7 @@ async def register(req: RegisterRequest, request: Request, db: DBSession) -> OkR
         await svc.register_user(
             db, email=req.email, password=req.password,
             display_name=req.display_name, org_name=req.org_name, ip=ip,
+            account_type=req.account_type,
         )
     except ValueError as exc:  # weak password
         raise APIError(ErrorCode.VALIDATION_ERROR, str(exc), status_code=422) from exc
@@ -238,4 +243,26 @@ async def update_me(req: UpdateMeRequest, user: CurrentUser, db: DBSession) -> M
         valid = {k.value for k in NotificationKind}
         user.email_notif_optout = [k for k in req.email_notif_optout if k in valid]
     await db.flush()
+    return MeResponse.model_validate(user)
+
+
+@router.post("/become-developer", response_model=MeResponse)
+async def become_developer(user: CurrentUser, db: DBSession) -> MeResponse:
+    """Upgrade a personal account to a developer account (idempotent). Only a
+    plain end_user is promoted; team/admin roles already have developer access,
+    so they are left unchanged."""
+    if user.role == UserRole.end_user:
+        user.role = UserRole.developer
+        existing = await db.scalar(
+            select(DeveloperProfile).where(DeveloperProfile.user_id == user.id)
+        )
+        if existing is None:
+            # Savepoint so a concurrent become-developer (double-click) that already
+            # inserted the profile becomes an idempotent no-op, not a unique-violation 500.
+            try:
+                async with db.begin_nested():
+                    db.add(DeveloperProfile(user_id=user.id, org_name="", accepted_terms_at=utcnow()))
+            except IntegrityError:
+                pass
+        await db.flush()
     return MeResponse.model_validate(user)

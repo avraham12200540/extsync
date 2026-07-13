@@ -9,7 +9,10 @@ import { api, ApiError } from "@/lib/api";
 import { AuthShell } from "@/components/marketing";
 import { useLocale } from "@/components/locale-context";
 import { Button, Card, Field, Input } from "@/components/ui";
-import { CircleCheck } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { CircleCheck, Code2, User } from "lucide-react";
+
+type AccountType = "personal" | "developer";
 
 type Form = {
   displayName: string;
@@ -22,6 +25,7 @@ type Form = {
 export default function RegisterPage() {
   const { t } = useLocale();
   const [done, setDone] = useState(false);
+  const [accountType, setAccountType] = useState<AccountType>("personal");
   const [serverError, setServerError] = useState<string | null>(null);
   const schema = z.object({
     displayName: z.string().min(1, t("reg.err.name")),
@@ -40,7 +44,7 @@ export default function RegisterPage() {
   const onSubmit = async (data: Form) => {
     setServerError(null);
     try {
-      await api.post("/auth/register", data);
+      await api.post("/auth/register", { ...data, accountType });
       setDone(true);
     } catch (e) {
       setServerError(e instanceof ApiError ? e.message : t("reg.failed"));
@@ -63,15 +67,46 @@ export default function RegisterPage() {
   return (
     <AuthShell>
       <Card className="w-full shadow-lift">
-        <h1 className="mb-6 text-2xl font-bold text-ink">{t("reg.title")}</h1>
+        <h1 className="mb-4 text-2xl font-bold text-ink">{t("reg.title")}</h1>
+
+        {/* Account type: a plain personal account (rate + library) or a
+            developer account that can also publish extensions. */}
+        <p className="mb-2 text-sm font-medium text-ink">{t("reg.type.label")}</p>
+        <div className="mb-5 grid gap-2 sm:grid-cols-2">
+          {([
+            { id: "personal" as const, Icon: User, t: t("reg.type.personal"), d: t("reg.type.personal.d") },
+            { id: "developer" as const, Icon: Code2, t: t("reg.type.developer"), d: t("reg.type.developer.d") },
+          ]).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setAccountType(opt.id)}
+              aria-pressed={accountType === opt.id}
+              className={cn(
+                "rounded-lg border p-3 text-start transition-colors",
+                accountType === opt.id
+                  ? "border-brand bg-brand/5 ring-1 ring-brand"
+                  : "border-line hover:bg-surface-2",
+              )}
+            >
+              <span className="flex items-center gap-2 font-medium text-ink">
+                <opt.Icon size={16} className="text-brand" /> {opt.t}
+              </span>
+              <span className="mt-1 block text-xs text-ink-muted">{opt.d}</span>
+            </button>
+          ))}
+        </div>
+
         {serverError && <p className="mb-4 rounded-md bg-red-50 dark:bg-red-500/10 p-3 text-sm text-danger dark:text-red-400">{serverError}</p>}
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <Field label={t("reg.name")} error={errors.displayName?.message}>
             <Input {...register("displayName")} />
           </Field>
-          <Field label={t("reg.org")} error={errors.orgName?.message}>
-            <Input {...register("orgName")} />
-          </Field>
+          {accountType === "developer" && (
+            <Field label={t("reg.org")} error={errors.orgName?.message}>
+              <Input {...register("orgName")} />
+            </Field>
+          )}
           <Field label={t("reg.email")} error={errors.email?.message}>
             <Input type="email" autoComplete="email" {...register("email")} />
           </Field>

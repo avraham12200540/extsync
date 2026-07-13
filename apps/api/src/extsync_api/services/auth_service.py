@@ -71,7 +71,8 @@ def _os_enum(value: str | None) -> DeviceOS:
 
 # --------------------------------------------------------------------------- register
 async def register_user(db: AsyncSession, *, email: str, password: str,
-                        display_name: str, org_name: str, ip: str | None) -> User:
+                        display_name: str, org_name: str, ip: str | None,
+                        account_type: str = "personal") -> User:
     validate_password_strength(password)
     email = email.strip().lower()
     existing = await db.scalar(select(User).where(User.email == email))
@@ -80,16 +81,20 @@ async def register_user(db: AsyncSession, *, email: str, password: str,
         # still raise a generic conflict (the frontend treats it as "try login").
         raise conflict("כתובת האימייל כבר רשומה", ErrorCode.EMAIL_ALREADY_REGISTERED)
 
+    # A "personal" account (rate + library) is a plain end_user; a "developer"
+    # account can also publish, so it gets the developer role + a DeveloperProfile.
+    is_developer = account_type == "developer"
     user = User(
         email=email,
         password_hash=hash_password(password),
         display_name=display_name.strip(),
-        role=UserRole.developer,
+        role=UserRole.developer if is_developer else UserRole.end_user,
         email_verified=False,
     )
     db.add(user)
     await db.flush()
-    db.add(DeveloperProfile(user_id=user.id, org_name=org_name.strip(), accepted_terms_at=_now()))
+    if is_developer:
+        db.add(DeveloperProfile(user_id=user.id, org_name=org_name.strip(), accepted_terms_at=_now()))
 
     await _issue_email_verification(db, user)
     await record_audit(db, action="auth.register", actor_user_id=user.id,
