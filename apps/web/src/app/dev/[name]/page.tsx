@@ -13,7 +13,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
  *  one link. Filters the public catalog by the display name. */
 async function getExtensions(name: string): Promise<CatalogItem[] | null> {
   try {
-    const res = await fetch(`${API_URL}/catalog`, { next: { revalidate: 300 } });
+    const res = await fetch(`${API_URL}/catalog`, { next: { revalidate: 60 } });
     if (!res.ok) return null;
     const items = (await res.json()) as CatalogItem[];
     return items.filter((i) => i.developerName === name);

@@ -48,7 +48,9 @@ function linkify(text: string): ReactNode[] {
 async function getDetail(slug: string): Promise<CatalogDetail | null> {
   try {
     const res = await fetch(`${API_URL}/catalog/${encodeURIComponent(slug)}`, {
-      next: { revalidate: 300 },
+      // Short so a freshly published version shows up quickly (the old 300s made
+      // the detail page lag the client-fresh home/store list by minutes).
+      next: { revalidate: 60 },
     });
     if (!res.ok) return null;
     return (await res.json()) as CatalogDetail;
