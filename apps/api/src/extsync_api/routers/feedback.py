@@ -5,7 +5,7 @@ their dashboard. Sending requires being logged in; reading is owner-only.
 from __future__ import annotations
 
 from fastapi import APIRouter, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from ..deps import CurrentUser, DBSession
 from ..errors import not_found
@@ -15,7 +15,7 @@ from ..models.extension_feedback import ExtensionFeedback
 from ..models.project import Project
 from ..models.user import User
 from ..schemas.common import OkResponse
-from ..schemas.feedback import FeedbackCreate, FeedbackItem
+from ..schemas.feedback import FeedbackCreate, FeedbackItem, UnreadCount
 from ..services.events import notify_owner
 from ..services.ratelimit import enforce_rate_limit
 
@@ -72,6 +72,28 @@ async def my_feedback(user: CurrentUser, db: DBSession) -> list[FeedbackItem]:
         )
         for fb, pname, pslug, dname in rows
     ]
+
+
+@router.get("/me/feedback/unread-count", response_model=UnreadCount)
+async def unread_feedback_count(user: CurrentUser, db: DBSession) -> UnreadCount:
+    """Unread messages across the caller's extensions - powers the dashboard badge.
+
+    Counted over the SAME newest-500 window my_feedback returns, so the badge can
+    never show unread messages that fall outside the inbox and thus can't be opened
+    or marked read (which would strand the count above zero).
+    """
+    window = (
+        select(ExtensionFeedback.read_at)
+        .join(Project, Project.id == ExtensionFeedback.project_id)
+        .where(Project.owner_user_id == user.id)
+        .order_by(ExtensionFeedback.created_at.desc())
+        .limit(500)
+        .subquery()
+    )
+    n = await db.scalar(
+        select(func.count()).select_from(window).where(window.c.read_at.is_(None))
+    )
+    return UnreadCount(count=int(n or 0))
 
 
 @router.post("/me/feedback/{fid}/read", response_model=OkResponse)

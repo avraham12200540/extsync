@@ -377,6 +377,7 @@ const he: Dict = {
   "fb.sent": "ההודעה נשלחה למפתח. תודה!",
   "fb.error": "השליחה נכשלה. נסה שוב בעוד רגע.",
   "fb.loginhint": "כדי לשלוח צריך להתחבר - נשמור לך את ההודעה.",
+  "fb.badge.unread": "הודעות שלא נקראו",
 
   // ---- feedback inbox (developer dashboard) ----
   "fbinbox.title": "הודעות ממשתמשים",
@@ -966,6 +967,7 @@ const en: Dict = {
   "fb.sent": "Your message was sent to the developer. Thanks!",
   "fb.error": "Sending failed. Try again in a moment.",
   "fb.loginhint": "Sending requires signing in - we'll keep your message.",
+  "fb.badge.unread": "unread messages",
 
   // ---- feedback inbox (developer dashboard) ----
   "fbinbox.title": "Messages from users",

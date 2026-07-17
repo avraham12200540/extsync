@@ -9,6 +9,7 @@ import { LocaleToggle } from "@/components/locale-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui";
+import { FeedbackBadge } from "@/components/feedback-badge";
 
 const links = [
   { href: "/", key: "nav.home" },
@@ -27,7 +28,10 @@ export function SiteHeader() {
   const authButtons = (
     <>
       {!loading && (user ? (
-        <Link href="/app" onClick={() => setOpen(false)}><Button size="sm">{t("nav.dashboard")}</Button></Link>
+        <Link href="/app" onClick={() => setOpen(false)} className="relative inline-flex">
+          <Button size="sm">{t("nav.dashboard")}</Button>
+          <FeedbackBadge className="absolute -top-1.5 -end-1.5" />
+        </Link>
       ) : (
         <>
           <Link href="/login" onClick={() => setOpen(false)}><Button size="sm" variant="ghost">{t("nav.login")}</Button></Link>

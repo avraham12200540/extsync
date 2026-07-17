@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { Inbox, MailOpen } from "lucide-react";
 import { DashHeader } from "@/components/dashboard";
 import { useLocale } from "@/components/locale-context";
+import { FEEDBACK_UNREAD_KEY } from "@/components/feedback-badge";
 import { api, type FeedbackItem } from "@/lib/api";
 import { Button, Card, Spinner } from "@/components/ui";
 
@@ -14,6 +16,7 @@ import { Button, Card, Spinner } from "@/components/ui";
  */
 export default function FeedbackInboxPage() {
   const { t, locale } = useLocale();
+  const qc = useQueryClient();
   const [items, setItems] = useState<FeedbackItem[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -37,6 +40,8 @@ export default function FeedbackInboxPage() {
     setItems((cur) => cur?.map((i) => (i.id === item.id ? { ...i, read: true } : i)) ?? cur);
     try {
       await api.post(`/me/feedback/${item.id}/read`);
+      // Refresh the shared unread badge (header + sidebar) to match.
+      qc.invalidateQueries({ queryKey: [FEEDBACK_UNREAD_KEY] });
     } catch {
       setItems((cur) => cur?.map((i) => (i.id === item.id ? { ...i, read: false } : i)) ?? cur);
     }

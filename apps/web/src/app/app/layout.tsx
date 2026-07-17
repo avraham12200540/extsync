@@ -8,6 +8,7 @@ import { useAuth } from "@/components/providers";
 import { useLocale } from "@/components/locale-context";
 import { LocaleToggle } from "@/components/locale-toggle";
 import { api, ApiError } from "@/lib/api";
+import { FeedbackBadge } from "@/components/feedback-badge";
 import { Logo } from "@/components/logo";
 import { Button, Spinner } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -98,6 +99,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       >
         <Icon size={17} className="shrink-0" />
         {t(item.key)}
+        {item.href === "/app/feedback" && <FeedbackBadge className="ms-auto" />}
       </Link>
     );
   });

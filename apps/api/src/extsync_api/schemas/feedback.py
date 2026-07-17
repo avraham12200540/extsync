@@ -29,3 +29,7 @@ class FeedbackItem(CamelModel):
     body: str
     read: bool
     created_at: str
+
+
+class UnreadCount(CamelModel):
+    count: int
