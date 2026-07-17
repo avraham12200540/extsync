@@ -21,6 +21,21 @@ export default function LoginPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [challenge, setChallenge] = useState<string | null>(null);
   const [code, setCode] = useState("");
+  // Where to go after a successful login. Only same-origin paths are honored (no
+  // open redirect). We RESOLVE ?next against our origin and compare origins - a
+  // prefix check like "/" + not "//" is not enough, because the URL parser
+  // normalizes backslashes (e.g. "/\evil.com" -> https://evil.com). Used e.g. by
+  // "send feedback", which sends a logged-out user here and back to finish sending.
+  const afterLogin = (): string => {
+    if (typeof window === "undefined") return "/app";
+    const n = new URLSearchParams(window.location.search).get("next");
+    if (!n) return "/app";
+    try {
+      const u = new URL(n, window.location.origin);
+      if (u.origin === window.location.origin) return u.pathname + u.search + u.hash;
+    } catch { /* malformed - fall through */ }
+    return "/app";
+  };
   const schema = z.object({
     email: z.string().email(t("reg.err.email")),
     password: z.string().min(1, t("login.password")),
@@ -50,7 +65,7 @@ export default function LoginPage() {
     try {
       const res = await login(data.email, data.password);
       if (res.twoFactorRequired && res.challenge) setChallenge(res.challenge);
-      else router.push("/app");
+      else router.push(afterLogin());
     } catch (e) {
       setServerError(e instanceof ApiError ? e.message : t("login.failed"));
     }
@@ -61,7 +76,7 @@ export default function LoginPage() {
     setServerError(null);
     try {
       await complete2fa(challenge, code);
-      router.push("/app");
+      router.push(afterLogin());
     } catch (e) {
       setServerError(e instanceof ApiError ? e.message : t("dash.st.2fa.wrong"));
     }

@@ -18,6 +18,7 @@ const NOTIF_KINDS: { kind: string; key: string }[] = [
   { kind: "rollout.paused", key: "dash.st.notif.rolloutPaused" },
   { kind: "rollback.done", key: "dash.st.notif.rollbackDone" },
   { kind: "install_link.used", key: "dash.st.notif.installUsed" },
+  { kind: "feedback.received", key: "dash.st.notif.feedback" },
   { kind: "high_failure_rate", key: "dash.st.notif.highFailure" },
   { kind: "new_login", key: "dash.st.notif.newLogin" },
 ];

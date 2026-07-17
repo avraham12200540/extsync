@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, LibraryBig, Puzzle, Users, KeyRound, Settings as SettingsIcon, LogOut } from "lucide-react";
+import { LayoutDashboard, LibraryBig, Puzzle, Users, KeyRound, Inbox, Settings as SettingsIcon, LogOut } from "lucide-react";
 import { useAuth } from "@/components/providers";
 import { useLocale } from "@/components/locale-context";
 import { LocaleToggle } from "@/components/locale-toggle";
@@ -45,6 +45,7 @@ const nav = [
   { href: "/app", key: "dash.nav.overview", icon: LayoutDashboard, devOnly: true },
   { href: "/app/library", key: "dash.nav.library", icon: LibraryBig },
   { href: "/app/projects", key: "dash.nav.extensions", icon: Puzzle, devOnly: true },
+  { href: "/app/feedback", key: "dash.nav.feedback", icon: Inbox, devOnly: true },
   { href: "/app/team", key: "dash.nav.team", icon: Users, devOnly: true },
   { href: "/app/api", key: "dash.nav.api", icon: KeyRound, devOnly: true },
   { href: "/app/settings", key: "dash.nav.settings", icon: SettingsIcon },
@@ -62,6 +63,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const onDevPath =
     pathname === "/app" ||
     pathname.startsWith("/app/projects") ||
+    pathname.startsWith("/app/feedback") ||
     pathname.startsWith("/app/team") ||
     pathname.startsWith("/app/api");
   const blockedForPersonal = !!user && !isDeveloper && onDevPath;

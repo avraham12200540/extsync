@@ -254,3 +254,15 @@ export interface InstallBatch {
   uri: string;
   count: number;
 }
+
+/** A private message a user sent to a developer about one of their extensions. */
+export interface FeedbackItem {
+  id: string;
+  projectId: string;
+  projectName: string;
+  projectSlug: string;
+  fromName: string;
+  body: string;
+  read: boolean;
+  createdAt: string;
+}

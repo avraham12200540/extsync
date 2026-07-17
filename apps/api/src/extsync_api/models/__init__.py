@@ -23,6 +23,7 @@ from .device import (
     RolloutAssignment,
     UpdateAttempt,
 )
+from .extension_feedback import ExtensionFeedback
 from .install_link import InstallLink
 from .likes_quota import LikesQuotaDaily, LikesQuotaEvent, LikesQuotaState
 from .notification import Notification
@@ -51,6 +52,7 @@ __all__ = [
     "DeviceFlow",
     "DeviceSession",
     "DeveloperProfile",
+    "ExtensionFeedback",
     "EmailVerification",
     "Installation",
     "InstallationEvent",

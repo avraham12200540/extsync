@@ -123,6 +123,7 @@ class NotificationKind(StrEnum):
     new_login = "new_login"
     team_changed = "team.changed"
     api_token_created = "api_token.created"
+    feedback_received = "feedback.received"
 
 
 # ---- Allowed state transitions (server-side release state machine, §7) ----

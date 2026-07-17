@@ -9,6 +9,7 @@ import { Markdown } from "@/components/markdown";
 import type { CatalogDetail } from "@/lib/api";
 import { MarketingShell } from "@/components/marketing";
 import { RatingSection } from "@/components/rating-section";
+import { FeedbackForm } from "@/components/feedback-form";
 import { ScreenshotGallery } from "@/components/screenshot-gallery";
 import { Badge } from "@/components/ui";
 import { formatDate, safeHref, safeJsonLd } from "@/lib/utils";
@@ -219,6 +220,9 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
             {safeHref(d.repoUrl) && <a href={safeHref(d.repoUrl)} className="text-brand hover:underline">{t("detail.source")}</a>}
             {safeHref(d.privacyPolicyUrl) && <a href={safeHref(d.privacyPolicyUrl)} className="text-brand hover:underline">{t("detail.privacy")}</a>}
           </div>
+
+          {/* private message to the developer (login only at the send step) */}
+          <FeedbackForm slug={d.slug} />
         </div>
       </main>
     </MarketingShell>
