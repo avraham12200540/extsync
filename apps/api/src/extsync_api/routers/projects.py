@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import settings
 from ..deps import CurrentUser, DBSession
 from ..errors import APIError, ErrorCode, not_found
+from ..ids import generic_id
 from ..storage import storage
 from ..models.enums import UserRole
 from ..models.project import Project, ProjectScreenshot
@@ -143,13 +144,19 @@ async def add_screenshot(project_id: str, user: CurrentUser, db: DBSession,
     data = await file.read()
     if len(data) > 5 * 1024 * 1024:
         raise APIError(ErrorCode.VALIDATION_ERROR, "התמונה גדולה מ-5MB", status_code=413)
-    shot = ProjectScreenshot(project_id=project.id, position=len(existing))
-    db.add(shot)
-    await db.flush()  # assign shot.id before building the storage key
-    key = f"screenshots/{project.id}/{shot.id}.{ext}"
+    # Generate the id up front so we can build the storage key WITHOUT first
+    # flushing a row: `url` is NOT NULL, so inserting the row before the upload
+    # (the old flow) hit a not-null violation. Upload first, then insert a
+    # complete row - which also avoids an orphan row if the upload fails.
+    shot_id = generic_id()
+    key = f"screenshots/{project.id}/{shot_id}.{ext}"
     await asyncio.to_thread(storage.put_bytes, settings.s3_bucket_artifacts, key, data,
                             file.content_type or "image/png")
-    shot.url = storage.public_url(settings.s3_bucket_artifacts, key)
+    shot = ProjectScreenshot(
+        id=shot_id, project_id=project.id, position=len(existing),
+        url=storage.public_url(settings.s3_bucket_artifacts, key),
+    )
+    db.add(shot)
     await db.commit()
     return _to_response(project, perms, await _load_screenshots(db, project.id))
 
