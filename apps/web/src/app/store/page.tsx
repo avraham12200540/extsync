@@ -8,7 +8,7 @@ import { Search } from "lucide-react";
 import { useLocale } from "@/components/locale-context";
 import { Card, Input } from "@/components/ui";
 
-type SortKey = "rating" | "newest" | "name";
+type SortKey = "installs" | "newest" | "name";
 
 export default function StorePage() {
   const { t, locale } = useLocale();
@@ -16,7 +16,7 @@ export default function StorePage() {
   const [loadError, setLoadError] = useState(false);
   const [q, setQ] = useState("");
   const [category, setCategory] = useState<string | null>(null);
-  const [sort, setSort] = useState<SortKey>("rating");
+  const [sort, setSort] = useState<SortKey>("installs");
 
   useEffect(() => {
     api.get<CatalogItem[]>("/catalog").then(setItems)
@@ -43,10 +43,10 @@ export default function StorePage() {
       case "name":
         list = [...list].sort((a, b) => a.name.localeCompare(b.name, locale));
         break;
-      default: // rating: avg desc, then number of votes as a tie-breaker
+      default: // installs: the single ranking metric - most installed first, then name
         list = [...list].sort((a, b) =>
-          (b.avgRating ?? 0) - (a.avgRating ?? 0) ||
-          (b.ratingsCount ?? 0) - (a.ratingsCount ?? 0));
+          (b.installs ?? 0) - (a.installs ?? 0) ||
+          a.name.localeCompare(b.name, locale));
     }
     return list;
   }, [items, q, category, sort, locale]);
@@ -75,7 +75,7 @@ export default function StorePage() {
                 aria-label="sort"
                 className="rounded-md border border-line bg-surface px-2.5 py-2 text-sm text-ink"
               >
-                <option value="rating">{t("store.sort.rating")}</option>
+                <option value="installs">{t("store.sort.installs")}</option>
                 <option value="newest">{t("store.sort.newest")}</option>
                 <option value="name">{t("store.sort.name")}</option>
               </select>

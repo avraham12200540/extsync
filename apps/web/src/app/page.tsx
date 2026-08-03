@@ -25,12 +25,12 @@ export default function HomePage() {
       .catch(() => { setLoadError(true); setItems([]); });
   }, []);
 
-  // Home shows only the 3 top-rated extensions; the full list lives in /store.
+  // Home shows only the 3 most-installed extensions; the full list lives in /store.
   const topItems = useMemo(
     () => [...(items ?? [])]
       .sort((a, b) =>
-        (b.avgRating ?? 0) - (a.avgRating ?? 0) ||
-        (b.ratingsCount ?? 0) - (a.ratingsCount ?? 0))
+        (b.installs ?? 0) - (a.installs ?? 0) ||
+        a.name.localeCompare(b.name))
       .slice(0, 3),
     [items],
   );

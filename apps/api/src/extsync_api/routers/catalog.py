@@ -176,8 +176,8 @@ async def list_catalog(request: Request, db: DBSession, user: OptionalUser, q: s
             installs=installs.get(p.id, 0),
             avg_rating=avg, ratings_count=cnt, my_rating=mine.get(p.id),
         ))
-    # Highest-rated first; ties broken by number of ratings, then name.
-    items.sort(key=lambda i: (-i.avg_rating, -i.ratings_count, i.name))
+    # Ranked purely by active install count (the single ranking metric); ties by name.
+    items.sort(key=lambda i: (-(i.installs or 0), i.name))
     return items
 
 
