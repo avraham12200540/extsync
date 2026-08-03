@@ -121,6 +121,16 @@ async def upload_icon(project_id: str, user: CurrentUser, db: DBSession,
     return _to_response(project, perms)
 
 
+@router.delete("/{project_id}/icon", response_model=ProjectResponse)
+async def remove_icon(project_id: str, user: CurrentUser, db: DBSession) -> ProjectResponse:
+    """Clear the extension's store image (the stored object is small and a later
+    upload overwrites its key, so we just drop the reference)."""
+    project, perms = await load_project_for_user(db, project_id, user, Permission.PROJECT_UPDATE)
+    project.icon_url = None
+    await db.commit()
+    return _to_response(project, perms)
+
+
 _SHOT_TYPES = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
 _MAX_SCREENSHOTS = 10
 

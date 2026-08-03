@@ -92,6 +92,11 @@ function OverviewTab({ project }: { project: Project }) {
     onSuccess: () => { setIconErr(null); qc.invalidateQueries({ queryKey: ["project", project.id] }); },
     onError: (e) => setIconErr(e instanceof ApiError ? e.message : t("dash.pd.upfailed")),
   });
+  const removeIcon = useMutation({
+    mutationFn: () => api.del<Project>(`/projects/${project.id}/icon`),
+    onSuccess: () => { setIconErr(null); qc.invalidateQueries({ queryKey: ["project", project.id] }); },
+    onError: (e) => setIconErr(e instanceof ApiError ? e.message : t("dash.pd.upfailed")),
+  });
 
   const setVisibility = useMutation({
     mutationFn: (visibility: "public" | "private") =>
@@ -240,8 +245,18 @@ function OverviewTab({ project }: { project: Project }) {
             />
             <p className="mt-1 text-xs text-ink-muted">
               {t("dash.pd.icon.help")}
-              {uploadIcon.isPending && ` ${t("dash.pd.icon.uploading")}`}
+              {(uploadIcon.isPending || removeIcon.isPending) && ` ${t("dash.pd.icon.uploading")}`}
             </p>
+            {project.iconUrl && (
+              <button
+                type="button"
+                onClick={() => removeIcon.mutate()}
+                disabled={removeIcon.isPending || uploadIcon.isPending}
+                className="mt-2 inline-flex items-center gap-1 text-xs text-danger hover:underline disabled:opacity-50"
+              >
+                <X className="h-3.5 w-3.5" /> {t("dash.pd.icon.remove")}
+              </button>
+            )}
             {iconErr && <p className="mt-1 text-xs text-danger">{iconErr}</p>}
           </div>
         </div>
@@ -261,7 +276,7 @@ function OverviewTab({ project }: { project: Project }) {
                   onClick={() => deleteShot.mutate(s.id)}
                   disabled={deleteShot.isPending}
                   aria-label={t("dash.pd.shots.remove")}
-                  className="absolute end-1.5 top-1.5 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity hover:bg-danger group-hover:opacity-100"
+                  className="absolute end-1.5 top-1.5 rounded-full bg-black/60 p-1 text-white transition-colors hover:bg-danger disabled:opacity-50"
                 >
                   <X className="h-4 w-4" />
                 </button>
