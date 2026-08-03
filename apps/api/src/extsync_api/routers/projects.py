@@ -116,7 +116,10 @@ async def upload_icon(project_id: str, user: CurrentUser, db: DBSession,
     key = f"icons/{project.id}.{ext}"
     await asyncio.to_thread(storage.put_bytes, settings.s3_bucket_artifacts, key, data,
                             file.content_type or "image/png")
-    project.icon_url = storage.public_url(settings.s3_bucket_artifacts, key)
+    # The storage key is stable (icons/<id>.<ext>), so overwriting it leaves the
+    # URL unchanged and browsers/CDN keep serving the STALE old image. Append a
+    # fresh version token each upload so every replace yields a new URL -> refetch.
+    project.icon_url = f"{storage.public_url(settings.s3_bucket_artifacts, key)}?v={generic_id()}"
     await db.commit()
     return _to_response(project, perms)
 
