@@ -377,6 +377,9 @@ const he: Dict = {
   "fb.sent": "ההודעה נשלחה למפתח. תודה!",
   "fb.error": "השליחה נכשלה. נסה שוב בעוד רגע.",
   "fb.loginhint": "כדי לשלוח צריך להתחבר - נשמור לך את ההודעה.",
+  "fb.email.label": "המייל שלך (לא חובה)",
+  "fb.email.placeholder": "המייל שלך (לא חובה)",
+  "fb.email.hint": "השאר מייל רק אם תרצה שהמפתח יוכל לחזור אליך. בלי זה ההודעה נשלחת בעילום שם.",
   "fb.badge.unread": "הודעות שלא נקראו",
 
   // ---- feedback inbox (developer dashboard) ----
@@ -388,6 +391,7 @@ const he: Dict = {
   "fbinbox.load.failed": "טעינת ההודעות נכשלה.",
   "fbinbox.retry": "נסה שוב",
   "fbinbox.markread": "סמן כנקרא",
+  "fbinbox.replyto": "אפשר לחזור אליו:",
 
   "dash.logout": "התנתקות",
   "dash.verify.pre": "כתובת המייל",
@@ -968,6 +972,9 @@ const en: Dict = {
   "fb.sent": "Your message was sent to the developer. Thanks!",
   "fb.error": "Sending failed. Try again in a moment.",
   "fb.loginhint": "Sending requires signing in - we'll keep your message.",
+  "fb.email.label": "Your email (optional)",
+  "fb.email.placeholder": "Your email (optional)",
+  "fb.email.hint": "Leave an email only if you want the developer to be able to reply. Without it your message stays anonymous.",
   "fb.badge.unread": "unread messages",
 
   // ---- feedback inbox (developer dashboard) ----
@@ -979,6 +986,7 @@ const en: Dict = {
   "fbinbox.load.failed": "Failed to load messages.",
   "fbinbox.retry": "Try again",
   "fbinbox.markread": "Mark as read",
+  "fbinbox.replyto": "Reply to:",
 
   "dash.logout": "Sign out",
   "dash.verify.pre": "The email address",

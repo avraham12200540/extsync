@@ -263,6 +263,8 @@ export interface FeedbackItem {
   projectSlug: string;
   fromName: string;
   body: string;
+  /** Only present when the sender chose to leave a reply address. */
+  replyEmail?: string | null;
   read: boolean;
   createdAt: string;
 }

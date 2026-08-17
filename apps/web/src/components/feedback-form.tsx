@@ -21,17 +21,21 @@ export function FeedbackForm({ slug }: { slug: string }) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [body, setBody] = useState("");
+  // Optional: only sent if the user types one. Their account email is never
+  // shared with the developer, so this is the only way to be reachable.
+  const [replyEmail, setReplyEmail] = useState("");
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const flushed = useRef(false);
 
-  const send = async (text: string) => {
+  const send = async (text: string, email: string) => {
     setState("sending");
     setError(null);
     try {
-      await api.post(`/catalog/${slug}/feedback`, { body: text });
+      await api.post(`/catalog/${slug}/feedback`, { body: text, replyEmail: email.trim() || null });
       try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       setBody("");
+      setReplyEmail("");
       setState("sent");
     } catch (e) {
       setState("error");
@@ -45,13 +49,14 @@ export function FeedbackForm({ slug }: { slug: string }) {
     try {
       const raw = sessionStorage.getItem(DRAFT_KEY);
       if (!raw) return;
-      const d = JSON.parse(raw) as { slug?: string; body?: string; ts?: number };
+      const d = JSON.parse(raw) as { slug?: string; body?: string; email?: string; ts?: number };
       if (d.slug === slug && d.body && d.ts && Date.now() - d.ts < 30 * 60 * 1000) {
         flushed.current = true;
         // Show the text in the box too, so a failed auto-send leaves it visible
         // and editable (the Send button re-enables) instead of an empty trap.
         setBody(d.body);
-        void send(d.body);
+        setReplyEmail(d.email ?? "");
+        void send(d.body, d.email ?? "");
       } else if (d.slug === slug) {
         sessionStorage.removeItem(DRAFT_KEY);
       }
@@ -62,10 +67,13 @@ export function FeedbackForm({ slug }: { slug: string }) {
   const onSend = () => {
     const text = body.trim();
     if (!text) return;
-    if (user) { void send(text); return; }
+    if (user) { void send(text, replyEmail); return; }
     // Logged out: preserve the draft and go log in; the effect above finishes it.
     try {
-      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ slug, body: text, ts: Date.now() }));
+      sessionStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ slug, body: text, email: replyEmail.trim(), ts: Date.now() }),
+      );
     } catch { /* ignore */ }
     router.push(`/login?next=${encodeURIComponent(`/store/${slug}`)}`);
   };
@@ -91,6 +99,18 @@ export function FeedbackForm({ slug }: { slug: string }) {
             placeholder={t("fb.placeholder")}
             className="mt-3 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted outline-none focus:border-brand"
           />
+          <input
+            type="email"
+            value={replyEmail}
+            onChange={(e) => { setReplyEmail(e.target.value); if (state === "error") setState("idle"); }}
+            maxLength={320}
+            autoComplete="email"
+            dir="ltr"
+            placeholder={t("fb.email.placeholder")}
+            aria-label={t("fb.email.label")}
+            className="mt-2 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted outline-none focus:border-brand"
+          />
+          <p className="mt-1 text-xs text-ink-muted">{t("fb.email.hint")}</p>
           {error && <p className="mt-1 text-xs text-danger">{error}</p>}
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <Button size="sm" onClick={onSend} disabled={state === "sending" || !body.trim()}>

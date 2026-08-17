@@ -28,5 +28,8 @@ class ExtensionFeedback(Base, TimestampMixin):
         ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True
     )
     body: Mapped[str] = mapped_column(Text, nullable=False)
+    # Optional, opt-in reply address. The developer never sees the sender's account
+    # email - only an address the sender chose to share so they can be answered.
+    reply_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     # Set when the developer opens/marks it read (for an unread badge).
     read_at: Mapped[dt.datetime | None] = mapped_column(UtcDateTime, nullable=True)

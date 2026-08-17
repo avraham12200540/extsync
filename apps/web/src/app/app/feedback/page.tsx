@@ -101,6 +101,19 @@ export default function FeedbackInboxPage() {
                 <span className="text-xs text-ink-muted">{fmt(item.createdAt)}</span>
               </div>
               <p className="mt-2 whitespace-pre-line text-sm text-ink">{item.body}</p>
+              {item.replyEmail && (
+                <p className="mt-2 text-xs text-ink-muted">
+                  {t("fbinbox.replyto")}{" "}
+                  <a
+                    href={`mailto:${item.replyEmail}?subject=${encodeURIComponent(item.projectName)}`}
+                    dir="ltr"
+                    className="text-brand hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {item.replyEmail}
+                  </a>
+                </p>
+              )}
             </Card>
           ))}
         </div>

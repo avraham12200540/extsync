@@ -39,7 +39,9 @@ async def send_feedback(
     if project is None:
         raise not_found("התוסף לא נמצא")
     body = req.body  # already stripped + non-empty by the schema validator
-    db.add(ExtensionFeedback(project_id=project.id, from_user_id=user.id, body=body))
+    db.add(ExtensionFeedback(
+        project_id=project.id, from_user_id=user.id, body=body, reply_email=req.reply_email,
+    ))
     # Notify the owner (+ email unless opted out), but never notify a developer who
     # messaged their own extension (would email themselves).
     if project.owner_user_id != user.id:
@@ -67,7 +69,7 @@ async def my_feedback(user: CurrentUser, db: DBSession) -> list[FeedbackItem]:
         FeedbackItem(
             id=fb.id, project_id=fb.project_id, project_name=pname, project_slug=pslug,
             from_name=(dname.strip() if dname and dname.strip() else "משתמש"),
-            body=fb.body, read=fb.read_at is not None,
+            body=fb.body, reply_email=fb.reply_email, read=fb.read_at is not None,
             created_at=fb.created_at.isoformat().replace("+00:00", "Z"),
         )
         for fb, pname, pslug, dname in rows
