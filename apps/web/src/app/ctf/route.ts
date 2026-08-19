@@ -24,7 +24,7 @@ import { CTF_BASE_CSS } from "./_lib/theme";
  * something back, and then looking, is the whole of the first step - so resist
  * adding a second breadcrumb here.
  */
-const ENTRY_PAYLOAD = "OTczNjUvNA==";
+const ENTRY_PAYLOAD = "OTczNjU6NA==";
 
 const ENTRY_CSS = `
 .ctf-panel {
