@@ -24,3 +24,23 @@ export function htmlResponse(doc: CtfDocumentInput, init?: ResponseInit): Respon
     },
   });
 }
+
+/**
+ * Serve a small plain-text body under the same policy as the documents.
+ *
+ * For steps whose payload is the response itself rather than a page: a status
+ * line, a short record, a refusal. Same cache and robots policy as
+ * `htmlResponse`, so a step never leaks into a cache or an index by being
+ * text instead of HTML.
+ */
+export function textResponse(body: string, init?: ResponseInit): Response {
+  return new Response(body, {
+    ...init,
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "no-store",
+      "x-robots-tag": "noindex, nofollow",
+      ...init?.headers,
+    },
+  });
+}
