@@ -44,3 +44,49 @@ export function textResponse(body: string, init?: ResponseInit): Response {
     },
   });
 }
+
+/**
+ * Serve a JSON representation under the same policy as the documents.
+ *
+ * For a step whose answer is a document in one representation and data in
+ * another: same cache and robots policy, so neither form of a step leaks into
+ * a cache or an index by virtue of being data instead of a page.
+ */
+export function jsonResponse(value: unknown, init?: ResponseInit): Response {
+  return new Response(`${JSON.stringify(value, null, 2)}\n`, {
+    ...init,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "x-robots-tag": "noindex, nofollow",
+      ...init?.headers,
+    },
+  });
+}
+
+/**
+ * Serve fixed bytes as a download.
+ *
+ * The length is stated rather than left to the runtime so a player can compare
+ * what arrived against what was advertised without a chunked transfer getting
+ * in the way, and the disposition carries the name the resource is known by, so
+ * a browser save and a `curl -O` land on the same file.
+ */
+export function bytesResponse(
+  body: Uint8Array<ArrayBuffer>,
+  mediaType: string,
+  filename: string,
+  init?: ResponseInit,
+): Response {
+  return new Response(body, {
+    ...init,
+    headers: {
+      "content-type": mediaType,
+      "content-length": String(body.byteLength),
+      "content-disposition": `attachment; filename="${filename}"`,
+      "cache-control": "no-store",
+      "x-robots-tag": "noindex, nofollow",
+      ...init?.headers,
+    },
+  });
+}
