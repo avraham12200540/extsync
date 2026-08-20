@@ -65,6 +65,24 @@ export function jsonResponse(value: unknown, init?: ResponseInit): Response {
 }
 
 /**
+ * Serve a response with no body, under the same policy as the documents.
+ *
+ * For a status RFC 9110 says must not carry content (204), and for a redirect
+ * whose entire job is the status line and the Location header - a body there
+ * would be a second, redundant place to explain the step.
+ */
+export function emptyResponse(init?: ResponseInit): Response {
+  return new Response(null, {
+    ...init,
+    headers: {
+      "cache-control": "no-store",
+      "x-robots-tag": "noindex, nofollow",
+      ...init?.headers,
+    },
+  });
+}
+
+/**
  * Serve fixed bytes as a download.
  *
  * The length is stated rather than left to the runtime so a player can compare
