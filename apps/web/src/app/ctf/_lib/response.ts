@@ -83,6 +83,34 @@ export function emptyResponse(init?: ResponseInit): Response {
 }
 
 /**
+ * Serve fixed bytes for inline display, under the same policy as the
+ * documents.
+ *
+ * `inline` rather than `attachment`: this resource is meant to be decoded and
+ * viewed - by a browser, by `curl -o`, or by an independent tool - not saved
+ * through a download prompt. The filename is still stated, and still chosen
+ * to say nothing about what the resource contains.
+ */
+export function imageResponse(
+  body: Uint8Array<ArrayBuffer>,
+  mediaType: string,
+  filename: string,
+  init?: ResponseInit,
+): Response {
+  return new Response(body, {
+    ...init,
+    headers: {
+      "content-type": mediaType,
+      "content-length": String(body.byteLength),
+      "content-disposition": `inline; filename="${filename}"`,
+      "cache-control": "no-store",
+      "x-robots-tag": "noindex, nofollow",
+      ...init?.headers,
+    },
+  });
+}
+
+/**
  * Serve fixed bytes as a download.
  *
  * The length is stated rather than left to the runtime so a player can compare
