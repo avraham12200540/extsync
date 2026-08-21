@@ -38,6 +38,14 @@
  * The id is carried only inside the three text chunks of the waypoint's PNG
  * (see ../../waypoint/7d8d6cddb49b49d6/_artifact.ts); nothing the site
  * serves before that names it, and nothing here echoes it back on a miss.
+ *
+ * The valid response also carries a Link header, `rel="enclosure"`: the
+ * relation IANA defines for "a related resource that is potentially large
+ * and might require special handling" - exactly a multipart package, as
+ * opposed to `rel="alternate"` (a different representation of this same
+ * resource, what the waypoint's PNG used) or `rel="service"` (something to
+ * be operated on, what the relay used). A wrong id never reaches this
+ * response at all, so the header is never sent on a miss either.
  */
 
 import { notFound } from "next/navigation";
@@ -45,6 +53,7 @@ import { notFound } from "next/navigation";
 import { MESSAGE_CSS } from "../../_lib/message";
 import { htmlResponse } from "../../_lib/response";
 import { CTF_BASE_CSS } from "../../_lib/theme";
+import { PACKAGE_HREF } from "../../package/_package";
 
 const BEACON_ID = "4f6c8a219e7d3b50";
 
@@ -72,11 +81,18 @@ export async function GET(
     notFound();
   }
 
-  return htmlResponse({
-    title: "Beacon",
-    lang: "en",
-    dir: "ltr",
-    css: `${CTF_BASE_CSS}\n\n${MESSAGE_CSS}`,
-    body: BODY,
-  });
+  return htmlResponse(
+    {
+      title: "Beacon",
+      lang: "en",
+      dir: "ltr",
+      css: `${CTF_BASE_CSS}\n\n${MESSAGE_CSS}`,
+      body: BODY,
+    },
+    {
+      headers: {
+        link: `<${PACKAGE_HREF}>; rel="enclosure"; type="multipart/related"`,
+      },
+    },
+  );
 }

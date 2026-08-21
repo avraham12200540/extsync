@@ -111,6 +111,32 @@ export function imageResponse(
 }
 
 /**
+ * Serve a fixed multi-part body under the same policy as the documents.
+ *
+ * The caller supplies the whole `Content-Type` (media type, boundary, and any
+ * `multipart/related` parameters) rather than just a media type string,
+ * because those parameters are themselves part of what a correct client has
+ * to read - unlike `imageResponse` or `bytesResponse`, there is no single
+ * fixed type this could default to.
+ */
+export function multipartResponse(
+  body: Uint8Array<ArrayBuffer>,
+  contentType: string,
+  init?: ResponseInit,
+): Response {
+  return new Response(body, {
+    ...init,
+    headers: {
+      "content-type": contentType,
+      "content-length": String(body.byteLength),
+      "cache-control": "no-store",
+      "x-robots-tag": "noindex, nofollow",
+      ...init?.headers,
+    },
+  });
+}
+
+/**
  * Serve fixed bytes as a download.
  *
  * The length is stated rather than left to the runtime so a player can compare
