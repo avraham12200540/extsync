@@ -22,6 +22,15 @@
  * The id is carried only inside the package's decoded fragments (see
  * ../../package/_package.ts); nothing the site serves before that names it,
  * and nothing here echoes it back on a miss.
+ *
+ * The valid response also carries a Link header, `rel="describedby"`: the
+ * relation for a resource that supplies additional, structured information
+ * about this one - here, the ledger and Merkle proof the next step is built
+ * from. Unlike the waypoint's `alternate` (a different representation of
+ * the same resource) or the beacon's `enclosure` (a payload to fetch and
+ * decode), a `describedby` target is read and reasoned about, not decoded
+ * or operated on. Neither the href nor this page names what the ledger's
+ * proof resolves to.
  */
 
 import { notFound } from "next/navigation";
@@ -29,6 +38,7 @@ import { notFound } from "next/navigation";
 import { MESSAGE_CSS } from "../../_lib/message";
 import { htmlResponse } from "../../_lib/response";
 import { CTF_BASE_CSS } from "../../_lib/theme";
+import { LEDGER_HREF } from "../../ledger/_ledger";
 
 const CONSTELLATION_ID = "b71f02c984d63ae5";
 
@@ -56,11 +66,18 @@ export async function GET(
     notFound();
   }
 
-  return htmlResponse({
-    title: "Constellation",
-    lang: "en",
-    dir: "ltr",
-    css: `${CTF_BASE_CSS}\n\n${MESSAGE_CSS}`,
-    body: BODY,
-  });
+  return htmlResponse(
+    {
+      title: "Constellation",
+      lang: "en",
+      dir: "ltr",
+      css: `${CTF_BASE_CSS}\n\n${MESSAGE_CSS}`,
+      body: BODY,
+    },
+    {
+      headers: {
+        link: `<${LEDGER_HREF}>; rel="describedby"; type="application/json"`,
+      },
+    },
+  );
 }
