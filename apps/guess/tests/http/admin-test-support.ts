@@ -11,6 +11,7 @@ import { createInMemoryAdminSessionRepository } from "../../src/http/admin-sessi
 import type { AdminHttpDeps } from "../../src/http/deps";
 import type { NodebbClient } from "../../src/importer/nodebb-client";
 import { createInMemoryForumRepository } from "../importer/in-memory-repository";
+import { createInMemoryForumUserStatsRepository } from "../importer/in-memory-stats-repository";
 import { createTestDeps } from "./test-support";
 import type { TestDepsOptions } from "./test-support";
 
@@ -66,6 +67,7 @@ export function createAdminTestDeps(opts: AdminTestDepsOptions = {}): AdminTestD
     isAdminActive: (adminUserId) => adminUserRepo.users.get(adminUserId)?.isActive ?? false,
   });
   const adminUserRepo = createInMemoryAdminUserRepository(opts.adminUsers ?? []);
+  const forumRepository = createInMemoryForumRepository();
 
   const deps: AdminHttpDeps = {
     ...base.deps,
@@ -75,7 +77,8 @@ export function createAdminTestDeps(opts: AdminTestDepsOptions = {}): AdminTestD
     adminForumUserRepo: createInMemoryAdminForumUserRepository(opts.forumUsers ?? []),
     moderationRepo: createInMemoryModerationRepository({ generateId: () => nextId("rev") }, opts.moderationPosts ?? []),
     adminImportRunRepo: createInMemoryAdminImportRunRepository([]),
-    forumRepository: createInMemoryForumRepository(),
+    forumRepository,
+    statsRepository: createInMemoryForumUserStatsRepository(forumRepository),
     nodebbClient: emptyNodebbClient(),
     importLock: createInMemoryImportLock(),
     appOrigin: opts.appOrigin ?? "https://example.invalid",

@@ -5,6 +5,7 @@ import { createDrizzleImportLock } from "../admin/drizzle-import-lock";
 import { createDrizzleAdminUserRepository } from "../admin/drizzle-admin-user-repository";
 import { createDrizzleModerationRepository } from "../admin/drizzle-moderation-repository";
 import { getDb, getRawSql } from "../db/client";
+import { createDrizzleForumUserStatsRepository } from "../importer/forum-user-stats-repository";
 import { createNodebbClient } from "../importer/nodebb-client";
 import { createDrizzleForumRepository } from "../importer/repository";
 import type { AdminHttpDeps } from "./deps";
@@ -46,6 +47,7 @@ export function getProductionAdminHttpDeps(): AdminHttpDeps {
     moderationRepo: createDrizzleModerationRepository(db),
     adminImportRunRepo: createDrizzleAdminImportRunRepository(db),
     forumRepository: createDrizzleForumRepository(db),
+    statsRepository: createDrizzleForumUserStatsRepository(db),
     nodebbClient: createNodebbClient(),
     importLock: createDrizzleImportLock(getRawSql(), createLogger(base.logSink, "import-lock")),
     appOrigin,

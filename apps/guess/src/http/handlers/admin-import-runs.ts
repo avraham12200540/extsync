@@ -79,7 +79,13 @@ export function createAdminImportRunTriggerHandler(deps: AdminHttpDeps): RouteHa
       );
 
       const summary = await triggerImportRun(
-        { forumRepository: deps.forumRepository, nodebbClient: deps.nodebbClient, auditRepo: deps.adminAuditRepo, importLock: deps.importLock },
+        {
+          forumRepository: deps.forumRepository,
+          statsRepository: deps.statsRepository,
+          nodebbClient: deps.nodebbClient,
+          auditRepo: deps.adminAuditRepo,
+          importLock: deps.importLock,
+        },
         { adminUserId: session.adminUserId, now, requestCorrelationId: requestId },
       );
 

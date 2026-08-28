@@ -1,3 +1,4 @@
+import type { ForumUserStatsRepository } from "../importer/forum-user-stats-repository";
 import type { NodebbClient } from "../importer/nodebb-client";
 import type { ForumRepository } from "../importer/repository";
 import { DEFAULT_IMPORT_BUDGETS, DEFAULT_PACING_MS, defaultImportRunDeps, runImport } from "../importer/run-import";
@@ -10,6 +11,7 @@ export class ImportAlreadyRunningError extends Error {}
 
 export interface TriggerImportRunDeps {
   forumRepository: ForumRepository;
+  statsRepository: ForumUserStatsRepository;
   nodebbClient: Pick<NodebbClient, "getRecentTopics" | "getTopicDetail">;
   auditRepo: AdminAuditRepository;
   importLock: ImportLock;
@@ -41,6 +43,7 @@ export async function triggerImportRun(deps: TriggerImportRunDeps, input: Trigge
       defaultImportRunDeps({
         client: deps.nodebbClient,
         repository: deps.forumRepository,
+        statsRepository: deps.statsRepository,
         triggerKind: "admin",
         triggeredByAdminId: input.adminUserId,
         budgets: DEFAULT_IMPORT_BUDGETS,

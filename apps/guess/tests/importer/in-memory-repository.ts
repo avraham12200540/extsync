@@ -31,9 +31,19 @@ export interface ImportRunRecord {
   finishedAt: Date | null;
 }
 
+/**
+ * Keeps every InsertForumPostInput field (not just ForumPostRecord's narrow subset) so an in-memory
+ * ForumUserStatsRepository fake (see in-memory-stats-repository.ts) can read real
+ * wordCount/qualityScore/forumCategoryCid/postedAt directly off this same store. `moderationStatus`
+ * is taken from ForumPostRecord (typed as `string`, not the insert-time-only "pending"|"needs_review"
+ * union) because a stored row's status can move to "approved"/"rejected" after insert - markSourceDiverged
+ * below relies on being able to observe that.
+ */
+export type StoredForumPost = ForumPostRecord & Omit<InsertForumPostInput, "moderationStatus">;
+
 export interface InMemoryForumRepository extends ForumRepository {
   users: Map<string, ForumUserRecord>; // keyed by forumUid
-  posts: Map<string, ForumPostRecord & { rawContent: string }>; // keyed by forumPid
+  posts: Map<string, StoredForumPost>; // keyed by forumPid
   importRuns: Map<string, ImportRunRecord>;
 }
 
@@ -44,7 +54,7 @@ function freshId(prefix: string): string {
 
 export function createInMemoryForumRepository(): InMemoryForumRepository {
   const users = new Map<string, ForumUserRecord>();
-  const posts = new Map<string, ForumPostRecord & { rawContent: string }>();
+  const posts = new Map<string, StoredForumPost>();
   const importRuns = new Map<string, ImportRunRecord>();
 
   return {
@@ -82,13 +92,10 @@ export function createInMemoryForumRepository(): InMemoryForumRepository {
       if (posts.has(input.forumPid)) {
         throw new Error(`insertForumPost called for an already-known forum_pid ${input.forumPid} - caller must dedup first`);
       }
-      const record: ForumPostRecord & { rawContent: string } = {
+      const record: StoredForumPost = {
+        ...input,
         id: freshId("post"),
-        forumPid: input.forumPid,
-        sha256Raw: input.sha256Raw,
-        moderationStatus: input.moderationStatus,
         sourceDiverged: false,
-        rawContent: input.rawContent,
       };
       posts.set(input.forumPid, record);
       return { ...record };

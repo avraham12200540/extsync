@@ -6,6 +6,7 @@ import type { AdminUserRepository } from "../admin/admin-user-repository";
 import type { ModerationRepository } from "../admin/moderation-repository";
 import type { CuratedPoolRepository } from "../game/curated-pool-repository";
 import type { ForumContentLookup, GameUnitOfWork } from "../game/unit-of-work";
+import type { ForumUserStatsRepository } from "../importer/forum-user-stats-repository";
 import type { NodebbClient } from "../importer/nodebb-client";
 import type { ForumRepository } from "../importer/repository";
 import type { AdminSessionRepository } from "./admin-session";
@@ -61,6 +62,8 @@ export interface AdminDeps {
   adminImportRunRepo: AdminImportRunRepository;
   /** The importer's own write-repository (src/importer/repository.ts) - only ever reached via the bounded import-trigger endpoint, never from any gameplay code path. */
   forumRepository: ForumRepository;
+  /** Recomputes forum_user_stats after an import run - see src/importer/forum-user-stats-repository.ts. Same reach restriction as forumRepository above. */
+  statsRepository: ForumUserStatsRepository;
   /** Only ever reached via the bounded import-trigger endpoint - see the module doc on importer/nodebb-client.ts for why gameplay code must never import this. */
   nodebbClient: Pick<NodebbClient, "getRecentTopics" | "getTopicDetail">;
   importLock: ImportLock;

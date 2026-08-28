@@ -5,6 +5,7 @@ import {
   InsufficientDailyPoolError,
   InsufficientTargetPostsError,
   buildDailyChallengePlan,
+  computeChoiceOrderSeed,
   computeDailySeed,
   computeIsraelDateKey,
 } from "../../src/game/daily-challenge";
@@ -129,4 +130,88 @@ test("snapshot immutability in practice: rebuilding from the unchanged original 
   const poolWithOneTargetRemoved = originalPool.filter((u) => u.forumUserId !== removedTargetId);
   const rebuiltFromMutatedPool = buildDailyChallengePlan(poolWithOneTargetRemoved, SEED_INPUT);
   assert.notDeepEqual(rebuiltFromMutatedPool, published);
+});
+
+test("computeChoiceOrderSeed is deterministic for identical (dailySeedHex, orderInGame) inputs", () => {
+  const dailySeedHex = computeDailySeed(SEED_INPUT);
+  assert.equal(computeChoiceOrderSeed(dailySeedHex, 1), computeChoiceOrderSeed(dailySeedHex, 1));
+});
+
+test("computeChoiceOrderSeed differs across round index and across daily seed (domain separation)", () => {
+  const dailySeedHex = computeDailySeed(SEED_INPUT);
+  const otherDailySeedHex = computeDailySeed({ ...SEED_INPUT, dateKey: "2026-08-27" });
+
+  const seedsByRound = Array.from({ length: DAILY_ROUNDS }, (_, i) => computeChoiceOrderSeed(dailySeedHex, i + 1));
+  assert.equal(new Set(seedsByRound).size, DAILY_ROUNDS, "every round index must get its own sub-seed");
+
+  assert.notEqual(
+    computeChoiceOrderSeed(dailySeedHex, 1),
+    computeChoiceOrderSeed(otherDailySeedHex, 1),
+    "the same round index on a different day's seed must not collide",
+  );
+
+  // Domain separation: this must not just be "the next values read off the
+  // same mulberry32 stream computeDailySeed feeds" - confirmed by checking
+  // it is not merely a truncation/prefix relationship with the daily seed
+  // itself.
+  assert.notEqual(computeChoiceOrderSeed(dailySeedHex, 1).slice(0, dailySeedHex.length), dailySeedHex);
+});
+
+test("choice order is a genuine per-round shuffle, not the lexicographic sort of the candidate ids (regression test for the UUID-sort bug)", () => {
+  const pool = makePool(30);
+  const plan = buildDailyChallengePlan(pool, SEED_INPUT);
+
+  const sortedOrderCount = plan.filter((round) => {
+    const sorted = [...round.choiceUserIds].sort();
+    return sorted.every((id, i) => id === round.choiceUserIds[i]);
+  }).length;
+
+  // A real per-round shuffle should not reproduce the plain sorted order
+  // for every single round - the old bug always did, by construction.
+  assert.ok(
+    sortedOrderCount < plan.length,
+    `expected at least one round's choice order to differ from the plain sorted order, but all ${plan.length} rounds matched it`,
+  );
+});
+
+test("the target's on-screen position is not forced into a fixed slot across a representative set of deterministic rounds", () => {
+  const pool = makePool(30);
+  const plan = buildDailyChallengePlan(pool, SEED_INPUT);
+
+  const targetPositions = plan.map((round) => round.choiceUserIds.indexOf(round.targetForumUserId));
+  assert.ok(targetPositions.every((p) => p >= 0), "the target must always appear among its own round's choices");
+  assert.ok(
+    new Set(targetPositions).size > 1,
+    `expected the target's position to vary across ${plan.length} rounds, got the same position every time: ${JSON.stringify(targetPositions)}`,
+  );
+});
+
+test("choice order for a given round is fully reproducible from the same seed input, and changes for a different date", () => {
+  const pool = makePool(30);
+  const planA = buildDailyChallengePlan(pool, SEED_INPUT);
+  const planAgain = buildDailyChallengePlan(pool, { ...SEED_INPUT });
+  assert.deepEqual(
+    planAgain.map((r) => r.choiceUserIds),
+    planA.map((r) => r.choiceUserIds),
+    "identical seed input must reproduce the identical per-round choice order",
+  );
+
+  const planDifferentDate = buildDailyChallengePlan(pool, { ...SEED_INPUT, dateKey: "2026-08-27" });
+  assert.notDeepEqual(
+    planDifferentDate.map((r) => r.choiceUserIds),
+    planA.map((r) => r.choiceUserIds),
+    "a different date's seed should generally produce a different per-round choice order",
+  );
+});
+
+test("every candidate appears in the choice order exactly once, for every round", () => {
+  const pool = makePool(30);
+  const plan = buildDailyChallengePlan(pool, SEED_INPUT);
+  for (const round of plan) {
+    const counts = new Map<string, number>();
+    for (const id of round.choiceUserIds) counts.set(id, (counts.get(id) ?? 0) + 1);
+    for (const [id, count] of counts) {
+      assert.equal(count, 1, `choice id ${id} appeared ${count} times in round ${round.orderInGame}, expected exactly once`);
+    }
+  }
 });

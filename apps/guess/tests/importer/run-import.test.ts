@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import type { ForumUserStatsRepository } from "../../src/importer/forum-user-stats-repository";
 import type { NodebbClient, RecentTopicsResponse, TopicDetailResponse } from "../../src/importer/nodebb-client";
 import { DEFAULT_IMPORT_BUDGETS, defaultImportRunDeps, runImport } from "../../src/importer/run-import";
+import type { InMemoryForumRepository } from "./in-memory-repository";
 import { createInMemoryForumRepository } from "./in-memory-repository";
+import type { InMemoryForumUserStatsRepository } from "./in-memory-stats-repository";
+import { createInMemoryForumUserStatsRepository } from "./in-memory-stats-repository";
 
 // All fixtures are synthetic - never real forum content.
 
@@ -62,11 +66,23 @@ function fakeClient(opts: {
   } as unknown as Pick<NodebbClient, "getRecentTopics" | "getTopicDetail"> & { __getMaxConcurrent: () => number };
 }
 
-function testDeps(overrides: Parameters<typeof defaultImportRunDeps>[0]) {
+function testDeps(
+  overrides: Omit<Parameters<typeof defaultImportRunDeps>[0], "repository" | "statsRepository"> & {
+    repository: InMemoryForumRepository;
+    // Optional here (unlike ImportRunDeps itself) precisely because this helper always supplies a
+    // working default below - callers only need to override it when a test wants to inspect the
+    // stats repository's own recorded calls directly (see the first test in this file).
+    statsRepository?: ForumUserStatsRepository;
+  },
+) {
   return defaultImportRunDeps({
     pacingMs: 0,
     sleep: async () => {},
     clock: Date.now,
+    // Defaulted from the same repository fixture the test supplies, so it
+    // sees the same posts/users the run actually persisted - a test that
+    // wants to inspect stats output directly can still override this.
+    statsRepository: createInMemoryForumUserStatsRepository(overrides.repository),
     ...overrides,
   });
 }
@@ -79,8 +95,9 @@ test("imports new posts from a single small run end to end", async () => {
   ]);
   const client = fakeClient({ recentPages, topicDetails });
   const repository = createInMemoryForumRepository();
+  const statsRepository: InMemoryForumUserStatsRepository = createInMemoryForumUserStatsRepository(repository);
 
-  const summary = await runImport(testDeps({ client, repository }));
+  const summary = await runImport(testDeps({ client, repository, statsRepository }));
 
   assert.equal(summary.status, "success");
   assert.equal(summary.stoppedReason, "completed");
@@ -88,6 +105,10 @@ test("imports new posts from a single small run end to end", async () => {
   assert.equal(summary.postsFetched, 1);
   assert.equal(summary.postsDiverged, 0);
   assert.equal(summary.usersTouched, 1);
+  // Proves the stats dependency is genuinely wired and invoked (not just type-satisfied) -
+  // a regression here previously went undetected because a missing/undefined statsRepository
+  // fails inside refreshTouchedStats' own try/catch and only ever surfaces via summary.errors.
+  assert.equal(statsRepository.recomputeCalls.length, 1);
   assert.equal(summary.errors.length, 0);
   assert.equal(repository.posts.size, 1);
   const run = repository.importRuns.get(summary.importRunId);

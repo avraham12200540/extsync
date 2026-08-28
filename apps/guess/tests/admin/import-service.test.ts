@@ -4,11 +4,18 @@ import { createInMemoryAdminAuditRepository } from "../../src/admin/audit";
 import { createInMemoryImportLock } from "../../src/admin/import-lock";
 import { ImportAlreadyRunningError, triggerImportRun } from "../../src/admin/import-service";
 import { createInMemoryForumRepository } from "../importer/in-memory-repository";
+import { createInMemoryForumUserStatsRepository } from "../importer/in-memory-stats-repository";
 import type { NodebbClient } from "../../src/importer/nodebb-client";
 
 const NOW = new Date("2026-01-01T12:00:00Z");
 let idCounter = 0;
 const nextId = (prefix: string) => `${prefix}-${(idCounter += 1)}`;
+
+/** A fresh forumRepository + its matching statsRepository, wired together the same way production wiring does. */
+function forumDeps() {
+  const forumRepository = createInMemoryForumRepository();
+  return { forumRepository, statsRepository: createInMemoryForumUserStatsRepository(forumRepository) };
+}
 
 function emptyClient(): Pick<NodebbClient, "getRecentTopics" | "getTopicDetail"> {
   return {
@@ -37,7 +44,7 @@ test("a normal trigger runs to completion, releases the lock, and records an aud
   const auditRepo = createInMemoryAdminAuditRepository({ generateId: () => nextId("id") });
   const importLock = createInMemoryImportLock();
   const summary = await triggerImportRun(
-    { forumRepository: createInMemoryForumRepository(), nodebbClient: emptyClient(), auditRepo, importLock },
+    { ...forumDeps(), nodebbClient: emptyClient(), auditRepo, importLock },
     { adminUserId: "admin-1", now: NOW, requestCorrelationId: "req-1" },
   );
   assert.equal(summary.status, "success");
@@ -57,7 +64,7 @@ test("a second trigger while one is in flight throws ImportAlreadyRunningError a
   });
 
   const firstRunPromise = triggerImportRun(
-    { forumRepository: createInMemoryForumRepository(), nodebbClient: gatedClient(gate), auditRepo, importLock },
+    { ...forumDeps(), nodebbClient: gatedClient(gate), auditRepo, importLock },
     { adminUserId: "admin-1", now: NOW, requestCorrelationId: "req-1" },
   );
 
@@ -67,7 +74,7 @@ test("a second trigger while one is in flight throws ImportAlreadyRunningError a
 
   await assert.rejects(
     triggerImportRun(
-      { forumRepository: createInMemoryForumRepository(), nodebbClient: emptyClient(), auditRepo, importLock },
+      { ...forumDeps(), nodebbClient: emptyClient(), auditRepo, importLock },
       { adminUserId: "admin-2", now: NOW, requestCorrelationId: "req-2" },
     ),
     ImportAlreadyRunningError,

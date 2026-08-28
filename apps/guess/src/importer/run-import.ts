@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import type { ForumUserStatsRepository } from "./forum-user-stats-repository";
 import type { NodebbClient, TopicPost } from "./nodebb-client";
 import { computeQualityMetrics, decideInitialModerationStatus, deriveModerationFlags } from "./quality";
 import type { ForumRepository } from "./repository";
@@ -37,6 +38,8 @@ export const DEFAULT_PACING_MS = 1500;
 export interface ImportRunDeps {
   client: Pick<NodebbClient, "getRecentTopics" | "getTopicDetail">;
   repository: ForumRepository;
+  /** Recomputes forum_user_stats for every user touched by this run, once it finishes (successfully or not) - see runImport's own doc comment on why this is a distinct, separately-reported step. */
+  statsRepository: ForumUserStatsRepository;
   /** Defaults to Date.now. Overridable so budget/duration tests are deterministic. */
   clock: () => number;
   /** Defaults to a real setTimeout-based sleep. Overridable so tests run instantly. */
@@ -48,7 +51,9 @@ export interface ImportRunDeps {
   triggeredByAdminId?: string | null;
 }
 
-export function defaultImportRunDeps(overrides: Partial<ImportRunDeps> & Pick<ImportRunDeps, "client" | "repository">): ImportRunDeps {
+export function defaultImportRunDeps(
+  overrides: Partial<ImportRunDeps> & Pick<ImportRunDeps, "client" | "repository" | "statsRepository">,
+): ImportRunDeps {
   return {
     clock: Date.now,
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -90,7 +95,7 @@ function sha256Hex(text: string): string {
 async function importOnePost(
   post: TopicPost,
   ctx: { forumCategoryCid: string; importRunId: string; repository: ForumRepository; touchedForumUids: Set<string> },
-): Promise<{ isNew: boolean; diverged: boolean; isNewlyTouchedUser: boolean }> {
+): Promise<{ isNew: boolean; diverged: boolean; isNewlyTouchedUser: boolean; forumUserInternalId: string }> {
   const forumUidKey = String(post.uid);
   const isNewlyTouchedUser = !ctx.touchedForumUids.has(forumUidKey);
   ctx.touchedForumUids.add(forumUidKey);
@@ -108,9 +113,9 @@ async function importOnePost(
   if (existing) {
     if (existing.sha256Raw !== rawSha256) {
       await ctx.repository.markSourceDiverged(existing.id, new Date());
-      return { isNew: false, diverged: true, isNewlyTouchedUser };
+      return { isNew: false, diverged: true, isNewlyTouchedUser, forumUserInternalId: forumUser.id };
     }
-    return { isNew: false, diverged: false, isNewlyTouchedUser };
+    return { isNew: false, diverged: false, isNewlyTouchedUser, forumUserInternalId: forumUser.id };
   }
 
   const { cleanText, stats } = sanitizePost({
@@ -144,7 +149,7 @@ async function importOnePost(
     moderationFlags: flags,
   });
 
-  return { isNew: true, diverged: false, isNewlyTouchedUser };
+  return { isNew: true, diverged: false, isNewlyTouchedUser, forumUserInternalId: forumUser.id };
 }
 
 export async function runImport(deps: ImportRunDeps): Promise<ImportRunSummary> {
@@ -192,6 +197,28 @@ export async function runImport(deps: ImportRunDeps): Promise<ImportRunSummary> 
   let stopReason: StopReason | null = null;
   let recentPage = 1;
   const touchedForumUids = new Set<string>();
+  const touchedForumUserInternalIds = new Set<string>();
+
+  /**
+   * Runs after the ImportRun row has already been finalized via
+   * finishImportRun, so a stats-refresh failure can never retroactively
+   * change what was already persisted as this run's own status/error
+   * summary - a failed derived-stats refresh is a different failure mode
+   * than a failed import, and must never make a genuinely successful
+   * import report itself as failed (or the reverse: hide a real import
+   * failure behind a stats-only success). Surfaced only via this
+   * in-memory summary's errors array for the immediate caller's
+   * visibility (e.g. admin audit metadata), never by mutating
+   * summary.status or re-calling finishImportRun.
+   */
+  async function refreshTouchedStats(): Promise<void> {
+    if (touchedForumUserInternalIds.size === 0) return;
+    try {
+      await deps.statsRepository.recomputeForForumUserIds([...touchedForumUserInternalIds]);
+    } catch (err) {
+      summary.errors.push(`stats refresh: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 
   try {
     outer: while (!stopReason) {
@@ -258,6 +285,7 @@ export async function runImport(deps: ImportRunDeps): Promise<ImportRunSummary> 
               if (result.isNew) summary.postsNew += 1;
               if (result.diverged) summary.postsDiverged += 1;
               if (result.isNewlyTouchedUser) summary.usersTouched += 1;
+              touchedForumUserInternalIds.add(result.forumUserInternalId);
               await deps.repository.incrementImportRunCounters(importRunId, {
                 postsFetched: 1,
                 postsNew: result.isNew ? 1 : 0,
@@ -294,6 +322,7 @@ export async function runImport(deps: ImportRunDeps): Promise<ImportRunSummary> 
       status: summary.status,
       errorSummary: summary.errors.join("; ").slice(0, 2000),
     });
+    await refreshTouchedStats();
     return summary;
   }
 
@@ -304,6 +333,7 @@ export async function runImport(deps: ImportRunDeps): Promise<ImportRunSummary> 
     status: summary.status,
     errorSummary: summary.errors.length > 0 ? summary.errors.join("; ").slice(0, 2000) : null,
   });
+  await refreshTouchedStats();
 
   return summary;
 }

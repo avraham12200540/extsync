@@ -54,6 +54,23 @@ export function computeDailySeed(input: DailyChallengeSeedInput): string {
   return crypto.createHash("sha256").update(`${input.version}:${input.dateKey}:${input.serverSecret}`, "utf8").digest("hex");
 }
 
+/**
+ * Domain-separated sub-seed for a single round's on-screen choice order,
+ * derived from the day's own seed plus that round's index. "Domain
+ * separated" means this is never just "the next values pulled from the
+ * same mulberry32 stream computeDailySeed feeds" - it is its own
+ * independent SHA-256 over a distinct, literal namespace string
+ * ("choice-order") plus the round index, so shuffling a round's choices
+ * can never be correlated with, or accidentally perturb, the target/post
+ * selection stream above. Same dailySeedHex + same orderInGame always
+ * yields the same sub-seed (every player sees the same order for a given
+ * daily round); a different round index or a different day yields an
+ * unrelated one.
+ */
+export function computeChoiceOrderSeed(dailySeedHex: string, orderInGame: number): string {
+  return crypto.createHash("sha256").update(`${dailySeedHex}:choice-order:${orderInGame}`, "utf8").digest("hex");
+}
+
 /** Stable, canonical ordering used as the base of every seeded operation below - reproducibility must never depend on incoming array/DB row order. */
 export function canonicalOrder<T extends { forumUserId: string }>(items: readonly T[]): T[] {
   return [...items].sort((a, b) => (a.forumUserId < b.forumUserId ? -1 : a.forumUserId > b.forumUserId ? 1 : 0));
@@ -111,9 +128,17 @@ export function buildDailyChallengePlan(pool: EligibleTarget[], seedInput: Daily
     );
     distractors.forEach((d) => usedAnyIds.add(d.forumUserId));
 
-    const choiceUserIds = [target.forumUserId, ...distractors.map((d) => d.forumUserId)].sort();
+    const orderInGame = index + 1;
+    // Canonical order first (so the shuffle's input never depends on
+    // distractor-selection iteration order), then an unbiased, per-round
+    // deterministic shuffle - never the raw sorted order, which would
+    // otherwise make every daily round's target position a predictable
+    // function of UUID sort order instead of independently randomized.
+    const canonicalChoiceIds = [target.forumUserId, ...distractors.map((d) => d.forumUserId)].sort();
+    const choiceOrderRandom = mulberry32(seedHexToUint32(computeChoiceOrderSeed(seedHex, orderInGame)));
+    const choiceUserIds = pickWithoutReplacement(canonicalChoiceIds, canonicalChoiceIds.length, choiceOrderRandom);
 
-    rounds.push({ orderInGame: index + 1, targetForumUserId: target.forumUserId, postIds, choiceUserIds });
+    rounds.push({ orderInGame, targetForumUserId: target.forumUserId, postIds, choiceUserIds });
   });
 
   return rounds;
