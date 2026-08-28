@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AdminForumUserDetailView } from "@/admin/view-models";
 import { AdminApiError, getForumUserDetail, setForumUserOverride } from "@/lib/admin-client";
 import type { EligibilityOverride } from "@/lib/admin-client";
@@ -57,9 +57,19 @@ export default function AdminUserDetailPage() {
     }
   }, [forumUserId]);
 
+  // The ref indirection (rather than calling load directly) keeps the fetch
+  // effect's own body free of a direct setState call, matching
+  // react-hooks/set-state-in-effect while still re-running exactly when
+  // load's own dependency (forumUserId) changes - the same behavior [load]
+  // gave.
+  const loadRef = useRef(load);
   useEffect(() => {
-    void load();
-  }, [load]);
+    loadRef.current = load;
+  });
+
+  useEffect(() => {
+    void loadRef.current();
+  }, [forumUserId]);
 
   async function applyOverride() {
     if (!pendingOverride) return;

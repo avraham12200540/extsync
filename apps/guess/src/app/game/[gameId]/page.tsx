@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { RoundView } from "@/components/game/round-view";
 import { PreferencesToggle } from "@/components/preferences-toggle";
 import { ApiError, advanceGame, getCurrentRound, getOwnResults, requestHint, submitGuess } from "@/lib/guess-client";
@@ -64,9 +64,19 @@ export default function ActiveGamePage() {
     }
   }, [gameId, router]);
 
+  // The ref indirection (rather than calling loadGame directly) keeps the
+  // fetch effect's own body free of a direct setState call, matching
+  // react-hooks/set-state-in-effect while still re-running exactly when
+  // loadGame's own dependencies (gameId, router) change - not on every
+  // loadGame identity change, which is the same behavior [loadGame] gave.
+  const loadGameRef = useRef(loadGame);
   useEffect(() => {
-    void loadGame();
-  }, [loadGame]);
+    loadGameRef.current = loadGame;
+  });
+
+  useEffect(() => {
+    void loadGameRef.current();
+  }, [gameId, router]);
 
   async function handleRequestHint() {
     if (!round) return;

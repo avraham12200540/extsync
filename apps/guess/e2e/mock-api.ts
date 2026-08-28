@@ -74,7 +74,7 @@ export interface MockController {
 }
 
 export async function installMockApi(page: Page, gameConfig: MockGameConfig): Promise<MockController> {
-  let csrfIssued = "csrf-token-fixture";
+  const csrfIssued = "csrf-token-fixture";
   let totalScore = 0;
   // Starts at 1, as if the game were already created - tests that create a
   // game via /games/daily or /games/freeplay overwrite this on that call;

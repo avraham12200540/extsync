@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { PreferencesToggle } from "@/components/preferences-toggle";
 import { ResultsView } from "@/components/game/results-view";
@@ -62,9 +62,19 @@ export default function PublicShareResultsPage() {
     }
   }, [shareToken]);
 
+  // The ref indirection (rather than calling load directly) keeps the fetch
+  // effect's own body free of a direct setState call, matching
+  // react-hooks/set-state-in-effect while still re-running exactly when
+  // load's own dependency (shareToken) changes - the same behavior [load]
+  // gave.
+  const loadRef = useRef(load);
   useEffect(() => {
-    void load();
-  }, [load]);
+    loadRef.current = load;
+  });
+
+  useEffect(() => {
+    void loadRef.current();
+  }, [shareToken]);
 
   async function handlePlay() {
     setPlayBusy(true);

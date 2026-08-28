@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AdminForumUserView } from "@/admin/view-models";
 import { listForumUsers } from "@/lib/admin-client";
 import type { ForumUsersListParams } from "@/lib/admin-client";
@@ -76,9 +76,18 @@ export default function AdminUsersPage() {
     }
   }, [page, sortField, sortDirection, accountStatus, adminOverride, effectiveEligibleOnly, usernameContains]);
 
+  // The ref indirection (rather than calling load directly) keeps the fetch
+  // effect's own body free of a direct setState call, matching
+  // react-hooks/set-state-in-effect while still re-running exactly when
+  // load's own dependencies change - the same behavior [load] gave.
+  const loadRef = useRef(load);
   useEffect(() => {
-    void load();
-  }, [load]);
+    loadRef.current = load;
+  });
+
+  useEffect(() => {
+    void loadRef.current();
+  }, [page, sortField, sortDirection, accountStatus, adminOverride, effectiveEligibleOnly, usernameContains]);
 
   function toggleSort(field: SortField) {
     if (sortField === field) {

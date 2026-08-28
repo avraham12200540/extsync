@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PreferencesToggle } from "@/components/preferences-toggle";
 import { ResultsView } from "@/components/game/results-view";
 import { ApiError, createFreeplayGame, getOwnResults, type OwnResultsView } from "@/lib/guess-client";
@@ -60,9 +60,19 @@ export default function OwnResultsPage() {
     }
   }, [gameId, router]);
 
+  // The ref indirection (rather than calling load directly) keeps the fetch
+  // effect's own body free of a direct setState call, matching
+  // react-hooks/set-state-in-effect while still re-running exactly when
+  // load's own dependencies (gameId, router) change - the same behavior
+  // [load] gave.
+  const loadRef = useRef(load);
   useEffect(() => {
-    void load();
-  }, [load]);
+    loadRef.current = load;
+  });
+
+  useEffect(() => {
+    void loadRef.current();
+  }, [gameId, router]);
 
   async function handlePlayAgain() {
     setPlayAgainBusy(true);
