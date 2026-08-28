@@ -51,6 +51,42 @@ for (const viewport of VIEWPORTS) {
   });
 }
 
+test("moderation detail and user detail content stay centered under the sidebar at desktop width", async ({ page }) => {
+  // Regression test: these two detail pages once used `max-w-*xl` without `mx-auto`, which in this
+  // RTL app pins the block to its inline-start edge (the right, next to the sidebar) instead of
+  // centering it, leaving a large dead void on the left at desktop widths - every other narrow-content
+  // admin page (e.g. the overview) already used `mx-auto`. Asserts the fix generically (roughly equal
+  // gaps on both sides of <main>'s content) so this can't regress the same way again.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installAdminMockApi(page, defaultAdminConfig());
+  await loginAsAdmin(page);
+
+  async function assertCentered(label: string) {
+    const main = page.locator("main");
+    const container = main.locator("> div").first();
+    const mainBox = await main.boundingBox();
+    const containerBox = await container.boundingBox();
+    if (!mainBox || !containerBox) throw new Error(`could not measure ${label}`);
+    const leftGap = containerBox.x - mainBox.x;
+    const rightGap = mainBox.x + mainBox.width - (containerBox.x + containerBox.width);
+    expect(
+      Math.abs(leftGap - rightGap),
+      `${label}: left gap ${leftGap}px vs right gap ${rightGap}px - content should be centered under <main>, not pinned to one edge`,
+    ).toBeLessThanOrEqual(4);
+  }
+
+  await navigateViaNav(page, "מודרציה", /\/guess\/admin\/moderation$/);
+  await page.locator('a[href="/guess/admin/moderation/post-1"]:visible').first().click();
+  await page.waitForURL(/\/guess\/admin\/moderation\/post-1$/);
+  await assertCentered("moderation detail");
+
+  // Direct navigation, not a list-page click-through: the mock API here has no
+  // GET /admin/forum-users (list) handler, only the :id detail one this needs.
+  await page.goto("/guess/admin/users/user-1");
+  await page.waitForURL(/\/guess\/admin\/users\/user-1$/);
+  await assertCentered("user detail");
+});
+
 test("admin pages respect prefers-reduced-motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await installAdminMockApi(page, defaultAdminConfig());

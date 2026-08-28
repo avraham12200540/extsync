@@ -98,7 +98,7 @@ export default function AdminUserDetailPage() {
   if (!user) return null;
 
   return (
-    <div className="flex max-w-2xl flex-col gap-6">
+    <div className="mx-auto flex max-w-2xl flex-col gap-6">
       <div>
         <Link href="/admin/users" className="text-sm text-ink-muted underline decoration-line underline-offset-4 hover:text-ink">
           {t("admin.users.backToList")}

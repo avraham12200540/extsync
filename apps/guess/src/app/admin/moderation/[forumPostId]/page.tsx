@@ -192,7 +192,7 @@ export default function AdminModerationDetailPage() {
   if (!post) return null;
 
   return (
-    <div className="flex max-w-3xl flex-col gap-6">
+    <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <div>
         <Link href="/admin/moderation" className="text-sm text-ink-muted underline decoration-line underline-offset-4 hover:text-ink">
           {t("admin.users.backToList")}
