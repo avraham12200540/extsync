@@ -172,7 +172,8 @@ export interface CatalogItem {
   latestVersion?: string | null;
   category?: string | null;
   publishedAt?: string | null;
-  installs?: number;
+  installs?: number;   // registered installs (via the Agent) only
+  downloads?: number;  // every acquisition, incl. the site's ZIP button
   avgRating: number;
   ratingsCount: number;
   myRating?: number | null;
@@ -201,7 +202,8 @@ export interface CatalogDetail {
   privacyPolicyUrl?: string | null;
   extensionId?: string | null;
   category?: string | null;
-  installs?: number;
+  installs?: number;   // registered installs (via the Agent) only
+  downloads?: number;  // every acquisition, incl. the site's ZIP button
   screenshots?: string[];
   channels: CatalogChannelInfo[];
   permissions: string[];

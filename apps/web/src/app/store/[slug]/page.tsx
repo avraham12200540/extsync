@@ -3,8 +3,9 @@ import type { ReactNode } from "react";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Download } from "lucide-react";
+import { Download, MonitorDown } from "lucide-react";
 import { InstallButton } from "@/components/install-button";
+import { DownloadZipLink } from "@/components/download-zip-link";
 import { Markdown } from "@/components/markdown";
 import type { CatalogDetail } from "@/lib/api";
 import { MarketingShell } from "@/components/marketing";
@@ -138,7 +139,8 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
                 {stable && <Badge>{t("detail.version")} {stable.version}</Badge>}
                 {d.category && <Badge>{d.category}</Badge>}
                 {d.usesNativeMessaging && <Badge>{t("detail.autoupdate")}</Badge>}
-                {(d.installs ?? 0) > 0 && <Badge><Download className="me-1 h-3 w-3" /> {d.installs} {t("store.installs")}</Badge>}
+                {(d.downloads ?? 0) > 0 && <Badge><Download className="me-1 h-3 w-3" /> {d.downloads} {t("store.downloads")}</Badge>}
+                {(d.installs ?? 0) > 0 && <Badge><MonitorDown className="me-1 h-3 w-3" /> {d.installs} {t("store.installs")}</Badge>}
               </div>
             </div>
           </div>
@@ -177,10 +179,10 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
               </InstallButton>
             )}
             {stable?.downloadUrl && (
-              <a href={stable.downloadUrl} download
+              <DownloadZipLink href={stable.downloadUrl} slug={d.slug}
                  className="rounded-md border border-line bg-surface-2 px-4 py-2 text-sm font-medium text-ink hover:bg-line">
                 {t("detail.downloadzip")} (v{stable.version})
-              </a>
+              </DownloadZipLink>
             )}
           </div>
           <p className="mt-2 text-xs text-ink-muted">
@@ -208,7 +210,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
                 {d.channels.map((ch) => (
                   <div key={ch.channel} className="flex items-center justify-between">
                     <span className="text-ink">{ch.channel} - v{ch.version} <span className="text-ink-muted">({formatDate(ch.publishedAt)})</span></span>
-                    {ch.downloadUrl && <a href={ch.downloadUrl} download className="text-brand hover:underline">{t("detail.download")}</a>}
+                    {ch.downloadUrl && <DownloadZipLink href={ch.downloadUrl} slug={d.slug} className="text-brand hover:underline">{t("detail.download")}</DownloadZipLink>}
                   </div>
                 ))}
               </div>

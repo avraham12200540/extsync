@@ -50,6 +50,10 @@ class Project(Base, TimestampMixin, SoftDeleteMixin):
     # Whether nightly channel is exposed to end users for switching.
     allow_channel_switch: Mapped[bool] = mapped_column(default=True, nullable=False)
     bridge_mode: Mapped[str] = mapped_column(String(16), default="basic", nullable=False)  # basic|integrated
+    # Times the extension file was actually obtained: the site's ZIP button plus
+    # every Agent acquisition. Deliberately a superset of the installation count -
+    # an install is a real registered install, a download is just a download.
+    download_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False, server_default="0")
 
     # Optimistic locking for sensitive concurrent edits.
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)

@@ -134,6 +134,11 @@ async def register_extension(db: AsyncSession, device: Device, *, token: str,
     installation.extension_id = extension_id or project.extension_id
     installation.status = InstallationStatus.awaiting_manual_load
     installation.last_seen_at = _now()
+    # The Agent just fetched the extension, so this is a download too. Counted
+    # here (registration) and NOT on auto-update, so the store's download number
+    # tracks how many times people GOT the extension rather than growing with
+    # every version push.
+    project.download_count = (project.download_count or 0) + 1
 
     metadata = await _active_metadata(db, project.id, link.channel, device)
     db.add(InstallationEvent(installation_id=installation.id, type="register",

@@ -94,6 +94,7 @@ const he: Dict = {
   "store.by": "מאת",
   "store.norat": "אין דירוגים",
   "store.installs": "התקנות",
+  "store.downloads": "הורדות",
 
   // ---- store detail ----
   "detail.back": "חזרה לגלריה",
@@ -689,6 +690,7 @@ const en: Dict = {
   "store.by": "By",
   "store.norat": "No ratings",
   "store.installs": "installs",
+  "store.downloads": "downloads",
 
   // ---- store detail ----
   "detail.back": "Back to gallery",

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Download } from "lucide-react";
+import { Download, MonitorDown } from "lucide-react";
 import type { CatalogItem } from "@/lib/api";
 import { LogoIcon } from "@/components/logo";
 import { RatingDisplay } from "@/components/stars";
@@ -81,9 +81,14 @@ export function ExtensionCard({ item, delay = 0 }: { item: CatalogItem; delay?: 
           <p className="mt-1.5 truncate text-xs text-ink-muted">{t("store.by")} {item.developerName}</p>
           <div className="mt-2 flex items-center justify-between gap-2">
             <RatingDisplay avg={item.avgRating} count={item.ratingsCount} />
+            {(item.downloads ?? 0) > 0 && (
+              <span className="inline-flex shrink-0 items-center gap-1 text-xs text-ink-muted" title={t("store.downloads")}>
+                <Download className="h-3 w-3" /> {item.downloads} {t("store.downloads")}
+              </span>
+            )}
             {(item.installs ?? 0) > 0 && (
               <span className="inline-flex shrink-0 items-center gap-1 text-xs text-ink-muted" title={t("store.installs")}>
-                <Download className="h-3 w-3" /> {item.installs} {t("store.installs")}
+                <MonitorDown className="h-3 w-3" /> {item.installs} {t("store.installs")}
               </span>
             )}
           </div>

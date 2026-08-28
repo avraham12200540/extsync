@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 from pydantic import Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
@@ -42,7 +42,8 @@ class CatalogItem(CamelModel):
     latest_version: str | None = None
     category: str | None = None
     published_at: str | None = None
-    installs: int = 0
+    installs: int = 0            # registered installs (Agent) only
+    downloads: int = 0          # every acquisition, incl. the site's ZIP button
     avg_rating: float = 0
     ratings_count: int = 0
     my_rating: int | None = None
@@ -75,7 +76,8 @@ class CatalogDetail(CamelModel):
     privacy_policy_url: str | None = None
     extension_id: str | None = None
     category: str | None = None
-    installs: int = 0
+    installs: int = 0            # registered installs (Agent) only
+    downloads: int = 0          # every acquisition, incl. the site's ZIP button
     screenshots: list[str] = []      # promo/preview image URLs, ordered
     channels: list[CatalogChannelInfo] = []
     permissions: list[str] = []
@@ -174,11 +176,38 @@ async def list_catalog(request: Request, db: DBSession, user: OptionalUser, q: s
             extension_id=p.extension_id, latest_version=rel.version if rel else None,
             category=p.category, published_at=_iso(rel.published_at) if rel else None,
             installs=installs.get(p.id, 0),
+            downloads=p.download_count or 0,
             avg_rating=avg, ratings_count=cnt, my_rating=mine.get(p.id),
         ))
     # Ranked purely by active install count (the single ranking metric); ties by name.
     items.sort(key=lambda i: (-(i.installs or 0), i.name))
     return items
+
+
+@router.post("/{slug}/download", response_model=OkResponse)
+async def track_download(slug: str, request: Request, db: DBSession) -> OkResponse:
+    """Count a manual ZIP download from the store page.
+
+    Deliberately public and unauthenticated - downloading needs no account - so it
+    is rate-limited per IP+extension to keep the number honest. The browser starts
+    the real download from the artifact URL independently, so this call is purely
+    advisory and must never be what makes a download fail.
+    """
+    await enforce_rate_limit(f"catalog-dl:{client_ip(request)}:{slug}", limit=10, window_seconds=60)
+    res = await db.execute(
+        update(Project)
+        .where(
+            Project.slug == slug,
+            Project.visibility == ProjectVisibility.public,
+            Project.deleted_at.is_(None),
+            Project.status == ProjectStatus.active,
+        )
+        .values(download_count=Project.download_count + 1)
+    )
+    if res.rowcount == 0:
+        raise not_found("התוסף לא נמצא")
+    await db.commit()
+    return OkResponse()
 
 
 @router.put("/{slug}/rating", response_model=OkResponse)
@@ -311,6 +340,7 @@ async def catalog_detail(slug: str, db: DBSession, user: OptionalUser) -> Catalo
         privacy_policy_url=project.privacy_policy_url, extension_id=project.extension_id,
         category=project.category,
         installs=(await _installs_map(db, [project.id])).get(project.id, 0),
+        downloads=project.download_count or 0,
         screenshots=screenshots,
         channels=channels, permissions=perms,
         host_permissions=host_perms, uses_native_messaging=native, install_uri=install_uri,
