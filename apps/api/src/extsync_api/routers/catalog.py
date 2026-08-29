@@ -20,13 +20,13 @@ from ..models.enums import Channel, InstallationStatus, InstallLinkType, Project
 from ..models.install_link import InstallLink
 from ..models.project import Project, ProjectScreenshot
 from ..models.rating import ProjectRating
-from ..models.release import ChannelState, Release, ReleaseArtifact, ReleasePermissionSnapshot
+from ..models.release import ChannelState, Release, ReleasePermissionSnapshot
 from ..models.user import User
 from ..schemas.common import CamelModel, OkResponse
-from ..storage import storage
 from ..services.ratelimit import client_ip, enforce_rate_limit
 from typing import Annotated
 from fastapi import Depends
+from ..services.artifact_publication import public_artifact, public_download_url
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
 DBSession = Annotated[AsyncSession, Depends(get_session)]
@@ -276,12 +276,10 @@ async def catalog_detail(slug: str, db: DBSession, user: OptionalUser) -> Catalo
         rel = await db.get(Release, state.active_release_id)
         if rel is None or rel.status != ReleaseStatus.published:
             continue
-        artifact = await db.scalar(
-            select(ReleaseArtifact).where(
-                ReleaseArtifact.release_id == rel.id, ReleaseArtifact.kind == "validated"
-            )
-        )
-        download = storage.public_url(artifact.s3_bucket, artifact.s3_key) if artifact else None
+        # Only an APPROVED release has a public artifact, so an unapproved one
+        # simply has no download URL to publish here.
+        artifact = await public_artifact(db, rel.id)
+        download = public_download_url(artifact) if artifact else None
         channels.append(CatalogChannelInfo(
             channel=ch, version=rel.version, release_id=rel.id,
             published_at=_iso(rel.published_at), download_url=download,

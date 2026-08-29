@@ -204,13 +204,19 @@ async def process_validation_job(db: AsyncSession, release_id: str) -> str:
         report["hasBridge"] = True
         report["bridgeInjected"] = True
         release.validation_report = report
+    # The validated build goes to the PRIVATE staging bucket, never straight to
+    # the public one. Validation says "this ZIP is structurally safe", which is
+    # not the same as "an administrator cleared it for distribution" - and until
+    # this file has been approved it must not be retrievable by anyone, even
+    # with its exact object key. Approval is what copies it into the public
+    # bucket (see services/artifact_publication.publish_artifact_public).
     key = artifact_key(release.project_id, release.id)
     await asyncio.to_thread(
-        storage.put_bytes, settings.s3_bucket_artifacts, key, artifact_bytes, "application/zip"
+        storage.put_bytes, settings.s3_bucket_pending, key, artifact_bytes, "application/zip"
     )
     db.add(ReleaseArtifact(
         release_id=release.id, kind="validated",
-        s3_bucket=settings.s3_bucket_artifacts, s3_key=key,
+        s3_bucket=settings.s3_bucket_pending, s3_key=key,
         size=len(artifact_bytes), sha256=artifact_sha,
         file_count=result.file_count,
     ))

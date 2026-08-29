@@ -8,7 +8,8 @@
 #   * only Caddy is exposed to the internet (80/443) with automatic HTTPS;
 #     the API, signing service, DB, Redis and MinIO are on the internal network
 #   * Caddy reverse-proxies  api.<domain> -> api  and  files.<domain> -> minio
-#   * the Next.js frontend is deployed separately on Vercel (not in this file)
+#   * the Next.js frontend runs HERE too (the `web` service), behind the same
+#     Caddy - it is NOT on Vercel, whatever older notes may claim
 # =============================================================================
 name: extsync-prod
 
@@ -25,6 +26,7 @@ x-app-env: &app-env
   S3_SECRET_KEY: ${S3_SECRET_KEY}
   S3_BUCKET_UPLOADS: ${S3_BUCKET_UPLOADS:-extsync-uploads}
   S3_BUCKET_ARTIFACTS: ${S3_BUCKET_ARTIFACTS:-extsync-artifacts}
+  S3_BUCKET_PENDING: ${S3_BUCKET_PENDING:-extsync-pending}
   S3_FORCE_PATH_STYLE: "true"
   JWT_SECRET: ${JWT_SECRET}
   CSRF_SECRET: ${CSRF_SECRET}
@@ -115,8 +117,11 @@ services:
       /bin/sh -c "
       mc alias set local http://minio:9000 ${S3_ACCESS_KEY} ${S3_SECRET_KEY} &&
       mc mb -p local/${S3_BUCKET_UPLOADS:-extsync-uploads} || true;
+      mc mb -p local/${S3_BUCKET_PENDING:-extsync-pending} || true;
       mc mb -p local/${S3_BUCKET_ARTIFACTS:-extsync-artifacts} || true;
       mc anonymous set download local/${S3_BUCKET_ARTIFACTS:-extsync-artifacts} || true;
+      mc anonymous set none local/${S3_BUCKET_PENDING:-extsync-pending} || true;
+      mc anonymous set none local/${S3_BUCKET_UPLOADS:-extsync-uploads} || true;
       echo done;"
 
   signing:

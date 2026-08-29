@@ -13,17 +13,16 @@ from ..models.project import Project
 from ..models.release import (
     ChannelState,
     Release,
-    ReleaseArtifact,
     ReleasePermissionSnapshot,
 )
 from ..models.user import User
-from ..storage import storage
 from ..schemas.install_link import (
     InstallLinkCreate,
     InstallPagePermissions,
     InstallPageResolve,
 )
 from .audit import record_audit
+from .artifact_publication import public_artifact, public_download_url
 
 
 def _iso(value) -> str | None:
@@ -106,16 +105,12 @@ async def resolve_install_link(db: AsyncSession, token: str) -> InstallPageResol
                 uses_native_messaging=snap.uses_native_messaging,
             )
         # Direct ZIP download for manual install (load unpacked) - only on links
-        # that don't require an account; the artifacts bucket is download-public.
+        # that don't require an account, and only for a release an administrator
+        # has approved (an unapproved build has no public artifact at all).
         if not link.requires_account:
-            artifact = await db.scalar(
-                select(ReleaseArtifact).where(
-                    ReleaseArtifact.release_id == rel.id,
-                    ReleaseArtifact.kind == "validated",
-                )
-            )
+            artifact = await public_artifact(db, rel.id)
             if artifact is not None:
-                download_url = storage.public_url(artifact.s3_bucket, artifact.s3_key)
+                download_url = public_download_url(artifact)
 
     return InstallPageResolve(
         token=token,

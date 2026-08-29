@@ -43,7 +43,11 @@ class Settings(BaseSettings):
     s3_access_key: str = "extsync_minio"
     s3_secret_key: str = "extsync_minio_password"
     s3_bucket_uploads: str = "extsync-uploads"
+    # PUBLIC bucket - anonymous download. Only APPROVED artifacts may live here.
     s3_bucket_artifacts: str = "extsync-artifacts"
+    # PRIVATE bucket - validated builds awaiting moderation. Never anonymous.
+    # A pending submission must not be retrievable even with its exact key.
+    s3_bucket_pending: str = "extsync-pending"
     s3_force_path_style: bool = True
 
     # auth / sessions

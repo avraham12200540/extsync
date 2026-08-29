@@ -22,6 +22,7 @@ Create Date: 2026-08-29
 """
 from __future__ import annotations
 
+import sqlalchemy as sa
 from alembic import op
 
 revision: str = "a3f81c26d904"
@@ -31,6 +32,16 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Is this the run that actually introduces the column? The backfill below must
+    # be strictly ONE-SHOT. A time-based guard is not enough: on a re-run, a
+    # genuinely new submission still sitting at 'pending' would also be older than
+    # now() and would get misclassified as legacy - i.e. silently grandfathered.
+    # New releases must NEVER become legacy_pending.
+    first_run = op.get_bind().execute(sa.text(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name = 'releases' AND column_name = 'review_status'"
+    )).scalar() is None
+
     # New rows default to 'pending'; existing rows are corrected below.
     op.execute(
         "ALTER TABLE releases ADD COLUMN IF NOT EXISTS review_status "
@@ -44,13 +55,14 @@ def upgrade() -> None:
     op.execute("ALTER TABLE releases ADD COLUMN IF NOT EXISTS review_reason TEXT")
     op.execute("ALTER TABLE releases ADD COLUMN IF NOT EXISTS review_note TEXT")
 
-    # Everything that exists at migration time predates moderation. Mark it
+    # Everything that existed before this column did predates moderation. Mark it
     # legacy so it enters the review queue instead of being treated as reviewed.
-    # Guarded so a re-run cannot reclassify rows an admin has since decided on.
-    op.execute(
-        "UPDATE releases SET review_status = 'legacy_pending' "
-        "WHERE review_status = 'pending' AND created_at < now()"
-    )
+    # Nothing is silently promoted to 'approved'.
+    if first_run:
+        op.execute(
+            "UPDATE releases SET review_status = 'legacy_pending' "
+            "WHERE review_status = 'pending'"
+        )
 
     op.execute(
         "CREATE INDEX IF NOT EXISTS ix_releases_review_status ON releases (review_status)"

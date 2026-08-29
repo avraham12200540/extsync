@@ -29,6 +29,11 @@ from ..config import settings
 from ..ids import release_id as new_release_id
 from ..storage import storage, upload_key
 from . import signing_client
+from .artifact_publication import (
+    distribution_artifact,
+    public_artifact,
+    public_download_url,
+)
 from .audit import record_audit
 from .events import emit_event, notify_owner
 from .jobs import enqueue_validation
@@ -122,11 +127,11 @@ async def _next_sequence(db: AsyncSession, project_id: str) -> int:
 async def _build_unsigned_metadata(
     db: AsyncSession, project: Project, release: Release, *, rollout: int, rollback: bool,
 ) -> dict:
-    artifact = await db.scalar(
-        select(ReleaseArtifact).where(
-            ReleaseArtifact.release_id == release.id, ReleaseArtifact.kind == "validated"
-        )
-    )
+    # The build may be sitting in PRIVATE staging (awaiting moderation) or already
+    # in public distribution; the bytes are the same, so size/sha256 come from
+    # whichever row exists. The signed URL, however, always names the public
+    # location - see artifact_publication.public_download_url for why.
+    artifact = await distribution_artifact(db, release.id)
     if artifact is None:
         raise APIError(ErrorCode.RELEASE_NOT_READY,
                        "אין artifact מאומת לגרסה הזו", status_code=409)
@@ -139,7 +144,7 @@ async def _build_unsigned_metadata(
         "channel": release.channel.value,
         "minimumAgentVersion": release.minimum_agent_version,
         "artifact": {
-            "url": storage.public_url(artifact.s3_bucket, artifact.s3_key),
+            "url": public_download_url(artifact),
             "size": artifact.size,
             "sha256": artifact.sha256,
         },
@@ -300,12 +305,11 @@ async def rollback_release(db: AsyncSession, project: Project, channel: Channel,
         if target is None:
             raise not_found("אין גרסה קודמת לחזור אליה")
 
-    # Ensure the target still has a validated artifact (signed + intact).
-    artifact = await db.scalar(
-        select(ReleaseArtifact).where(
-            ReleaseArtifact.release_id == target.id, ReleaseArtifact.kind == "validated"
-        )
-    )
+    # The rollback target must still be PUBLICLY approved. Checking the public
+    # copy (not just "some validated artifact exists") is what stops rollback
+    # from resurrecting a version an administrator took down: withdrawing a
+    # release deletes its public artifact, so it stops being a rollback target.
+    artifact = await public_artifact(db, target.id)
     if artifact is None:
         raise APIError(ErrorCode.ROLLBACK_FAILED,
                        "לגרסת היעד אין artifact תקין", status_code=409)
