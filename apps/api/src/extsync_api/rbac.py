@@ -34,6 +34,12 @@ class Permission(StrEnum):
     API_TOKEN_MANAGE = "api_token:manage"
     WEBHOOK_MANAGE = "webhook:manage"
     AUDIT_READ = "audit:read"
+    # ---- STORE MODERATION ----
+    # Reviewing the store is a PLATFORM authority, not a project authority. These
+    # are deliberately excluded from OWNER_PERMISSIONS and from every team role,
+    # so no amount of project ownership can ever grant them (see the note there).
+    MODERATION_REVIEW = "moderation:review"
+    MODERATION_ACT = "moderation:act"
 
 
 # Team role -> permissions on projects owned by that team.
@@ -70,8 +76,22 @@ TEAM_ROLE_PERMISSIONS: dict[TeamRole, set[Permission]] = {
     TeamRole.admin: _TEAM_ADMIN,
 }
 
-# The owner of a personal (non-team) project has the full project authority set.
-OWNER_PERMISSIONS: set[Permission] = set(Permission)
+# Permissions that are PLATFORM authority and must never be reachable through
+# owning or being on a project. Adding a permission here is what keeps it out of
+# OWNER_PERMISSIONS and every TeamRole below.
+PLATFORM_ONLY_PERMISSIONS: frozenset[Permission] = frozenset({
+    Permission.MODERATION_REVIEW,
+    Permission.MODERATION_ACT,
+})
+
+# The owner of a personal (non-team) project has the full PROJECT authority set.
+#
+# This used to be `set(Permission)`, which silently meant "every permission that
+# will ever exist" - so the moment store moderation was added, every project
+# owner would have been able to approve their own submissions. It is now derived
+# from the highest project role and explicitly minus the platform-only set, so a
+# future permission cannot leak to owners by default.
+OWNER_PERMISSIONS: set[Permission] = set(_TEAM_ADMIN) - set(PLATFORM_ONLY_PERMISSIONS)
 
 ALL_PERMISSIONS: set[Permission] = set(Permission)
 
@@ -101,6 +121,13 @@ def effective_project_permissions(
     if team_role is not None:
         perms |= TEAM_ROLE_PERMISSIONS.get(team_role, set())
     return perms
+
+
+def can_moderate(perms: set[Permission]) -> bool:
+    """True only for real site administrators. Project authority never satisfies
+    this: the moderation permissions are excluded from OWNER_PERMISSIONS and from
+    every team role, and are granted only via global_permissions(platform_admin)."""
+    return Permission.MODERATION_ACT in perms
 
 
 def can_publish_to_channel(perms: set[Permission], channel: str) -> bool:

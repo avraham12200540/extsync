@@ -13,6 +13,27 @@ class UserRole(StrEnum):
     platform_admin = "platform_admin"
 
 
+class ReviewStatus(StrEnum):
+    """Store moderation state of a release.
+
+    Deliberately ORTHOGONAL to ReleaseStatus: ReleaseStatus keeps describing the
+    delivery lifecycle (uploaded -> ready -> published -> superseded ...), while
+    this says whether a human administrator has cleared the release for public
+    distribution. A release is only publicly available when BOTH agree - see
+    services/availability.py, which is the single authority on that question.
+    """
+
+    # Submitted and waiting for an administrator. The default for everything new.
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+    changes_requested = "changes_requested"
+    # Published BEFORE moderation existed. Stays live so the store does not go
+    # dark, but is NOT treated as reviewed - it sits in the legacy review queue
+    # until an administrator makes a real decision about it.
+    legacy_pending = "legacy_pending"
+
+
 class TeamRole(StrEnum):
     viewer = "viewer"
     developer = "developer"

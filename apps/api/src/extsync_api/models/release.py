@@ -17,7 +17,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from ..db import Base
 from ..ids import artifact_id, generic_id, release_id
 from .base import TimestampMixin, pg_enum
-from .enums import Channel, ReleaseStatus
+from .enums import Channel, ReleaseStatus, ReviewStatus
 
 
 class Release(Base, TimestampMixin):
@@ -62,6 +62,22 @@ class Release(Base, TimestampMixin):
     signed_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     signature: Mapped[str | None] = mapped_column(Text, nullable=True)
     key_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    # ---- store moderation (orthogonal to `status`; see ReviewStatus) ----
+    review_status: Mapped[ReviewStatus] = mapped_column(
+        pg_enum(ReviewStatus, "release_review_status"),
+        default=ReviewStatus.pending,
+        nullable=False,
+        index=True,
+    )
+    reviewed_by_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_at: Mapped[dt.datetime | None] = mapped_column(nullable=True)
+    # Shown to the developer (rejection / changes-requested explanation).
+    review_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Never shown to the developer - administrator's private note.
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     scheduled_at: Mapped[dt.datetime | None] = mapped_column(nullable=True)
     published_at: Mapped[dt.datetime | None] = mapped_column(nullable=True)
