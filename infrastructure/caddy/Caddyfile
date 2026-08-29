@@ -1,7 +1,18 @@
 # Caddy reverse proxy with automatic HTTPS (Let's Encrypt).
 # DOMAIN is provided via the environment (see docker-compose.prod.yml).
-# Point these DNS A-records at the VPS:  api.<domain>  and  files.<domain>.
-# (The website itself is served by Vercel at <domain>/www — not here.)
+# Point these DNS A-records at the VPS:  <domain>, api.<domain>, files.<domain>.
+#
+# SCOPE OF THIS FILE
+# This is the ExtSync-only reference routing: what you need to reproduce ExtSync
+# itself (website + API + artifact downloads) on a fresh host.
+#
+# The LIVE production host also serves several unrelated projects from the same
+# Caddy instance, so its real Caddyfile is a superset of this one. The full,
+# authoritative production routing is kept in the PRIVATE `extsync-ops` repo
+# (infrastructure/caddy/Caddyfile.production) - it is not published here because
+# it maps out internal hosts and services that are none of this repo's business.
+# If you are changing production routing, that private copy is the source of
+# truth; this file is the application-level reference.
 
 # Shared hardening headers for every response Caddy serves.
 (security_headers) {
@@ -18,6 +29,13 @@
 	}
 }
 
+# The website (Next.js standalone container, see the `web` service in
+# docker-compose.prod.yml). It is served from this droplet - NOT from Vercel.
+{$DOMAIN} {
+	encode gzip zstd
+	reverse_proxy web:3000
+}
+
 # API
 api.{$DOMAIN} {
 	import security_headers
@@ -32,8 +50,7 @@ api.{$DOMAIN} {
 	reverse_proxy api:8000
 }
 
-# Public artifact downloads (MinIO, artifacts bucket is anonymous-download).
-# Used both by the Agent and by the "manual download" button in the store.
+# Artifact downloads (MinIO). Used by the Agent and by the "download ZIP" button.
 files.{$DOMAIN} {
 	import security_headers
 	encode gzip
@@ -45,5 +62,16 @@ files.{$DOMAIN} {
 	# programmatically so this header is a no-op for it.
 	@zip path *.zip
 	header @zip Content-Disposition attachment
+	# Access log for artifact downloads, so raw downloads are auditable at the edge
+	# and not only through the app-level counter. Rotation is bounded on purpose so
+	# the log can never grow into a disk-space incident.
+	log {
+		output file /data/logs/files-access.log {
+			roll_size 10mb
+			roll_keep 5
+			roll_keep_for 2160h
+		}
+		format json
+	}
 	reverse_proxy minio:9000
 }
