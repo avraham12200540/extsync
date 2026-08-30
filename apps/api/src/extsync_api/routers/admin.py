@@ -50,7 +50,7 @@ async def suspend_user(user_id: str, req: SuspendRequest, admin: AdminUser, db: 
     if user is None:
         raise not_found("המשתמש לא נמצא")
     user.is_suspended = True
-    await record_audit(db, action="admin.user_suspend", actor_user_id=admin.id, actor_type="admin",
+    await record_audit(db, action="admin.user_suspend", actor=admin, actor_type="admin",
                        target_type="user", target_id=user_id, extra={"reason": req.reason})
     return OkResponse()
 
@@ -74,7 +74,7 @@ async def suspend_project(project_id: str, req: SuspendRequest, admin: AdminUser
     if project is None:
         raise not_found("הפרויקט לא נמצא")
     project.status = ProjectStatus.suspended
-    await record_audit(db, action="admin.project_suspend", actor_user_id=admin.id, actor_type="admin",
+    await record_audit(db, action="admin.project_suspend", actor=admin, actor_type="admin",
                        target_type="project", target_id=project_id, project_id=project_id,
                        extra={"reason": req.reason})
     return OkResponse()
@@ -100,7 +100,7 @@ async def revoke_release(release_id: str, req: SuspendRequest, admin: AdminUser,
         raise not_found("הגרסה לא נמצאה")
     release.status = ReleaseStatus.revoked
     release.revoked_reason = req.reason
-    await record_audit(db, action="admin.release_revoke", actor_user_id=admin.id, actor_type="admin",
+    await record_audit(db, action="admin.release_revoke", actor=admin, actor_type="admin",
                        target_type="release", target_id=release_id, project_id=release.project_id,
                        extra={"reason": req.reason})
     return OkResponse()
@@ -138,7 +138,7 @@ async def publish_agent_version(req: AgentVersionCreate, admin: AdminUser, db: D
             ch = AgentUpdateChannel(channel=req.channel)
             db.add(ch)
         ch.active_version_id = av.id
-    await record_audit(db, action="admin.agent_version_publish", actor_user_id=admin.id,
+    await record_audit(db, action="admin.agent_version_publish", actor=admin,
                        actor_type="admin", target_type="agent_version", target_id=av.id,
                        extra={"version": req.version, "channel": req.channel})
     return OkResponse()
@@ -193,7 +193,7 @@ async def register_agent_version(req: AgentVersionRegister, admin: AdminUser, db
             ch = AgentUpdateChannel(channel=req.channel)
             db.add(ch)
         ch.active_version_id = av.id
-    await record_audit(db, action="admin.agent_version_register", actor_user_id=admin.id,
+    await record_audit(db, action="admin.agent_version_register", actor=admin,
                        actor_type="admin", target_type="agent_version", target_id=av.id,
                        extra={"version": req.version, "channel": req.channel, "sha256": sha})
     return OkResponse()

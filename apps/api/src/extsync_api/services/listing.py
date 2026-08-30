@@ -135,20 +135,32 @@ async def mark_listing_dirty(db: AsyncSession, project: Project) -> bool:
     return True
 
 
+def _stamp_reviewer(project: Project, admin: User) -> None:
+    """Who decided, in a form that survives the account being deleted.
+
+    listing_reviewed_by_user_id is ON DELETE SET NULL, so it alone stops
+    identifying anyone once the reviewer's account is gone. The snapshot columns
+    are written once, here, and never updated afterwards.
+    """
+    project.listing_reviewed_by_user_id = admin.id
+    project.listing_reviewed_by_email_snapshot = admin.email
+    project.listing_reviewed_by_name_snapshot = admin.display_name or None
+    project.listing_reviewed_at = dt.datetime.now(dt.timezone.utc)
+
+
 async def approve_listing(db: AsyncSession, project: Project, *,
-                          admin_user_id: str, reason: str | None = None) -> dict[str, Any]:
+                          admin: User, reason: str | None = None) -> dict[str, Any]:
     """Accept the developer's current listing as the public one."""
     snapshot = await build_snapshot(db, project)
     project.approved_listing = snapshot
     project.listing_review_status = ReviewStatus.approved
-    project.listing_reviewed_by_user_id = admin_user_id
-    project.listing_reviewed_at = dt.datetime.now(dt.timezone.utc)
+    _stamp_reviewer(project, admin)
     project.listing_review_reason = reason
     return snapshot
 
 
 async def reject_listing(db: AsyncSession, project: Project, *,
-                         admin_user_id: str, reason: str) -> None:
+                         admin: User, reason: str) -> None:
     """Refuse the developer's edits.
 
     The snapshot is left untouched, so the store keeps showing the last approved
@@ -157,8 +169,7 @@ async def reject_listing(db: AsyncSession, project: Project, *,
     what was refused and fix it.
     """
     project.listing_review_status = ReviewStatus.rejected
-    project.listing_reviewed_by_user_id = admin_user_id
-    project.listing_reviewed_at = dt.datetime.now(dt.timezone.utc)
+    _stamp_reviewer(project, admin)
     project.listing_review_reason = reason
 
 

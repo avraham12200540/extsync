@@ -60,6 +60,11 @@ def _stamp(release: Release, admin: User, status: ReviewStatus,
     """
     release.review_status = status
     release.reviewed_by_user_id = admin.id
+    # Snapshot the reviewer as they are right now. The FK is ON DELETE SET NULL,
+    # so without this the record of who cleared a release disappears the moment
+    # that account does - which for a compliance decision is exactly backwards.
+    release.reviewed_by_email_snapshot = admin.email
+    release.reviewed_by_name_snapshot = admin.display_name or None
     release.reviewed_at = _now()
     release.review_reason = reason
     if note is not None:
@@ -180,9 +185,9 @@ async def approve_release(db: AsyncSession, project: Project, release: Release, 
     if release.review_status == ReviewStatus.approved and project.listing_review_status in (
         ReviewStatus.pending, ReviewStatus.legacy_pending,
     ):
-        await approve_listing(db, project, admin_user_id=admin.id)
+        await approve_listing(db, project, admin=admin)
 
-    await record_audit(db, action="moderation.approve", actor_user_id=admin.id,
+    await record_audit(db, action="moderation.approve", actor=admin,
                        target_type="release", target_id=release.id, project_id=project.id,
                        ip_address=ip, extra={"version": release.version,
                                              "channel": release.channel.value})
@@ -212,7 +217,7 @@ async def reject_release(db: AsyncSession, project: Project, release: Release, *
     release.status = ReleaseStatus.revoked
     release.revoked_reason = reason
 
-    await record_audit(db, action="moderation.reject", actor_user_id=admin.id,
+    await record_audit(db, action="moderation.reject", actor=admin,
                        target_type="release", target_id=release.id, project_id=project.id,
                        ip_address=ip, extra={"version": release.version,
                                              "channel": release.channel.value,
@@ -241,7 +246,7 @@ async def request_changes(db: AsyncSession, project: Project, release: Release, 
     _stamp(release, admin, ReviewStatus.changes_requested, reason, note)
     promoted = await _take_down(db, project, release)
 
-    await record_audit(db, action="moderation.request_changes", actor_user_id=admin.id,
+    await record_audit(db, action="moderation.request_changes", actor=admin,
                        target_type="release", target_id=release.id, project_id=project.id,
                        ip_address=ip, extra={"version": release.version,
                                              "channel": release.channel.value,
@@ -275,7 +280,7 @@ async def unpublish_release(db: AsyncSession, project: Project, release: Release
     release.status = ReleaseStatus.revoked
     release.revoked_reason = reason
 
-    await record_audit(db, action="moderation.unpublish", actor_user_id=admin.id,
+    await record_audit(db, action="moderation.unpublish", actor=admin,
                        target_type="release", target_id=release.id, project_id=project.id,
                        ip_address=ip, extra={"version": release.version,
                                              "channel": release.channel.value,

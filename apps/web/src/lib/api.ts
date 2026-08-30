@@ -305,12 +305,67 @@ export interface ModerationAuditEntry {
   action: string;
   at?: string | null;
   adminEmail?: string | null;
+  adminName?: string | null;
+  /** "snapshot" means the acting account has since been deleted and this is the
+   *  immutable identity recorded at the time. */
+  adminIdentitySource?: "live" | "snapshot" | null;
   projectName?: string | null;
   projectSlug?: string | null;
   targetType?: string | null;
   targetId?: string | null;
   ip?: string | null;
   extra?: Record<string, unknown>;
+}
+
+/** A reviewed decision that has NOT been executed. Inert until an administrator
+ *  applies it: preparing changes nothing the public can see. */
+export interface PreparedDecision {
+  id: string;
+  batch: string;
+  releaseId: string;
+  projectId: string;
+  extension?: string | null;
+  slug?: string | null;
+  version?: string | null;
+  channel?: string | null;
+  currentReviewStatus?: string | null;
+  listingReviewStatus?: string | null;
+  decision: PreparedVerdict;
+  listingDecision?: string | null;
+  developerReason?: string | null;
+  internalNote?: string | null;
+  /** The build the reviewer actually read. */
+  reviewedSha256?: string | null;
+  /** The build that would ship right now. */
+  currentSha256?: string | null;
+  /** "changed" means the decision is about code nobody reviewed. */
+  checksum: "match" | "changed" | "unknown";
+  state: "prepared" | "applied" | "failed" | "skipped";
+  appliedAt?: string | null;
+  appliedByEmail?: string | null;
+  resultMessage?: string | null;
+  /** Non-null when this row must not be executed, and why. */
+  blockedReason?: string | null;
+}
+
+export type PreparedVerdict =
+  | "approve" | "approve_with_note" | "request_changes"
+  | "unpublish" | "needs_human_review";
+
+export interface ApplyPreparedResult {
+  applied: number;
+  skipped: number;
+  failed: number;
+  appliedBy: string;
+  items: {
+    id: string;
+    releaseId: string;
+    slug: string;
+    decision: string;
+    state: "applied" | "skipped" | "failed";
+    ok: boolean;
+    message: string;
+  }[];
 }
 
 export interface ModerationCounts {

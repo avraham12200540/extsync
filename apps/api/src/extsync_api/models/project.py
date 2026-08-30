@@ -81,6 +81,15 @@ class Project(Base, TimestampMixin, SoftDeleteMixin):
     listing_reviewed_by_user_id: Mapped[str | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # Durable reviewer identity for the listing decision, for the same reason as
+    # Release.reviewed_by_email_snapshot: the FK above goes NULL if the account
+    # is ever deleted, and the compliance record has to outlive the account.
+    listing_reviewed_by_email_snapshot: Mapped[str | None] = mapped_column(
+        String(320), nullable=True
+    )
+    listing_reviewed_by_name_snapshot: Mapped[str | None] = mapped_column(
+        String(120), nullable=True
+    )
     listing_reviewed_at: Mapped[dt.datetime | None] = mapped_column(nullable=True)
     listing_review_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 

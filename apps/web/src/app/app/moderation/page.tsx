@@ -148,6 +148,11 @@ export default function ModerationPage() {
         icon={<ShieldCheck className="h-5 w-5" />}
         title={t("mod.title")}
         subtitle={t("mod.subtitle")}
+        action={
+          <Link href="/app/moderation/prepared">
+            <Button variant="secondary" size="sm">{t("mod.prep.title")}</Button>
+          </Link>
+        }
       />
 
       {/* Emergency control. Prominent when ON, because someone arriving at

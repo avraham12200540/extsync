@@ -36,6 +36,9 @@ ACTIONS = [
     # Closing or reopening the entire store is the single most consequential
     # button in the product.
     ("/admin/moderation/safe-mode", {"enabled": True}),
+    # The batch form is a convenience, not a second authority: it must sit
+    # behind exactly the same gate as clicking the decisions one at a time.
+    ("/admin/moderation/prepared/apply", {"ids": ["prep_x"]}),
 ]
 READS = [
     "/admin/moderation/counts",
@@ -49,6 +52,9 @@ READS = [
     # findings, so reading it is as privileged as acting on it.
     "/admin/moderation/triage",
     "/admin/moderation/progress",
+    # The prepared queue carries internal reviewer notes about other people's
+    # extensions, so reading it is privileged too.
+    "/admin/moderation/prepared",
 ]
 
 

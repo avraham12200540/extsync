@@ -27,6 +27,7 @@ from .extension_feedback import ExtensionFeedback
 from .install_link import InstallLink
 from .likes_quota import LikesQuotaDaily, LikesQuotaEvent, LikesQuotaState
 from .platform_flag import STORE_SAFE_MODE, PlatformFlag
+from .prepared_moderation import PreparedDecision
 from .notification import Notification
 from .project import Project, ProjectKey
 from .rating import ProjectRating
@@ -62,6 +63,7 @@ __all__ = [
     "LikesQuotaEvent",
     "LikesQuotaState",
     "PlatformFlag",
+    "PreparedDecision",
     "STORE_SAFE_MODE",
     "Notification",
     "PasswordReset",

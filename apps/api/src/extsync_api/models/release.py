@@ -73,6 +73,12 @@ class Release(Base, TimestampMixin):
     reviewed_by_user_id: Mapped[str | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # The reviewer's identity as it was at the moment of the decision. The FK
+    # above is ON DELETE SET NULL, so it alone cannot answer "who cleared this
+    # release" once the account is gone - and for a compliance record that
+    # question has to stay answerable. Written by moderation._stamp only.
+    reviewed_by_email_snapshot: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    reviewed_by_name_snapshot: Mapped[str | None] = mapped_column(String(120), nullable=True)
     reviewed_at: Mapped[dt.datetime | None] = mapped_column(nullable=True)
     # Shown to the developer (rejection / changes-requested explanation).
     review_reason: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -33,6 +33,7 @@ from ..models.user import User
 from ..schemas.common import CamelModel
 from ..storage import storage
 from ..services import moderation as svc
+from ..services import prepared_moderation as prepared
 from ..services.artifact_publication import public_artifact, staged_artifact
 from ..services.audit import record_audit
 from ..services.events import notify_owner
@@ -138,6 +139,29 @@ async def _load(db, release_id: str) -> tuple[Project, Release]:
     if project is None:
         raise not_found("הפרויקט לא נמצא")
     return project, release
+
+
+def _reviewer_identity(reviewer: User | None, email_snapshot: str | None,
+                       name_snapshot: str | None) -> dict:
+    """Who reviewed this, preferring the live account and falling back to the
+    snapshot taken when the decision was made.
+
+    The live user is preferred so a changed email or display name shows as it is
+    now. The snapshot is what remains after the account is deleted, and saying
+    WHICH of the two answered is part of the record: "snapshot" means the
+    reviewer's account no longer exists, and a reader of the audit trail should
+    be able to see that rather than guess it.
+    """
+    if reviewer is not None:
+        return {"reviewedByEmail": reviewer.email,
+                "reviewedByName": reviewer.display_name or None,
+                "reviewedByIdentitySource": "live"}
+    if email_snapshot or name_snapshot:
+        return {"reviewedByEmail": email_snapshot,
+                "reviewedByName": name_snapshot,
+                "reviewedByIdentitySource": "snapshot"}
+    return {"reviewedByEmail": None, "reviewedByName": None,
+            "reviewedByIdentitySource": None}
 
 
 async def _live_release_ids(db) -> set[str]:
@@ -308,7 +332,8 @@ async def review_detail(release_id: str, _: AdminUser, db: DBSession) -> dict:
             "reason": release.review_reason,      # developer-facing
             "note": release.review_note,          # INTERNAL - admin API only
             "reviewedAt": _iso(release.reviewed_at),
-            "reviewedByEmail": reviewer.email if reviewer else None,
+            **_reviewer_identity(reviewer, release.reviewed_by_email_snapshot,
+                                 release.reviewed_by_name_snapshot),
         },
         "project": {
             "id": project.id, "name": project.name, "slug": project.slug,
@@ -454,8 +479,8 @@ async def approve_listing_route(project_id: str, req: ModerationDecision, admin:
     project = await db.get(Project, project_id)
     if project is None or project.deleted_at is not None:
         raise not_found("הפרויקט לא נמצא")
-    await approve_listing(db, project, admin_user_id=admin.id, reason=req.reason)
-    await record_audit(db, action="moderation.listing_approve", actor_user_id=admin.id,
+    await approve_listing(db, project, admin=admin, reason=req.reason)
+    await record_audit(db, action="moderation.listing_approve", actor=admin,
                        target_type="project", target_id=project.id, project_id=project.id,
                        ip_address=client_ip(request))
     await db.commit()
@@ -473,8 +498,8 @@ async def reject_listing_route(project_id: str, req: RequiredReasonDecision, adm
     project = await db.get(Project, project_id)
     if project is None or project.deleted_at is not None:
         raise not_found("הפרויקט לא נמצא")
-    await reject_listing(db, project, admin_user_id=admin.id, reason=req.reason)
-    await record_audit(db, action="moderation.listing_reject", actor_user_id=admin.id,
+    await reject_listing(db, project, admin=admin, reason=req.reason)
+    await record_audit(db, action="moderation.listing_reject", actor=admin,
                        target_type="project", target_id=project.id, project_id=project.id,
                        ip_address=client_ip(request), extra={"reason": req.reason})
     await notify_owner(db, project.id, NotificationKind.release_changes_requested,
@@ -523,11 +548,76 @@ async def set_safe_mode_route(req: SafeModeRequest, admin: AdminUser,
     await record_audit(
         db,
         action="moderation.safe_mode_on" if req.enabled else "moderation.safe_mode_off",
-        actor_user_id=admin.id, target_type="platform", target_id=STORE_SAFE_MODE,
+        actor=admin, target_type="platform", target_id=STORE_SAFE_MODE,
         ip_address=client_ip(request), extra={"reason": req.reason},
     )
     await db.commit()
     return {"ok": True, "enabled": req.enabled}
+
+
+# ------------------------------------------------- prepared decisions (batch)
+class ApplyPreparedRequest(CamelModel):
+    """Which prepared decisions to run.
+
+    Note what is NOT in this model: the action, the release, the reason. Those
+    all come from the stored row, so there is no field a client could tamper
+    with to turn a prepared approval into a takedown. `ids` is an allowlist -
+    omitting an id excludes it, which is how the UI's exclusions work.
+    """
+
+    ids: list[str] = Field(min_length=1, max_length=500)
+
+
+@router.get("/prepared")
+async def prepared_queue(_: AdminUser, db: DBSession,
+                         batch: str | None = None) -> list[dict]:
+    """Reviewed decisions waiting for an administrator to apply them.
+
+    Read-only, and applying nothing: this is the preview an administrator reads
+    before authorising anything. Every row carries the checksum the review was
+    based on next to the checksum of the build that is live now, so a decision
+    made about code that has since changed is visible as such rather than
+    silently applied.
+    """
+    return await prepared.preview(db, batch=batch)
+
+
+@router.post("/prepared/apply")
+async def apply_prepared(req: ApplyPreparedRequest, admin: AdminUser,
+                         db: DBSession, request: Request) -> dict:
+    """Execute the selected prepared decisions as the authenticated administrator.
+
+    This is the ONLY way a prepared decision becomes real, and it requires a
+    platform_admin session like every other moderation action - the batch form
+    is a convenience, not a second authority. Each underlying decision is still
+    recorded as its own moderation event with its own audit row naming this
+    administrator, so the trail is identical to having clicked them one by one.
+    """
+    result = await prepared.apply_batch(db, admin=admin, ids=req.ids,
+                                        ip=client_ip(request))
+    # One audit row for the batch itself, in addition to the per-decision rows
+    # the moderation service writes. Reading the log later, "who ran this batch
+    # and what did it touch" is a question worth being able to answer directly.
+    await record_audit(
+        db, action="moderation.batch_apply", actor=admin,
+        target_type="prepared_batch", target_id=None,
+        ip_address=client_ip(request),
+        extra={"requested": len(req.ids), "applied": result.applied,
+               "skipped": result.skipped, "failed": result.failed},
+    )
+    await db.commit()
+    return {
+        "applied": result.applied,
+        "skipped": result.skipped,
+        "failed": result.failed,
+        "appliedBy": admin.email,
+        "items": [
+            {"id": i.prepared_id, "releaseId": i.release_id, "slug": i.project_slug,
+             "decision": i.decision, "state": i.state, "ok": i.ok,
+             "message": i.message}
+            for i in result.items
+        ],
+    }
 
 
 # --------------------------------------------------------------- audit trail
@@ -554,7 +644,16 @@ async def moderation_audit(_: AdminUser, db: DBSession, limit: int = 100,
             "id": ev.id,
             "action": ev.action,
             "at": _iso(ev.created_at),
-            "adminEmail": email,
+            # Live account first; the snapshot is what is left once the actor's
+            # account is deleted, and `adminIdentitySource` says which one this
+            # is so a deleted reviewer reads as "deleted", not as "unknown".
+            "adminEmail": email or ev.actor_email_snapshot,
+            "adminName": ev.actor_display_name_snapshot if email is None else None,
+            "adminIdentitySource": (
+                "live" if email
+                else "snapshot" if ev.actor_email_snapshot
+                else None
+            ),
             "projectName": pname,
             "projectSlug": pslug,
             "targetType": ev.target_type,

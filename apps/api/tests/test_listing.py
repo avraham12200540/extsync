@@ -11,8 +11,14 @@ import asyncio
 
 import pytest
 
-from extsync_api.models.enums import ProjectStatus, ProjectVisibility, ReviewStatus
+from extsync_api.models.enums import (
+    ProjectStatus,
+    ProjectVisibility,
+    ReviewStatus,
+    UserRole,
+)
 from extsync_api.models.project import Project, ProjectScreenshot
+from extsync_api.models.user import User
 from extsync_api.services.listing import (
     LISTING_FIELDS,
     approve_listing,
@@ -22,6 +28,12 @@ from extsync_api.services.listing import (
     mark_listing_dirty,
     reject_listing,
 )
+
+
+# The reviewer is passed as the User rather than an id so the durable identity
+# snapshot can be taken from it - see Project.listing_reviewed_by_email_snapshot.
+ADMIN = User(id="admin_1", email="admin@extsync.test", display_name="Admin",
+             role=UserRole.platform_admin, password_hash="x")
 
 
 def _project(**over) -> Project:
@@ -84,7 +96,7 @@ def test_public_sees_the_approved_snapshot_not_the_latest_edit():
     """The core of it. Approve, then rename - the store must not follow."""
     project = _project()
     db = _FakeDB()
-    run(approve_listing(db, project, admin_user_id="admin_1"))
+    run(approve_listing(db, project, admin=ADMIN))
 
     project.name = "Something Completely Different"
     project.short_description = "and a different description"
@@ -115,7 +127,7 @@ def test_snapshot_captures_every_public_field():
 def test_editing_an_approved_listing_sends_it_back_for_review():
     project = _project()
     db = _FakeDB()
-    run(approve_listing(db, project, admin_user_id="admin_1"))
+    run(approve_listing(db, project, admin=ADMIN))
     assert project.listing_review_status == ReviewStatus.approved
 
     project.name = "Renamed"
@@ -126,7 +138,7 @@ def test_editing_an_approved_listing_sends_it_back_for_review():
 def test_a_save_that_changes_nothing_does_not_queue_work():
     project = _project()
     db = _FakeDB()
-    run(approve_listing(db, project, admin_user_id="admin_1"))
+    run(approve_listing(db, project, admin=ADMIN))
     assert run(mark_listing_dirty(db, project)) is False
     assert project.listing_review_status == ReviewStatus.approved
 
@@ -134,7 +146,7 @@ def test_a_save_that_changes_nothing_does_not_queue_work():
 def test_restoring_the_approved_text_clears_the_difference():
     project = _project()
     db = _FakeDB()
-    run(approve_listing(db, project, admin_user_id="admin_1"))
+    run(approve_listing(db, project, admin=ADMIN))
     project.name = "Renamed"
     assert run(mark_listing_dirty(db, project)) is True
     project.name = "Original Name"
@@ -145,7 +157,7 @@ def test_restoring_the_approved_text_clears_the_difference():
 def test_changing_screenshots_counts_as_a_listing_change():
     project = _project()
     db = _FakeDB(["https://x/1.png"])
-    run(approve_listing(db, project, admin_user_id="admin_1"))
+    run(approve_listing(db, project, admin=ADMIN))
     db.screenshots = ["https://x/1.png", "https://x/2.png"]
     assert run(mark_listing_dirty(db, project)) is True
 
@@ -165,7 +177,7 @@ def test_approving_captures_the_developers_current_text():
     project = _project()
     db = _FakeDB()
     project.name = "New Name"
-    run(approve_listing(db, project, admin_user_id="admin_1"))
+    run(approve_listing(db, project, admin=ADMIN))
     assert project.approved_listing["name"] == "New Name"
     assert project.listing_reviewed_by_user_id == "admin_1"
     assert project.listing_reviewed_at is not None
@@ -175,12 +187,12 @@ def test_rejecting_leaves_the_public_listing_untouched():
     """A refused edit must have no public effect at all."""
     project = _project()
     db = _FakeDB()
-    run(approve_listing(db, project, admin_user_id="admin_1"))
+    run(approve_listing(db, project, admin=ADMIN))
     approved_before = dict(project.approved_listing)
 
     project.name = "Prohibited Name"
     run(mark_listing_dirty(db, project))
-    run(reject_listing(db, project, admin_user_id="admin_1", reason="not allowed"))
+    run(reject_listing(db, project, admin=ADMIN, reason="not allowed"))
 
     assert project.approved_listing == approved_before
     assert project.listing_review_status == ReviewStatus.rejected
@@ -196,7 +208,7 @@ def test_every_public_field_is_diffed(field):
     the store."""
     project = _project()
     db = _FakeDB()
-    run(approve_listing(db, project, admin_user_id="admin_1"))
+    run(approve_listing(db, project, admin=ADMIN))
     setattr(project, field, "changed-value")
     assert listing_differs(project, project.approved_listing, []) is True, field
 
@@ -208,7 +220,7 @@ def test_developer_name_is_part_of_the_approved_listing():
     as "by <name>" on every store page, so it has to be snapshotted too."""
     project = _project()
     db = _FakeDB(developer_name="Honest Dev")
-    run(approve_listing(db, project, admin_user_id="admin_1"))
+    run(approve_listing(db, project, admin=ADMIN))
     assert project.approved_listing["developer_name"] == "Honest Dev"
 
     db.developer_name = "Something Else Entirely"
@@ -218,7 +230,7 @@ def test_developer_name_is_part_of_the_approved_listing():
 def test_renaming_yourself_sends_the_listing_back_for_review():
     project = _project()
     db = _FakeDB(developer_name="Honest Dev")
-    run(approve_listing(db, project, admin_user_id="admin_1"))
+    run(approve_listing(db, project, admin=ADMIN))
     db.developer_name = "Prohibited Name"
     assert run(mark_listing_dirty(db, project)) is True
     assert project.listing_review_status == ReviewStatus.pending
