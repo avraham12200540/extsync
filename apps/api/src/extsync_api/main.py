@@ -128,6 +128,7 @@ def _register_optional_routers(app: FastAPI) -> None:
         "likes_quota",
         "me_extensions",
         "feedback",
+        "savebridge",
     ]
     import importlib
 

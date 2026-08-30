@@ -12,6 +12,11 @@ _DEV_SECRET_DEFAULTS = {
     "jwt_secret": "dev-insecure-change-me",
     "signing_internal_token": "dev-internal-token",
     "csrf_secret": "dev-insecure-csrf-change-me",
+    # Peppers/keys for the SaveBridge client-credential system. A weak or empty
+    # pepper would make a stolen credentials table directly usable, so these are
+    # fail-closed in production like every other secret here.
+    "savebridge_credential_pepper": "dev-insecure-savebridge-pepper",
+    "savebridge_internal_key": "dev-insecure-savebridge-internal",
 }
 
 
@@ -63,6 +68,14 @@ class Settings(BaseSettings):
     # value ONLY together with re-encrypting existing ciphertext, or stored
     # secrets become undecryptable.
     encryption_key: str = ""
+
+    # ---- SaveBridge client credentials ----
+    # Pepper for the credential MAC. Rotating it invalidates EVERY issued
+    # credential, public and private, so treat it as permanent.
+    savebridge_credential_pepper: str = "dev-insecure-savebridge-pepper"
+    # Shared secret the SaveBridge relay presents when asking this API to
+    # authenticate a client credential. Relay -> API only; never sent to a browser.
+    savebridge_internal_key: str = "dev-insecure-savebridge-internal"
 
     argon2_time_cost: int = 3
     argon2_memory_cost_kib: int = 65_536

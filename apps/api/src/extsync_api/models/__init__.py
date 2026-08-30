@@ -31,6 +31,7 @@ from .prepared_moderation import PreparedDecision
 from .notification import Notification
 from .project import Project, ProjectKey
 from .rating import ProjectRating
+from .savebridge_credential import SaveBridgeCredential
 from .release import (
     ChannelAssignment,
     ChannelState,
@@ -74,6 +75,7 @@ __all__ = [
     "ReleaseArtifact",
     "ReleasePermissionSnapshot",
     "RolloutAssignment",
+    "SaveBridgeCredential",
     "SecurityEvent",
     "Team",
     "TeamMember",
