@@ -27,6 +27,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import settings
+from ..errors import APIError, ErrorCode
 from ..logging import get_logger
 from ..models.release import Release, ReleaseArtifact
 from ..storage import storage
@@ -149,27 +150,41 @@ async def withdraw_artifact_public(db: AsyncSession, release: Release) -> bool:
     if pub is None:
         return False
 
-    # Make sure we can still inspect/re-publish later: if this release only ever
-    # existed in the public bucket (a legacy release), copy it into private
-    # staging before deleting the public object, so the bytes are not lost.
+    # If this release only ever existed in the public bucket (a legacy release),
+    # the public object is the ONLY copy - so it gets archived into private
+    # storage before anything is deleted.
+    #
+    # This deliberately RAISES if the archive fails. An earlier version swallowed
+    # the error and deleted anyway, on the reasoning that a takedown should not be
+    # blocked by a storage hiccup; that silently traded away the only copy of the
+    # build, leaving no forensic record of what was removed and no way back. A
+    # failed copy is a rare storage error - failing loudly lets the administrator
+    # retry, and keeps both properties: the bytes survive AND nothing is left
+    # public by accident.
     if await staged_artifact(db, release.id) is None:
         try:
             await asyncio.to_thread(
                 storage.copy, pub.s3_bucket, pub.s3_key,
                 settings.s3_bucket_pending, pub.s3_key,
             )
-            db.add(ReleaseArtifact(
-                release_id=release.id, kind="validated",
-                s3_bucket=settings.s3_bucket_pending, s3_key=pub.s3_key,
-                size=pub.size, sha256=pub.sha256,
-                content_type=pub.content_type, file_count=pub.file_count,
-            ))
-        except Exception:  # noqa: BLE001 - never block a takedown on an archive copy
-            logger.warning(
-                "withdraw: could not archive release %s before removing it from "
-                "public storage; proceeding with the takedown", release.id,
-                exc_info=True,
+        except Exception as exc:  # noqa: BLE001
+            logger.error(
+                "withdraw: refusing to remove release %s - it has no private "
+                "copy and archiving it failed, so deleting would destroy the "
+                "only copy of the build", release.id, exc_info=True,
             )
+            raise APIError(
+                ErrorCode.INTERNAL_ERROR,
+                "לא ניתן להסיר את הגרסה כרגע: לא הצלחנו לשמור עותק פרטי של הקובץ "
+                "לפני ההסרה. נסו שוב.",
+                status_code=503,
+            ) from exc
+        db.add(ReleaseArtifact(
+            release_id=release.id, kind="validated",
+            s3_bucket=settings.s3_bucket_pending, s3_key=pub.s3_key,
+            size=pub.size, sha256=pub.sha256,
+            content_type=pub.content_type, file_count=pub.file_count,
+        ))
 
     try:
         await asyncio.to_thread(storage.delete, pub.s3_bucket, pub.s3_key)
