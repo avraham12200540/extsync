@@ -16,6 +16,7 @@ tests are mostly about what the batch REFUSES:
 from __future__ import annotations
 
 import asyncio
+import inspect
 
 import pytest
 
@@ -78,9 +79,13 @@ def db(client, sessionmaker_factory):
 
 
 def run(sm, fn):
+    """Run `fn(session)` and commit. `fn` may be sync or async - the seed helpers
+    are plain functions and the service calls are coroutines."""
     async def _go():
         async with sm() as s:
-            out = await fn(s)
+            out = fn(s)
+            if inspect.isawaitable(out):
+                out = await out
             await s.commit()
             return out
 
@@ -88,7 +93,7 @@ def run(sm, fn):
 
 
 def seed(sm, **kw):
-    run(sm, lambda s: asyncio.sleep(0, result=_seed(s, **kw)))
+    run(sm, lambda s: _seed(s, **kw))
 
 
 def apply(sm, ids):
@@ -305,3 +310,150 @@ def test_approving_both_halves_still_approves_the_listing(db):
     project = run(db, lambda s: s.get(Project, "ext_0"))
     assert project.listing_review_status == ReviewStatus.approved
     assert project.approved_listing is not None
+
+
+# ------------------------------------------------- the transition ordering guard
+#
+# Retiring a release that is STILL the one serving users empties the channel,
+# because there is no approved earlier release to fall back to. For a removal
+# that is correct. For the second half of a replacement it is a self-inflicted
+# outage, and the two look identical in `decision` - both are request_changes.
+# So the reviewer marks the row, and these tests are the proof that the mark is
+# enforced by the server rather than merely displayed.
+
+def _channel(s, project_id: str, active_release_id: str | None):
+    from extsync_api.models.release import ChannelState
+    s.add(ChannelState(id=f"chn_{project_id}", project_id=project_id,
+                       channel=Channel.stable, active_release_id=active_release_id,
+                       rollout_percentage=100, is_paused=False))
+
+
+def _successor(s, *, review_status: ReviewStatus, sequence: int = 2,
+               version: str = "2.0") -> None:
+    """A newer release on the same project/channel, and point the channel at it."""
+    s.add(Release(id="rel_new", project_id="ext_0", version=version, sequence=sequence,
+                  uploaded_by_user_id=ADMIN_ID, channel=Channel.stable,
+                  status=ReleaseStatus.published, review_status=review_status))
+    s.add(ReleaseArtifact(id="art_new", release_id="rel_new", kind="validated",
+                          s3_bucket=settings.s3_bucket_artifacts, s3_key="ext_0/rel_new.zip",
+                          size=10, sha256=SHA_REVIEWED, file_count=1))
+
+
+async def _guarded(s):
+    row = await s.get(PreparedDecision, "prep_0")
+    row.decision = "request_changes"
+    row.requires_newer_approved_release = True
+
+
+def test_the_takedown_is_refused_while_its_release_is_still_current(db):
+    """THE WRONG-ORDER CLICK. This is the one that would empty the store."""
+    seed(db)
+    run(db, lambda s: _channel(s, "ext_0", "rel_0"))   # rel_0 is still live
+    run(db, _guarded)
+
+    result = apply(db, ["prep_0"])
+
+    assert result.applied == 0
+    assert result.skipped == 1
+    assert "לא ניתן להסיר את הגרסה הנוכחית" in result.items[0].message
+
+    release = run(db, lambda s: s.get(Release, "rel_0"))
+    assert release.review_status == ReviewStatus.legacy_pending
+    assert release.status == ReleaseStatus.published, "the live release was taken down"
+
+
+def test_the_takedown_is_refused_when_the_successor_is_not_approved(db):
+    """`legacy_pending` means live but never reviewed. Handing the channel to
+    something unreviewed and then retiring the old build is not a transition."""
+    seed(db)
+    run(db, lambda s: _successor(s, review_status=ReviewStatus.legacy_pending))
+    run(db, lambda s: _channel(s, "ext_0", "rel_new"))
+    run(db, _guarded)
+
+    result = apply(db, ["prep_0"])
+    assert result.applied == 0 and result.skipped == 1
+    assert "לא ניתן להסיר" in result.items[0].message
+
+
+def test_the_takedown_proceeds_once_an_approved_successor_is_live(db):
+    """The guard must open, or it is just a permanent block."""
+    seed(db)
+    run(db, lambda s: _successor(s, review_status=ReviewStatus.approved))
+    run(db, lambda s: _channel(s, "ext_0", "rel_new"))
+    run(db, _guarded)
+
+    result = apply(db, ["prep_0"])
+    assert result.applied == 1, result.items[0].message
+
+    old = run(db, lambda s: s.get(Release, "rel_0"))
+    assert old.review_status == ReviewStatus.changes_requested
+    # and the successor kept the channel
+    from extsync_api.models.release import ChannelState
+    state = run(db, lambda s: s.get(ChannelState, "chn_ext_0"))
+    assert state.active_release_id == "rel_new"
+
+
+def test_the_guard_only_applies_to_rows_that_ask_for_it(db):
+    """An ordinary takedown of a live release is still allowed - that is what
+    UNPUBLISH means, and the guard must not quietly redefine it."""
+    seed(db, decision="unpublish")
+    run(db, lambda s: _channel(s, "ext_0", "rel_0"))
+    # requires_newer_approved_release deliberately left False
+
+    result = apply(db, ["prep_0"])
+    assert result.applied == 1, result.items[0].message
+    release = run(db, lambda s: s.get(Release, "rel_0"))
+    assert release.review_status == ReviewStatus.rejected
+
+
+def test_the_preview_reports_the_block_before_anyone_clicks(db):
+    seed(db)
+    run(db, lambda s: _channel(s, "ext_0", "rel_0"))
+    run(db, _guarded)
+
+    row = run(db, lambda s: prep.preview(s))[0]
+    assert row["requiresNewerApprovedRelease"] is True
+    assert row["successor"]["ready"] is False
+    assert row["successor"]["reason"] == "still_current"
+    assert "לא ניתן להסיר את הגרסה הנוכחית" in row["blockedReason"]
+
+
+def test_the_guard_is_re_evaluated_at_apply_time_not_taken_from_the_preview(db):
+    """The channel can move between loading the page and pressing the button.
+    A preview that said "ready" must not be able to authorise a stale action."""
+    seed(db)
+    run(db, lambda s: _successor(s, review_status=ReviewStatus.approved))
+    run(db, lambda s: _channel(s, "ext_0", "rel_new"))
+    run(db, _guarded)
+
+    ready = run(db, lambda s: prep.preview(s))[0]
+    assert ready["successor"]["ready"] is True and not ready["blockedReason"]
+
+    # Someone rolls the channel back to the old release in the meantime.
+    async def _rollback(s):
+        from extsync_api.models.release import ChannelState
+        st = await s.get(ChannelState, "chn_ext_0")
+        st.active_release_id = "rel_0"
+
+    run(db, _rollback)
+
+    result = apply(db, ["prep_0"])
+    assert result.applied == 0 and result.skipped == 1
+    assert "לא ניתן להסיר את הגרסה הנוכחית" in result.items[0].message
+
+
+# ------------------------------------------------------------- listing no-op
+
+def test_listing_no_op_leaves_the_listing_completely_alone(db):
+    """"Leave the listing as it is" has to mean exactly that: not approved, not
+    rejected, and no approved snapshot written."""
+    seed(db, decision="approve")
+    run(db, lambda s: _mutate(s, "prep_0", listing_decision="listing_no_op"))
+
+    result = apply(db, ["prep_0"])
+    assert result.applied == 1
+
+    project = run(db, lambda s: s.get(Project, "ext_0"))
+    assert project.listing_review_status == ReviewStatus.legacy_pending
+    assert project.approved_listing is None
+    assert project.listing_reviewed_by_user_id is None

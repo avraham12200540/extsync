@@ -38,7 +38,7 @@ from ..logging import get_logger
 from ..models.enums import ReviewStatus
 from ..models.prepared_moderation import PreparedDecision
 from ..models.project import Project
-from ..models.release import Release
+from ..models.release import ChannelState, Release
 from ..models.user import User
 from . import moderation as svc
 from .artifact_publication import distribution_artifact
@@ -53,7 +53,17 @@ EXECUTABLE = {"approve", "approve_with_note", "request_changes", "unpublish"}
 DECISIONS = EXECUTABLE | {"needs_human_review"}
 
 LISTING_DECISIONS = {"approve_listing", "listing_needs_changes",
-                     "listing_needs_human_review"}
+                     "listing_needs_human_review", "listing_no_op"}
+
+# Listing decisions that deliberately do nothing. `listing_no_op` says the
+# reviewer looked and chose to leave the listing exactly as it is - which is a
+# different statement from "a human still has to decide" (needs_human_review)
+# and from "no listing decision was recorded at all" (NULL).
+LISTING_NO_OPS = {None, "listing_no_op", "listing_needs_human_review"}
+
+# Decisions that end with the release no longer being distributed. These are the
+# ones whose ordering matters when a replacement is on its way.
+TAKEDOWN = {"request_changes", "unpublish"}
 
 # Anything that removes an extension from the store must carry an explanation
 # for the developer. This is checked at preparation time AND again at apply
@@ -107,7 +117,52 @@ def checksum_state(reviewed: str | None, current: str | None) -> str:
     return "match" if reviewed == current else "changed"
 
 
-def _blocking_reason(row: PreparedDecision, checksum: str) -> str | None:
+async def successor_state(db: AsyncSession, row: PreparedDecision) -> dict:
+    """Has something newer already taken over this release's channel?
+
+    Answers the question the ordering guard turns on, and is also what the UI
+    shows, so the screen and the server cannot disagree about whether the
+    transition is ready.
+    """
+    release = await db.get(Release, row.release_id)
+    if release is None:
+        return {"ready": False, "reason": "release_missing", "activeReleaseId": None}
+
+    state = await db.scalar(select(ChannelState).where(
+        ChannelState.project_id == release.project_id,
+        ChannelState.channel == release.channel,
+    ))
+    active_id = state.active_release_id if state else None
+
+    # Still the one being served: retiring it now is what would empty the store.
+    if active_id == release.id:
+        return {"ready": False, "reason": "still_current", "activeReleaseId": active_id,
+                "activeVersion": release.version, "activeApproved": None}
+
+    if active_id is None:
+        return {"ready": False, "reason": "no_active_release", "activeReleaseId": None}
+
+    active = await db.get(Release, active_id)
+    if active is None:
+        return {"ready": False, "reason": "no_active_release", "activeReleaseId": active_id}
+
+    # A successor that is merely live is not enough. `legacy_pending` means live
+    # but never reviewed, and handing over to something unreviewed would defeat
+    # the point of retiring the old build.
+    approved = active.review_status == ReviewStatus.approved
+    newer = (active.sequence or 0) > (release.sequence or 0)
+    return {
+        "ready": bool(approved and newer),
+        "reason": None if (approved and newer)
+                  else "successor_not_approved" if not approved else "successor_not_newer",
+        "activeReleaseId": active.id,
+        "activeVersion": active.version,
+        "activeApproved": approved,
+    }
+
+
+def _blocking_reason(row: PreparedDecision, checksum: str,
+                     successor: dict | None = None) -> str | None:
     """Why this row must not be executed, or None if it may be."""
     if row.state == "applied":
         return "כבר בוצע"
@@ -117,6 +172,20 @@ def _blocking_reason(row: PreparedDecision, checksum: str) -> str | None:
         return ("הקובץ השתנה מאז הבדיקה - נדרשת בדיקה מחדש לפני החלטה")
     if row.decision in REASON_REQUIRED and not (row.developer_reason or "").strip():
         return "פעולה שמסירה תוסף מהחנות מחייבת נימוק למפתח"
+
+    # The ordering guard. Only rows the reviewer explicitly marked as
+    # "retire this AFTER its replacement is live" are subject to it, so an
+    # ordinary takedown - one where the extension is meant to leave the store -
+    # is not affected.
+    if (row.requires_newer_approved_release and row.decision in TAKEDOWN
+            and successor is not None and not successor.get("ready")):
+        return (
+            "לא ניתן להסיר את הגרסה הנוכחית עד שגרסה חדשה ומאושרת תהיה פעילה בערוץ. "
+            "יש להעלות, לפרסם ולאשר את הגרסה החדשה, לוודא שהיא מוגשת לציבור, "
+            "ורק אז להסיר את הישנה. "
+            "(Cannot retire the current release until a newer approved release "
+            "is active.)"
+        )
     return None
 
 
@@ -139,6 +208,7 @@ async def preview(db: AsyncSession, batch: str | None = None) -> list[dict]:
     for row, release, project in rows:
         current = await current_sha256(db, row.release_id) if release else None
         cs = checksum_state(row.reviewed_sha256, current)
+        succ = await successor_state(db, row) if row.requires_newer_approved_release else None
         out.append({
             "id": row.id,
             "batch": row.batch,
@@ -163,7 +233,11 @@ async def preview(db: AsyncSession, batch: str | None = None) -> list[dict]:
                          if row.applied_at else None,
             "appliedByEmail": row.applied_by_email_snapshot,
             "resultMessage": row.result_message,
-            "blockedReason": _blocking_reason(row, cs),
+            "blockedReason": _blocking_reason(row, cs, succ),
+            # Present only for rows that must wait for a replacement. Drives the
+            # ordered checklist the admin screen shows for those transitions.
+            "requiresNewerApprovedRelease": row.requires_newer_approved_release,
+            "successor": succ,
         })
     return out
 
@@ -176,6 +250,8 @@ async def _apply_listing(db: AsyncSession, project: Project, row: PreparedDecisi
     counterpart it records that nobody decided, and acting on it would invent a
     decision.
     """
+    if row.listing_decision in LISTING_NO_OPS:
+        return
     if row.listing_decision == "approve_listing":
         if project.listing_review_status in (ReviewStatus.pending,
                                              ReviewStatus.legacy_pending):
@@ -202,7 +278,10 @@ async def _apply_one(db: AsyncSession, row: PreparedDecision, admin: User,
     res.project_slug = project.slug
 
     current = await current_sha256(db, row.release_id)
-    blocked = _blocking_reason(row, checksum_state(row.reviewed_sha256, current))
+    # Recomputed here, not trusted from the preview: the channel can move between
+    # loading the page and pressing the button, in either direction.
+    succ = await successor_state(db, row) if row.requires_newer_approved_release else None
+    blocked = _blocking_reason(row, checksum_state(row.reviewed_sha256, current), succ)
     if blocked:
         res.state, res.message = "skipped", blocked
         return res

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db import Base, UtcDateTime
@@ -45,8 +45,25 @@ class PreparedDecision(Base, TimestampMixin):
 
     # approve | approve_with_note | request_changes | unpublish | needs_human_review
     decision: Mapped[str] = mapped_column(String(32), nullable=False)
-    # approve_listing | listing_needs_changes | listing_needs_human_review
+    # approve_listing | listing_needs_changes | listing_needs_human_review | listing_no_op
     listing_decision: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+    # "Do not run this until something newer has already taken over the channel."
+    #
+    # Retiring a release that is still the one serving users takes the extension
+    # off the store, which is the CORRECT outcome for a removal and the wrong one
+    # for a replacement. The difference is not visible in `decision` - the same
+    # request_changes means "take it down" for one extension and "retire the old
+    # build once its successor is live" for another - so the reviewer records the
+    # precondition here and the apply path enforces it.
+    #
+    # Deliberately a property of the PREPARED ROW, not of moderation itself: a
+    # direct request_changes or unpublish through the normal endpoints is
+    # unaffected, because an administrator acting live can see what they are
+    # taking down.
+    requires_newer_approved_release: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
 
     # Shown to the developer. Required for anything that removes an extension
     # from the store, and validated as such before the batch will run.

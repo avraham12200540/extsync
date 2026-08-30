@@ -290,6 +290,61 @@ export default function PreparedDecisionsPage() {
   );
 }
 
+/** The ordered sequence for a transition that must not run early.
+ *
+ *  Rendered from the SERVER's answer (`row.successor`), not from anything the
+ *  page decides on its own, so what the admin reads is the same condition the
+ *  apply endpoint will enforce. The steps the server can actually verify are
+ *  ticked; the rest are numbered instructions, honestly not claimed as checked.
+ */
+function TransitionSequence({ row, t }: { row: PreparedDecision; t: (k: string) => string }) {
+  const ready = row.successor?.ready === true;
+  const steps: { key: string; done: boolean | null }[] = [
+    { key: "mod.prep.seq.1", done: ready ? true : null },
+    { key: "mod.prep.seq.2", done: ready ? true : null },
+    { key: "mod.prep.seq.3", done: ready },
+    { key: "mod.prep.seq.4", done: ready ? null : false },
+    { key: "mod.prep.seq.5", done: ready ? null : false },
+    { key: "mod.prep.seq.6", done: false },
+    { key: "mod.prep.seq.7", done: false },
+  ];
+  return (
+    <div className="mb-3 rounded-lg border border-warning/50 bg-warning/5 p-4">
+      <p className="flex items-center gap-2 font-semibold text-ink">
+        <ShieldAlert className="h-4 w-4 shrink-0 text-warning" />
+        {t("mod.prep.seq.title")}
+      </p>
+      <p className="mt-1 text-sm text-ink-muted">{t("mod.prep.seq.why")}</p>
+      <ol className="mt-3 space-y-1 text-sm">
+        {steps.map((step, i) => (
+          <li key={step.key} className="flex items-start gap-2">
+            <span className={
+              step.done === true ? "text-success"
+              : step.done === false ? "text-ink-muted"
+              : "text-warning"
+            }>
+              {step.done === true ? "✓" : `${i + 1}.`}
+            </span>
+            <span className={step.done === true ? "text-ink-muted line-through" : "text-ink"}>
+              {t(step.key)}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p className="mt-3 text-sm font-medium">
+        {ready ? (
+          <span className="text-success">
+            {t("mod.prep.seq.ready")}
+            {row.successor?.activeVersion ? ` (v${row.successor.activeVersion})` : ""}
+          </span>
+        ) : (
+          <span className="text-warning">{t("mod.prep.seq.notReady")}</span>
+        )}
+      </p>
+    </div>
+  );
+}
+
 function Row({
   row, t, checked, onToggle,
 }: {
@@ -301,6 +356,7 @@ function Row({
   const selectable = typeof checked === "boolean";
   return (
     <div className="rounded-lg border border-line bg-surface-2 p-4">
+      {row.requiresNewerApprovedRelease && <TransitionSequence row={row} t={t} />}
       <div className="flex flex-wrap items-start gap-3">
         {selectable && (
           <input

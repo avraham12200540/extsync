@@ -349,6 +349,18 @@ export interface PreparedDecision {
   /** Whose name goes on the audit row if YOU apply this - always the caller.
    *  Preparing names nobody; the reviewer is whoever authenticates and acts. */
   reviewerToRecord?: string | null;
+  /** True when this row must not run until a newer approved release has taken
+   *  over the channel. Enforced server-side; the checklist is the UI half. */
+  requiresNewerApprovedRelease?: boolean;
+  /** Present only for guarded rows. `ready` is the server's answer to "has the
+   *  replacement actually taken over yet". */
+  successor?: {
+    ready: boolean;
+    reason?: string | null;
+    activeReleaseId?: string | null;
+    activeVersion?: string | null;
+    activeApproved?: boolean | null;
+  } | null;
 }
 
 export type PreparedVerdict =
