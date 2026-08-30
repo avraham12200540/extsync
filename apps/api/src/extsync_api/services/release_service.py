@@ -421,7 +421,11 @@ async def delete_release(db: AsyncSession, project: Project, release: Release, *
     """Delete a release and its artifacts. Allowed for failed uploads, drafts,
     ready/superseded/revoked/paused versions — anything that is NOT the currently
     live published release (removing that would break active installs)."""
-    if release.status == ReleaseStatus.published:
+    # The test is "is this actually live", not "is its status published". Since
+    # moderation, a submitted-but-unapproved release sits at `published` while
+    # being visible to nobody - refusing to delete that would trap a developer
+    # with a pending submission they cannot withdraw.
+    if release_is_publicly_available(release):
         raise APIError(ErrorCode.INVALID_STATE_TRANSITION,
                        "לא ניתן למחוק גרסה שמפורסמת כעת — השהה או בצע לה Rollback קודם.",
                        status_code=409)
