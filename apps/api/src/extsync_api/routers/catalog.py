@@ -330,6 +330,13 @@ async def catalog_detail(slug: str, db: DBSession, user: OptionalUser) -> Catalo
             await db.commit()
         install_uri = f"extsync://install?token={link.token}"
 
+    # Nothing approved means no public page at all. The LIST already hid this
+    # project; without the same rule here, the name and description of an
+    # unapproved extension stayed readable at /store/<slug> - a page with no
+    # download and no install button, but public text all the same.
+    if not channels:
+        raise not_found("התוסף לא נמצא")
+
     ratings = await _ratings_map(db, [project.id])
     mine = await _my_ratings(db, user.id if user else None, [project.id])
     avg, cnt = ratings.get(project.id, (0.0, 0))

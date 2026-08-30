@@ -231,7 +231,14 @@ async def publish_release(
     release.key_id = signed["keyId"]
     release.status = ReleaseStatus.published
 
-    await _set_channel_active(db, project, release.channel, release, rollout=rollout, user=user)
+    # Only an APPROVED release may take over the channel. Publishing an
+    # unapproved one used to move the pointer and supersede the live version,
+    # which meant submitting an update unpublished the extension that was
+    # already approved. The channel keeps serving what it serves until a
+    # moderator approves the new version (see services/moderation).
+    if release_is_publicly_available(release):
+        await _set_channel_active(db, project, release.channel, release,
+                                  rollout=rollout, user=user)
     if project.status == ProjectStatus.draft:
         project.status = ProjectStatus.active
 
@@ -263,6 +270,34 @@ async def publish_release(
         # an unapproved release would be filtered out at the update check anyway.
         await notify_project_update(project.id, release.channel.value)
     return release
+
+
+async def activate_channel(db: AsyncSession, project: Project, release: Release, *,
+                           user: User) -> bool:
+    """Make `release` the one its channel serves. Called on APPROVAL.
+
+    Refuses to demote a newer live release: approving an old pending version
+    must not pull the channel backwards. Returns True if the pointer moved.
+    """
+    state = await db.scalar(
+        select(ChannelState).where(
+            ChannelState.project_id == project.id,
+            ChannelState.channel == release.channel,
+        )
+    )
+    if state is not None and state.active_release_id:
+        current = await db.get(Release, state.active_release_id)
+        if (
+            current is not None
+            and current.id != release.id
+            and release_is_publicly_available(current)
+            and (current.sequence or 0) > (release.sequence or 0)
+        ):
+            return False
+
+    await _set_channel_active(db, project, release.channel, release,
+                              rollout=release.rollout_percentage or 100, user=user)
+    return True
 
 
 # --------------------------------------------------------------------------- pause

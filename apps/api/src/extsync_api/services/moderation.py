@@ -41,6 +41,7 @@ from .audit import record_audit
 from .availability import PUBLIC_REVIEW_STATES
 from .events import emit_event, notify_owner
 from .listing import approve_listing
+from .release_service import activate_channel
 
 logger = get_logger("extsync.moderation")
 
@@ -155,6 +156,12 @@ async def approve_release(db: AsyncSession, project: Project, release: Release, 
             "אין קובץ מאומת לגרסה הזו, ולכן לא ניתן לאשר אותה",
             status_code=409,
         )
+
+    # Approval is what puts the version into its channel. Publishing only
+    # submitted it; until now the channel kept serving the previously
+    # approved release.
+    if release.status == ReleaseStatus.published:
+        await activate_channel(db, project, release, user=admin)
 
     # Approving is a judgement about the extension AS PRESENTED - the reviewer
     # was looking at the listing on the same page - so the listing shown at that
