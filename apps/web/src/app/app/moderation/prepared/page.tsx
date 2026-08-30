@@ -80,6 +80,25 @@ export default function PreparedDecisionsPage() {
     },
   });
 
+  /** Exclude everything that is not in `verdict`, so one group can be run on its
+   *  own. This is the whole point of the groups: an approve sweep and a takedown
+   *  are different decisions to take, and should not have to be taken together. */
+  function selectOnly(verdict: PreparedVerdict) {
+    setExcluded(new Set(runnable.filter((r) => r.decision !== verdict).map((r) => r.id)));
+  }
+
+  function setGroup(verdict: PreparedVerdict, include: boolean) {
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      for (const r of runnable) {
+        if (r.decision !== verdict) continue;
+        if (include) next.delete(r.id);
+        else next.add(r.id);
+      }
+      return next;
+    });
+  }
+
   function toggle(id: string) {
     setExcluded((prev) => {
       const next = new Set(prev);
@@ -138,6 +157,22 @@ export default function PreparedDecisionsPage() {
                 </div>
               </div>
               <div className="text-end">
+                <div className="mb-2 flex flex-wrap justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setExcluded(new Set())}
+                  >
+                    {t("mod.prep.selectAll")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setExcluded(new Set(runnable.map((r) => r.id)))}
+                  >
+                    {t("mod.prep.clearAll")}
+                  </Button>
+                </div>
                 <Button
                   disabled={selected.length === 0 || apply.isPending}
                   onClick={() => apply.mutate()}
@@ -200,14 +235,30 @@ export default function PreparedDecisionsPage() {
             if (group.length === 0) return null;
             return (
               <Card key={verdict}>
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-ink">
-                  <Badge status={VERDICT_TONE[verdict].badge}>
-                    {t(VERDICT_TONE[verdict].label)}
-                  </Badge>
-                  <span className="text-ink-muted text-sm font-normal">
-                    {group.length}
-                  </span>
-                </h2>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="flex items-center gap-2 text-lg font-semibold text-ink">
+                    <Badge status={VERDICT_TONE[verdict].badge}>
+                      {t(VERDICT_TONE[verdict].label)}
+                    </Badge>
+                    <span className="text-ink-muted text-sm font-normal">
+                      {group.filter((r) => !excluded.has(r.id)).length}/{group.length}
+                    </span>
+                  </h2>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="secondary" size="sm"
+                            onClick={() => selectOnly(verdict)}>
+                      {t("mod.prep.onlyThisGroup")}
+                    </Button>
+                    <Button variant="ghost" size="sm"
+                            onClick={() => setGroup(verdict, true)}>
+                      {t("mod.prep.selectGroup")}
+                    </Button>
+                    <Button variant="ghost" size="sm"
+                            onClick={() => setGroup(verdict, false)}>
+                      {t("mod.prep.clearGroup")}
+                    </Button>
+                  </div>
+                </div>
                 <div className="mt-4 space-y-3">
                   {group.map((r) => (
                     <Row
