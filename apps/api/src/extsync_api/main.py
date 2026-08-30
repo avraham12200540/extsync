@@ -122,6 +122,7 @@ def _register_optional_routers(app: FastAPI) -> None:
         "webhooks",
         "notifications",
         "admin",
+        "moderation",
         "analytics",
         "catalog",
         "likes_quota",

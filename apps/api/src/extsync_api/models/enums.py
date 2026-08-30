@@ -137,6 +137,11 @@ class NotificationKind(StrEnum):
     release_validated = "release.validated"
     release_validation_failed = "release.validation_failed"
     release_published = "release.published"
+    # Store moderation outcomes. Three distinct kinds because they are three very
+    # different messages to receive, and a developer may want them separately.
+    release_approved = "release.approved"
+    release_rejected = "release.rejected"
+    release_changes_requested = "release.changes_requested"
     high_failure_rate = "high_failure_rate"
     rollout_paused = "rollout.paused"
     rollback_done = "rollback.done"
