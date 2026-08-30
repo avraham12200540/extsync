@@ -569,7 +569,7 @@ class ApplyPreparedRequest(CamelModel):
 
 
 @router.get("/prepared")
-async def prepared_queue(_: AdminUser, db: DBSession,
+async def prepared_queue(admin: AdminUser, db: DBSession,
                          batch: str | None = None) -> list[dict]:
     """Reviewed decisions waiting for an administrator to apply them.
 
@@ -578,8 +578,16 @@ async def prepared_queue(_: AdminUser, db: DBSession,
     based on next to the checksum of the build that is live now, so a decision
     made about code that has since changed is visible as such rather than
     silently applied.
+
+    Each row also states the reviewer that WOULD be recorded if this caller
+    applied it - which is always this caller. Preparing a decision names nobody
+    on purpose; the reviewer is whoever authenticates and acts, so the answer to
+    "whose name goes on this" is visible before the decision rather than after.
     """
-    return await prepared.preview(db, batch=batch)
+    rows = await prepared.preview(db, batch=batch)
+    for row in rows:
+        row["reviewerToRecord"] = admin.email
+    return rows
 
 
 @router.post("/prepared/apply")

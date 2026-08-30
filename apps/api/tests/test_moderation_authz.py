@@ -241,3 +241,18 @@ def test_apply_rejects_an_empty_id_list(client, sessionmaker_factory):
     r = client.post("/admin/moderation/prepared/apply", json={"ids": []},
                     headers=headers)
     assert r.status_code == 422, r.text
+
+
+def test_prepared_queue_states_whose_name_would_be_recorded(
+    client, sessionmaker_factory,
+):
+    """Preparing a decision names nobody. The reviewer is whoever applies it, so
+    the queue has to answer "whose name goes on this" before the click, not
+    after."""
+    headers = _register(client, "admin-who@example.com")
+    _promote(sessionmaker_factory, "admin-who@example.com")
+
+    r = client.get("/admin/moderation/prepared", headers=headers)
+    assert r.status_code == 200, r.text
+    for row in r.json():
+        assert row["reviewerToRecord"] == "admin-who@example.com"

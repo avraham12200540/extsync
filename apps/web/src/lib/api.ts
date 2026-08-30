@@ -346,6 +346,9 @@ export interface PreparedDecision {
   resultMessage?: string | null;
   /** Non-null when this row must not be executed, and why. */
   blockedReason?: string | null;
+  /** Whose name goes on the audit row if YOU apply this - always the caller.
+   *  Preparing names nobody; the reviewer is whoever authenticates and acts. */
+  reviewerToRecord?: string | null;
 }
 
 export type PreparedVerdict =
