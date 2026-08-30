@@ -17,6 +17,7 @@ import stat
 import zipfile
 from dataclasses import dataclass
 
+from . import risk_scan
 from .result import Finding, ManifestSummary, PermissionSnapshot, Severity, ValidationResult
 
 # Text file extensions we statically analyze.
@@ -206,11 +207,19 @@ def validate_extension_zip(
     prefix = manifest_name[: -len("manifest.json")]  # support nested root folder
     _validate_manifest(manifest, zf, prefix, result)
 
+    # ---- bridge detection ----
+    # Runs BEFORE the risk scan: ExtSync injects nativeMessaging into every
+    # extension it packages, so the scan has to know whether that permission is
+    # the platform's own bridge or something the developer asked for.
+    result.has_bridge = _detect_bridge(infos, manifest)
+
+    # ---- bypass-capability scan (manifest half; the code half runs per file) ----
+    result.risk_scan.add_all(risk_scan.scan_manifest(
+        result.permissions, manifest, bridge_injected=result.has_bridge,
+    ))
+
     # ---- static analysis ----
     _static_analysis(zf, infos, prefix, result)
-
-    # ---- bridge detection ----
-    result.has_bridge = _detect_bridge(infos, manifest)
 
     return result
 
@@ -357,6 +366,9 @@ def _static_analysis(zf: zipfile.ZipFile, infos: list[zipfile.ZipInfo], prefix: 
         if _NEW_FUNCTION_RE.search(text):
             result.add(Finding("NEW_FUNCTION", Severity.warning,
                                "שימוש ב-new Function() — מהווה סיכון אבטחה.", file=info.filename))
+        # Advisory bypass-capability scan. Never adds findings, so it can never
+        # reject a build on its own - it only gives the reviewer evidence.
+        result.risk_scan.add_all(risk_scan.scan_text(info.filename, text))
         if _DOC_WRITE_RE.search(text):
             result.add(Finding("DOC_WRITE", Severity.warning,
                                "שימוש ב-document.write() — מומלץ להימנע.", file=info.filename))

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { ShieldCheck, AlertTriangle, Radio } from "lucide-react";
+import { ShieldCheck, ShieldAlert, AlertTriangle, Radio } from "lucide-react";
 import { DashHeader } from "@/components/dashboard";
 import { useLocale } from "@/components/locale-context";
 import { useAuth } from "@/components/providers";
@@ -171,6 +171,15 @@ export default function ModerationPage() {
                     )}
                     {i.permissionsChanged && (
                       <Badge status="paused">{t("dash.pd.permschanged")}</Badge>
+                    )}
+                    {/* The bypass scan is the signal that matters most here, so
+                        it is visible before opening the release. */}
+                    {i.riskLevel !== "none" && i.riskLevel !== "info" && (
+                      <Badge status={i.riskLevel === "critical" ? "rejected"
+                        : i.riskLevel === "high" ? "changes_requested" : "pending"}>
+                        <ShieldAlert className="me-1 h-3 w-3" />
+                        {t(`mod.risk.${i.riskLevel}`)}
+                      </Badge>
                     )}
                     {i.riskScore >= 30 && (
                       <span className={`inline-flex items-center gap-1 text-xs font-medium ${

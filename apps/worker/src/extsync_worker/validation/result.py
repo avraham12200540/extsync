@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from .risk_scan import RiskScan
+
 
 class Severity(StrEnum):
     error = "error"
@@ -92,6 +94,10 @@ class ValidationResult:
     file_count: int = 0
     sha256: str = ""
     has_bridge: bool = False
+    # Network-control / filter-bypass signals. ADVISORY ONLY - deliberately kept
+    # out of `findings`, because a finding with severity=error auto-rejects a
+    # build and "this extension can configure a proxy" is a human's call.
+    risk_scan: RiskScan = field(default_factory=RiskScan)
 
     def add(self, finding: Finding) -> None:
         self.findings.append(finding)
@@ -141,4 +147,5 @@ class ValidationResult:
             "sha256": self.sha256,
             "hasBridge": self.has_bridge,
             "riskScore": self.risk_score,
+            "riskScan": self.risk_scan.to_dict(),
         }

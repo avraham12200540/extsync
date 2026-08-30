@@ -8,7 +8,7 @@ import { ShieldCheck, AlertTriangle, Radio, Lock, Globe } from "lucide-react";
 import { DashHeader } from "@/components/dashboard";
 import { useLocale } from "@/components/locale-context";
 import { useAuth } from "@/components/providers";
-import { api, ApiError, type ModerationDetail } from "@/lib/api";
+import { api, ApiError, type ModerationDetail, type RiskSignal } from "@/lib/api";
 import { Badge, Button, Card, Spinner } from "@/components/ui";
 
 /**
@@ -24,11 +24,24 @@ import { Badge, Button, Card, Spinner } from "@/components/ui";
 
 type ActionKey = "approve" | "reject" | "request-changes" | "unpublish";
 
+const RISK_STYLE: Record<string, string> = {
+  critical: "border-danger/40 bg-danger/5",
+  high: "border-warning/40 bg-warning/5",
+  medium: "border-line bg-surface-2/50",
+  info: "border-line bg-surface-2/30",
+};
+
 interface ValidationReport {
   errors?: { code?: string; message: string; file?: string | null }[];
   warnings?: { code?: string; message: string; file?: string | null }[];
   manifest?: { permissions?: string[]; host_permissions?: string[] };
   fileCount?: number;
+  riskScan?: {
+    signals?: RiskSignal[];
+    counts?: Record<string, number>;
+    total?: number;
+    topLevel?: string;
+  };
 }
 
 export default function ModerationDetailPage(
@@ -85,6 +98,7 @@ export default function ModerationDetailPage(
   const report = (release.validationReport ?? null) as ValidationReport | null;
   const perms = report?.manifest?.permissions ?? [];
   const hosts = report?.manifest?.host_permissions ?? [];
+  const signals = report?.riskScan?.signals ?? [];
   const busy = act.isPending;
 
   return (
@@ -187,6 +201,44 @@ export default function ModerationDetailPage(
           </div>
         )}
       </Card>
+
+      {/* bypass-capability scan: the thing that actually matters on a filtered
+          network. Advisory - the copy says so explicitly, because a clean scan
+          is not evidence of safety and a hit is not an accusation. */}
+      {!!signals.length && (
+        <Card className="mb-4">
+          <h2 className="mb-1 text-sm font-semibold text-ink">{t("mod.sec.risk")}</h2>
+          <p className="mb-3 text-xs text-ink-muted">{t("mod.risk.help")}</p>
+          <div className="space-y-2">
+            {signals.map((sg, i) => (
+              <div key={`${sg.code}-${i}`} className={`rounded-lg border p-3 ${RISK_STYLE[sg.level] ?? RISK_STYLE.info}`}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium text-ink">{sg.title}</span>
+                  <Badge status={sg.level === "critical" ? "rejected"
+                    : sg.level === "high" ? "changes_requested"
+                    : sg.level === "medium" ? "pending" : "draft"}>
+                    {t(`mod.risk.${sg.level}`)}
+                  </Badge>
+                  {sg.file && (
+                    <span className="font-mono text-[11px] text-ink-muted" dir="ltr">{sg.file}</span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-ink-muted">{sg.detail}</p>
+                {sg.evidence && (
+                  <pre className="mt-2 overflow-x-auto rounded bg-surface-2 p-2 font-mono text-[11px] text-ink" dir="ltr">
+                    {sg.evidence}
+                  </pre>
+                )}
+              </div>
+            ))}
+          </div>
+          {(report?.riskScan?.total ?? 0) > signals.length && (
+            <p className="mt-2 text-xs text-ink-muted">
+              {t("mod.risk.more")} <span dir="ltr">{(report?.riskScan?.total ?? 0) - signals.length}</span>
+            </p>
+          )}
+        </Card>
+      )}
 
       {/* what it can do */}
       <Card className="mb-4">

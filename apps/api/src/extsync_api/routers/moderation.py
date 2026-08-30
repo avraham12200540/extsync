@@ -34,6 +34,14 @@ def _iso(v) -> str | None:
     return v.isoformat().replace("+00:00", "Z") if v else None
 
 
+def _risk_level(release: Release) -> str:
+    """Top bypass signal from the stored validation report, if the worker ran a
+    scan. Older reports predate the scanner and simply have nothing to show."""
+    report = release.validation_report or {}
+    scan = report.get("riskScan") or {}
+    return scan.get("topLevel") or "none"
+
+
 # --------------------------------------------------------------------------- schemas
 class ModerationDecision(CamelModel):
     """An administrator's decision.
@@ -73,6 +81,10 @@ class QueueItem(CamelModel):
     # Whether the project has any earlier reviewed release: distinguishes a brand
     # new extension from an update to one already in the store.
     is_new_extension: bool = True
+    # Strongest bypass-capability signal found by the static scan: critical |
+    # high | medium | info | none. Advisory - it says what was found, never
+    # whether to approve, and "none" means nothing matched, not "safe".
+    risk_level: str = "none"
 
 
 class QueueCounts(CamelModel):
@@ -199,6 +211,7 @@ async def queue(
             created_at=_iso(release.created_at), published_at=_iso(release.published_at),
             is_live=is_live,
             is_new_extension=project.id not in reviewed_projects,
+            risk_level=_risk_level(release),
         ))
     return items
 
@@ -231,6 +244,7 @@ async def review_detail(release_id: str, _: AdminUser, db: DBSession) -> dict:
             "createdAt": _iso(release.created_at),
             "publishedAt": _iso(release.published_at),
             "isLive": release.id in live,
+            "riskLevel": _risk_level(release),
         },
         "review": {
             "reason": release.review_reason,      # developer-facing

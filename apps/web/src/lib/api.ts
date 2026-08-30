@@ -186,6 +186,22 @@ export interface ModerationQueueItem {
   isLive: boolean;
   /** No earlier reviewed release on this project - a brand new extension. */
   isNewExtension: boolean;
+  /** Strongest bypass-capability signal from the static scan. Advisory only:
+   *  "none" means nothing matched the patterns, NOT that the build is safe. */
+  riskLevel: RiskLevel;
+}
+
+export type RiskLevel = "critical" | "high" | "medium" | "info" | "none";
+
+/** One piece of evidence from the bypass scan, with the file and an excerpt so
+ *  a reviewer can go read the actual code rather than trust a label. */
+export interface RiskSignal {
+  code: string;
+  level: Exclude<RiskLevel, "none">;
+  title: string;
+  detail: string;
+  file?: string | null;
+  evidence?: string | null;
 }
 
 export interface ModerationCounts {
@@ -206,6 +222,7 @@ export interface ModerationDetail {
     validationReport?: unknown;
     createdAt?: string | null; publishedAt?: string | null;
     isLive: boolean;
+    riskLevel: RiskLevel;
   };
   /** `note` is the administrator's internal note - admin API only, never shown
    *  to the developer. */
