@@ -369,6 +369,8 @@ def _static_analysis(zf: zipfile.ZipFile, infos: list[zipfile.ZipInfo], prefix: 
         # Advisory bypass-capability scan. Never adds findings, so it can never
         # reject a build on its own - it only gives the reviewer evidence.
         result.risk_scan.add_all(risk_scan.scan_text(info.filename, text))
+        # Flat inventory for the reviewer, separate from the judgements.
+        result.risk_scan.observe(info.filename, text)
         if _DOC_WRITE_RE.search(text):
             result.add(Finding("DOC_WRITE", Severity.warning,
                                "שימוש ב-document.write() — מומלץ להימנע.", file=info.filename))

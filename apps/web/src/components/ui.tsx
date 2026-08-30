@@ -87,7 +87,10 @@ const statusStyles: Record<string, string> = {
   approved: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
   rejected: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
   changes_requested: "bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300",
-  legacy_pending: "bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300",
+  // Amber, deliberately, and never green: `legacy_pending` means LIVE BUT
+  // NEVER REVIEWED. Rendering it in a positive colour would let the eye read
+  // it as approved, which is the one confusion this state must not permit.
+  legacy_pending: "bg-amber-100 text-amber-900 dark:bg-amber-400/15 dark:text-amber-200 ring-1 ring-amber-400/40",
 };
 
 export function Badge({ children, status }: { children: React.ReactNode; status?: string }) {

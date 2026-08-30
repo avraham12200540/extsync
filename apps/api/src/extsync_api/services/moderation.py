@@ -116,11 +116,20 @@ async def _take_down(db: AsyncSession, project: Project, release: Release) -> st
         state.active_release_id = None
         return None
 
-    # Its signed metadata and public artifact are still intact, so putting it
-    # back into `published` is enough to make it servable again; no re-signing.
+    # Its signed metadata is still valid, so putting it back into `published` is
+    # enough to make it servable - but its BYTES may have been archived into
+    # private storage, since superseded artifacts are not left anonymously
+    # downloadable. Restore them, or the store would show a version with nothing
+    # behind the download button.
     prev.status = ReleaseStatus.published
     prev.superseded_by_release_id = None
     state.active_release_id = prev.id
+    if await publish_artifact_public(db, prev) is None:
+        logger.error(
+            "takedown: promoted release %s back into channel %s but could not "
+            "restore its artifact - the channel now has no downloadable file",
+            prev.id, release.channel.value,
+        )
     return prev.id
 
 

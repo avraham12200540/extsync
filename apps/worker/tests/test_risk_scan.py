@@ -303,3 +303,111 @@ def test_a_typical_extsync_extension_scans_clean():
         _zip(manifest, {"bg.js": _BRIDGE, "extsync-bridge.js": _BRIDGE}), Limits(),
     ).to_report()
     assert report["riskScan"]["topLevel"] == "none", report["riskScan"]["signals"]
+
+
+# =====================================================================
+# CALIBRATION GUARANTEES
+#
+# The calibration that made this scanner usable was measured against all 46 live
+# releases: before it, 45 of them came out `high` purely because ExtSync injects
+# its own update bridge into everything it packages. These four tests pin the
+# properties that calibration depends on, so it cannot silently regress into
+# either uselessness (flags everything) or blindness (flags nothing).
+# =====================================================================
+
+def test_guarantee_1_extsync_bridge_never_creates_a_high_finding():
+    """ExtSync's own injected bridge must not, by itself, raise attention.
+
+    If it does, every extension on the platform is flagged and the queue becomes
+    noise - which is precisely the state this calibration fixed.
+    """
+    from extsync_worker.validation.validator import Limits, validate_extension_zip
+
+    manifest = {
+        "manifest_version": 3, "name": "Bridge Only", "version": "1.0.0",
+        "description": "t", "permissions": ["storage", "nativeMessaging"],
+        "background": {"service_worker": "bg.js"},
+    }
+    report = validate_extension_zip(
+        _zip(manifest, {"bg.js": _BRIDGE, "extsync-bridge.js": _BRIDGE}), Limits(),
+    ).to_report()
+
+    assert report["riskScan"]["counts"][CRITICAL] == 0
+    assert report["riskScan"]["counts"][HIGH] == 0
+    assert report["riskScan"]["topLevel"] == "none"
+
+
+def test_guarantee_2_an_unknown_native_host_is_still_surfaced():
+    """The exemption is for ExtSync's host specifically, not for nativeMessaging.
+
+    This is the case that was buried under the false positives: a real extension
+    talking to a native host nobody has vetted.
+    """
+    from extsync_worker.validation.validator import Limits, validate_extension_zip
+
+    manifest = {
+        "manifest_version": 3, "name": "Other Host", "version": "1.0.0",
+        "description": "t", "permissions": ["nativeMessaging"],
+        "background": {"service_worker": "bg.js"},
+    }
+    bg = _BRIDGE + "\nchrome.runtime.connectNative('com.vendor.helper');\n"
+    report = validate_extension_zip(
+        _zip(manifest, {"bg.js": bg, "extsync-bridge.js": _BRIDGE}), Limits(),
+    ).to_report()
+
+    sig = next(s for s in report["riskScan"]["signals"]
+               if s["code"] == "CODE_NATIVE_MESSAGING")
+    assert sig["level"] == HIGH
+    assert "com.vendor.helper" in sig["evidence"]
+    assert report["riskScan"]["topLevel"] == HIGH
+
+
+@pytest.mark.parametrize("snippet,expect", [
+    ("chrome.proxy.settings.set({value: cfg});", "CODE_PROXY_API"),
+    ("const cfg = {mode: 'fixed_servers', rules: r};", "CODE_PROXY_MODE"),
+    ("function FindProxyForURL(u, h) { return 'DIRECT'; }", "CODE_PAC_SCRIPT"),
+    ("const s = 'socks5://10.0.0.1:1080';", "CODE_SOCKS"),
+    ("import x from './shadowsocks.js';", "CODE_VPN_PROTOCOL"),
+    ("const sub = 'vmess://abc';", "CODE_TUNNEL_URI"),
+])
+def test_guarantee_3_proxy_and_tunneling_stay_top_attention(snippet, expect):
+    """These are the signals the whole scanner exists for. They must stay
+    CRITICAL even alongside the bridge, which is present in every real build."""
+    signals = scan_text("bg.js", _BRIDGE + "\n" + snippet)
+    sig = next(s for s in signals if s.code == expect)
+    assert sig.level == CRITICAL
+
+    scan = RiskScan()
+    scan.add_all(signals)
+    assert scan.to_dict()["topLevel"] == CRITICAL
+
+
+def test_guarantee_4_broad_permissions_are_contextual_not_rejection():
+    """Broad permissions are common in legitimate extensions.
+
+    They must (a) be reported so a reviewer sees them, (b) never reach CRITICAL
+    on their own, and (c) never cause the build to be rejected - the scanner
+    advises, the human decides.
+    """
+    from extsync_worker.validation.validator import Limits, validate_extension_zip
+
+    manifest = {
+        "manifest_version": 3, "name": "Broad", "version": "1.0.0",
+        "description": "t",
+        "permissions": ["storage", "tabs", "webRequest"],
+        "host_permissions": ["<all_urls>"],
+        "content_scripts": [{"matches": ["<all_urls>"], "js": ["cs.js"]}],
+        "background": {"service_worker": "bg.js"},
+    }
+    report = validate_extension_zip(
+        _zip(manifest, {"bg.js": "chrome.storage.local.get(['x']);\n",
+                        "cs.js": "document.title;\n"}), Limits(),
+    ).to_report()
+
+    scan = report["riskScan"]
+    codes = {s["code"] for s in scan["signals"]}
+    assert "HOST_ALL_URLS" in codes            # reported...
+    assert "CONTENT_SCRIPT_ALL_URLS" in codes
+    assert scan["counts"][CRITICAL] == 0       # ...but never critical alone
+    assert report["ok"] is True                # ...and never auto-rejected
+    assert not report["errors"]

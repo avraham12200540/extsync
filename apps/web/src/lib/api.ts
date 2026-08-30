@@ -242,6 +242,56 @@ export interface ListingDetail {
   proposed: ListingSnapshot;
 }
 
+/** One legacy extension with everything needed to review it in place. */
+export interface TriageRow {
+  releaseId: string;
+  projectId: string;
+  projectName: string;
+  projectSlug: string;
+  ownerEmail?: string | null;
+  version: string;
+  channel: string;
+  releaseStatus: string;
+  reviewStatus: ReviewStatus;
+  listingReviewStatus: ReviewStatus;
+  isLive: boolean;
+
+  permissions: string[];
+  hostPermissions: string[];
+  broadHostAccess: boolean;
+  usesNativeMessaging: boolean;
+
+  /** "not_scanned" means the report predates the scanner - NOT that it is clean. */
+  riskLevel: RiskLevel | "not_scanned";
+  findings: {
+    code?: string | null; level?: string | null; title?: string | null;
+    detail?: string | null; file?: string | null; evidence?: string | null;
+  }[];
+  endpoints: { host: string; files: string[]; benign: boolean }[];
+  nativeHosts: { host: string; files: string[]; isExtsyncBridge: boolean }[];
+  scanTruncated: boolean;
+
+  iconUrl?: string | null;
+  shortDescription?: string | null;
+  screenshotCount: number;
+
+  artifactUrl?: string | null;
+  artifactSize?: number | null;
+  fileCount?: number | null;
+
+  createdAt?: string | null;
+  publishedAt?: string | null;
+}
+
+export interface TriageProgress {
+  extensionsTotal: number;
+  extensionsReviewed: number;
+  listingsTotal: number;
+  listingsReviewed: number;
+  highAttentionRemaining: number;
+  notScannedRemaining: number;
+}
+
 export interface SafeModeStatus {
   enabled: boolean;
   reason?: string | null;

@@ -27,6 +27,7 @@ from ..models.release import (
 )
 from ..models.user import User
 from ..config import settings
+from ..logging import get_logger
 from ..ids import release_id as new_release_id
 from ..storage import storage, upload_key
 from . import signing_client
@@ -34,12 +35,19 @@ from .artifact_publication import (
     distribution_artifact,
     public_artifact,
     public_download_url,
+    publish_artifact_public,
 )
 from .audit import record_audit
-from .availability import release_is_publicly_available
+from .availability import (
+    PUBLIC_REVIEW_STATES,
+    release_is_publicly_available,
+    review_allows_public,
+)
 from .events import emit_event, notify_owner
 from .jobs import enqueue_validation
 from .push import notify_project_update
+
+logger = get_logger("extsync.release_service")
 
 
 def _now() -> dt.datetime:
@@ -336,12 +344,31 @@ async def revoke_release(db: AsyncSession, project: Project, release: Release, *
         )
     )
     if state is not None and state.active_release_id == release.id:
+        # Hand the channel back to the newest earlier version that is still
+        # allowed to be public. Three things have to happen together, and this
+        # path used to do only the last of them:
+        #   * the review dimension must still permit it - otherwise revoking
+        #     would be a way to put an unreviewed release back into service;
+        #   * it must be returned to `published`, or the channel points at a
+        #     release the availability policy rejects and the store serves
+        #     nothing at all;
+        #   * its bytes must be restored, since superseded artifacts are archived
+        #     into private storage rather than left anonymously downloadable.
         prev = await db.scalar(
             select(Release).where(
                 Release.project_id == project.id, Release.channel == release.channel,
                 Release.status == ReleaseStatus.superseded, Release.id != release.id,
+                Release.review_status.in_(PUBLIC_REVIEW_STATES),
             ).order_by(Release.sequence.desc()).limit(1)
         )
+        if prev is not None:
+            prev.status = ReleaseStatus.published
+            prev.superseded_by_release_id = None
+            if await publish_artifact_public(db, prev) is None:
+                logger.error(
+                    "revoke: promoted release %s back into channel %s but could "
+                    "not restore its artifact", prev.id, release.channel.value,
+                )
         state.active_release_id = prev.id if prev else None
     await record_audit(db, action="release.revoke", actor_user_id=user.id,
                        target_type="release", target_id=release.id, project_id=project.id,
@@ -370,14 +397,24 @@ async def rollback_release(db: AsyncSession, project: Project, channel: Channel,
         if target is None:
             raise not_found("אין גרסה קודמת לחזור אליה")
 
-    # The rollback target must still be PUBLICLY approved. Checking the public
-    # copy (not just "some validated artifact exists") is what stops rollback
-    # from resurrecting a version an administrator took down: withdrawing a
-    # release deletes its public artifact, so it stops being a rollback target.
-    artifact = await public_artifact(db, target.id)
+    # Rolling back must not become a way to resurrect something an administrator
+    # took down, so the REVIEW dimension is what gates it - not merely "some
+    # validated artifact exists". A withdrawn release is `rejected`, so it can
+    # never be a rollback target.
+    if not review_allows_public(target.review_status):
+        raise APIError(ErrorCode.ROLLBACK_FAILED,
+                       "לגרסת היעד אין אישור פרסום", status_code=409)
+
+    # The bytes may legitimately sit in PRIVATE storage: superseded artifacts are
+    # archived there rather than left anonymously downloadable. Rolling back is a
+    # publication, so it restores them the same way approval does.
+    artifact = await distribution_artifact(db, target.id)
     if artifact is None:
         raise APIError(ErrorCode.ROLLBACK_FAILED,
                        "לגרסת היעד אין artifact תקין", status_code=409)
+    if await publish_artifact_public(db, target) is None:
+        raise APIError(ErrorCode.ROLLBACK_FAILED,
+                       "לא ניתן לשחזר את הקובץ של גרסת היעד", status_code=409)
 
     # Mark the currently active release superseded.
     state = await db.scalar(

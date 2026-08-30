@@ -23,9 +23,15 @@ from ..models.audit import AuditEvent
 from ..models.enums import NotificationKind
 from ..models.project import Project, ProjectScreenshot
 from ..models.platform_flag import STORE_SAFE_MODE, PlatformFlag
-from ..models.release import ChannelState, Release
+from ..models.release import (
+    ChannelState,
+    Release,
+    ReleaseArtifact,
+    ReleasePermissionSnapshot,
+)
 from ..models.user import User
 from ..schemas.common import CamelModel
+from ..storage import storage
 from ..services import moderation as svc
 from ..services.artifact_publication import public_artifact, staged_artifact
 from ..services.audit import record_audit
@@ -552,3 +558,265 @@ async def moderation_audit(_: AdminUser, db: DBSession, limit: int = 100,
         }
         for ev, email, pname, pslug in rows
     ]
+
+
+# ------------------------------------------------------------------ triage
+class TriageRow(CamelModel):
+    """One legacy extension, with everything needed to decide about it."""
+
+    release_id: str
+    project_id: str
+    project_name: str
+    project_slug: str
+    owner_email: str | None = None
+    version: str
+    channel: str
+    release_status: ReleaseStatus
+    review_status: ReviewStatus
+    listing_review_status: ReviewStatus
+    is_live: bool = False
+
+    # what it can do
+    permissions: list[str] = []
+    host_permissions: list[str] = []
+    broad_host_access: bool = False
+    uses_native_messaging: bool = False
+
+    # what the scanner saw
+    risk_level: str = "not_scanned"
+    findings: list[dict] = []
+    endpoints: list[dict] = []
+    native_hosts: list[dict] = []
+    scan_truncated: bool = False
+
+    # the listing, as the public sees it
+    icon_url: str | None = None
+    short_description: str | None = None
+    screenshot_count: int = 0
+
+    # inspection
+    artifact_url: str | None = None
+    artifact_size: int | None = None
+    file_count: int | None = None
+
+    created_at: str | None = None
+    published_at: str | None = None
+
+
+class TriageProgress(CamelModel):
+    """Part 6: how much of the legacy backlog is actually done."""
+
+    extensions_total: int = 0
+    extensions_reviewed: int = 0
+    listings_total: int = 0
+    listings_reviewed: int = 0
+    high_attention_remaining: int = 0
+    not_scanned_remaining: int = 0
+
+
+#: Host patterns that grant access to everything the user browses.
+_BROAD_HOSTS = {"<all_urls>", "*://*/*", "http://*/*", "https://*/*", "*://*"}
+
+
+def _broad(hosts: list[str]) -> bool:
+    return any(h in _BROAD_HOSTS for h in (hosts or []))
+
+
+@router.get("/triage", response_model=list[TriageRow])
+async def triage(
+    _: AdminUser, db: DBSession,
+    state: ReviewStatus = ReviewStatus.legacy_pending,
+    live_only: bool = Query(True, alias="liveOnly"),
+    limit: int = 200,
+) -> list[TriageRow]:
+    """Legacy extensions with everything needed to review them.
+
+    Defaults to `liveOnly` because the workload that matters is what is serving
+    users right now, not every historical row.
+    """
+    live = await _live_release_ids(db)
+    owner = aliased(User)
+
+    rows = (await db.execute(
+        select(Release, Project, owner.email)
+        .join(Project, Project.id == Release.project_id)
+        .join(owner, owner.id == Project.owner_user_id, isouter=True)
+        .where(Release.review_status == state, Project.deleted_at.is_(None))
+        .order_by(Project.name)
+        .limit(min(limit, 500))
+    )).all()
+
+    release_ids = [r.id for r, _p, _e in rows]
+    project_ids = [p.id for _r, p, _e in rows]
+
+    # Batched, so the row count does not turn into a query count.
+    snaps = {
+        s.release_id: s
+        for s in (await db.scalars(
+            select(ReleasePermissionSnapshot)
+            .where(ReleasePermissionSnapshot.release_id.in_(release_ids or [""]))
+        )).all()
+    }
+    shot_counts: dict[str, int] = {}
+    for pid, in (await db.execute(
+        select(ProjectScreenshot.project_id)
+        .where(ProjectScreenshot.project_id.in_(project_ids or [""]))
+    )).all():
+        shot_counts[pid] = shot_counts.get(pid, 0) + 1
+
+    arts = {
+        a.release_id: a
+        for a in (await db.scalars(
+            select(ReleaseArtifact)
+            .where(ReleaseArtifact.release_id.in_(release_ids or [""]))
+        )).all()
+    }
+
+    out: list[TriageRow] = []
+    for release, project, email in rows:
+        is_live = release.id in live
+        if live_only and not is_live:
+            continue
+
+        report = release.validation_report or {}
+        scan = report.get("riskScan") or {}
+        manifest = (report.get("permissions") or {})
+        snap = snaps.get(release.id)
+
+        perms = list(
+            (snap.permissions if snap else None)
+            or manifest.get("permissions")
+            or []
+        )
+        hosts = list(
+            (snap.host_permissions if snap else None)
+            or manifest.get("hostPermissions")
+            or []
+        )
+
+        # A report with no scannerVersion predates the scanner. Saying "none"
+        # would read as "clean", which is the one thing it must not say.
+        level = scan.get("topLevel") if scan.get("scannerVersion") else None
+
+        art = arts.get(release.id)
+        artifact_url = None
+        if art:
+            # Presigned rather than public, so inspection works whether the
+            # artifact is still public or has been archived to private storage.
+            try:
+                artifact_url = storage.presign_get(art.s3_bucket, art.s3_key, expires=900)
+            except Exception:  # noqa: BLE001 - inspection is a convenience
+                artifact_url = None
+
+        out.append(TriageRow(
+            release_id=release.id,
+            project_id=project.id,
+            project_name=project.name,
+            project_slug=project.slug,
+            owner_email=email,
+            version=release.version,
+            channel=release.channel.value,
+            release_status=release.status,
+            review_status=release.review_status,
+            listing_review_status=project.listing_review_status,
+            is_live=is_live,
+
+            permissions=perms,
+            host_permissions=hosts,
+            broad_host_access=_broad(hosts) or _broad(
+                (snap.content_scripts_matches if snap else None) or []
+            ),
+            uses_native_messaging=bool(
+                (snap.uses_native_messaging if snap else False)
+                or "nativeMessaging" in perms
+            ),
+
+            risk_level=level or "not_scanned",
+            findings=[
+                {
+                    "code": f.get("code"), "level": f.get("level"),
+                    "title": f.get("title"), "detail": f.get("detail"),
+                    "file": f.get("file"), "evidence": f.get("evidence"),
+                }
+                for f in (scan.get("signals") or [])
+            ],
+            endpoints=scan.get("endpoints") or [],
+            native_hosts=scan.get("nativeHosts") or [],
+            scan_truncated=bool(scan.get("truncated")),
+
+            icon_url=project.icon_url,
+            short_description=project.short_description,
+            screenshot_count=shot_counts.get(project.id, 0),
+
+            artifact_url=artifact_url,
+            artifact_size=art.size if art else None,
+            file_count=art.file_count if art else None,
+
+            created_at=_iso(release.created_at),
+            published_at=_iso(release.published_at),
+        ))
+    return out
+
+
+@router.get("/progress", response_model=TriageProgress)
+async def triage_progress(_: AdminUser, db: DBSession) -> TriageProgress:
+    """How much of the legacy backlog is genuinely done.
+
+    "Reviewed" means a human acted: legacy_pending is NOT reviewed, however clean
+    the scanner found it. Nothing here ever converts a state by itself.
+    """
+    live = await _live_release_ids(db)
+
+    live_legacy = (await db.scalars(
+        select(Release).join(Project, Project.id == Release.project_id)
+        .where(
+            Project.deleted_at.is_(None),
+            Release.review_status == ReviewStatus.legacy_pending,
+            Release.id.in_(live) if live else false(),
+        )
+    )).all()
+
+    decided = await db.scalar(
+        select(func.count()).select_from(Release)
+        .join(Project, Project.id == Release.project_id)
+        .where(
+            Project.deleted_at.is_(None),
+            Release.review_status.in_([
+                ReviewStatus.approved, ReviewStatus.rejected,
+                ReviewStatus.changes_requested,
+            ]),
+        )
+    ) or 0
+
+    listings_total = await db.scalar(
+        select(func.count()).select_from(Project)
+        .where(Project.deleted_at.is_(None))
+    ) or 0
+    listings_pending = await db.scalar(
+        select(func.count()).select_from(Project)
+        .where(
+            Project.deleted_at.is_(None),
+            Project.listing_review_status.in_([
+                ReviewStatus.pending, ReviewStatus.legacy_pending,
+            ]),
+        )
+    ) or 0
+
+    high = 0
+    unscanned = 0
+    for r in live_legacy:
+        scan = (r.validation_report or {}).get("riskScan") or {}
+        if not scan.get("scannerVersion"):
+            unscanned += 1
+            continue
+        if scan.get("topLevel") in ("critical", "high"):
+            high += 1
+
+    return TriageProgress(
+        extensions_total=len(live_legacy) + decided,
+        extensions_reviewed=decided,
+        listings_total=listings_total,
+        listings_reviewed=listings_total - listings_pending,
+        high_attention_remaining=high,
+        not_scanned_remaining=unscanned,
+    )

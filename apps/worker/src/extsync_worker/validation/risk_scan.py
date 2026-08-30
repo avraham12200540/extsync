@@ -51,6 +51,11 @@ INFO = "info"           # noted, very often benign
 
 _LEVEL_ORDER = {CRITICAL: 0, HIGH: 1, MEDIUM: 2, INFO: 3}
 
+#: Bumped whenever the patterns or the calibration change, so a stored report
+#: can be told apart from one produced by an older scanner - and from one
+#: produced before the scanner existed at all.
+SCANNER_VERSION = 2
+
 
 @dataclass
 class RiskSignal:
@@ -254,6 +259,29 @@ _NATIVE_HOST_RE = re.compile(r"""['"]([a-z][a-z0-9_]*(?:\.[a-z0-9_]+){2,})['"]""
 
 _MAX_EVIDENCE = 160
 
+#: Hosts that appear in almost every bundle and mean nothing about where an
+#: extension sends data - XML namespaces, spec URLs, framework error pages. They
+#: are still recorded, just marked, so a reviewer's eye goes to the rest.
+BENIGN_HOSTS: frozenset[str] = frozenset({
+    "www.w3.org", "www.w3.org.uk", "schema.org", "schemas.microsoft.com",
+    "reactjs.org", "react.dev", "developer.mozilla.org", "github.com",
+    "www.gnu.org", "opensource.org", "creativecommons.org", "unlicense.org",
+    "example.com", "localhost", "extsync.com", "www.extsync.com",
+})
+
+#: Absolute http(s) URLs. Captures the host only - full URLs would leak query
+#: strings into a stored report for no review value.
+_URL_HOST_RE = re.compile(
+    r"""https?://([A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,63})""",
+)
+
+#: How many distinct hosts / native hosts a single build may contribute. A
+#: minified bundle can embed thousands; the counts stay truthful either way.
+MAX_ENDPOINTS = 120
+MAX_NATIVE_HOSTS = 25
+MAX_FILES_PER_ITEM = 5
+
+
 
 def _excerpt(text: str, match: re.Match[str]) -> str:
     """A short window around the match, so the reviewer sees real context."""
@@ -320,9 +348,45 @@ def scan_text(filename: str, text: str) -> list[RiskSignal]:
 @dataclass
 class RiskScan:
     signals: list[RiskSignal] = field(default_factory=list)
+    #: host -> files it was seen in. Observational, never a signal.
+    endpoints: dict[str, list[str]] = field(default_factory=dict)
+    #: native host id -> files it was seen in.
+    native_hosts: dict[str, list[str]] = field(default_factory=dict)
+    #: True once anything was truncated, so the report never implies completeness.
+    truncated: bool = False
 
     def add_all(self, signals: list[RiskSignal]) -> None:
         self.signals.extend(signals)
+
+    def observe(self, filename: str, text: str) -> None:
+        """Record the hosts and native hosts this file reaches for.
+
+        Static extraction is a FLOOR, never a complete picture: a templated URL
+        (`${base}/api`), a split string or a base64 blob is invisible here. An
+        empty list means "nothing was found in the source", not "contacts
+        nothing", and the triage view says so.
+        """
+        for m in _URL_HOST_RE.finditer(text):
+            host = m.group(1).lower().rstrip(".")
+            if host in self.endpoints:
+                files = self.endpoints[host]
+                if filename not in files and len(files) < MAX_FILES_PER_ITEM:
+                    files.append(filename)
+            elif len(self.endpoints) < MAX_ENDPOINTS:
+                self.endpoints[host] = [filename]
+            else:
+                self.truncated = True
+
+        if _NATIVE_CALL_RE.search(text):
+            for host in _NATIVE_HOST_RE.findall(text):
+                if host in self.native_hosts:
+                    files = self.native_hosts[host]
+                    if filename not in files and len(files) < MAX_FILES_PER_ITEM:
+                        files.append(filename)
+                elif len(self.native_hosts) < MAX_NATIVE_HOSTS:
+                    self.native_hosts[host] = [filename]
+                else:
+                    self.truncated = True
 
     @property
     def sorted_signals(self) -> list[RiskSignal]:
@@ -335,6 +399,28 @@ class RiskScan:
                 out[s.level] += 1
         return out
 
+    def endpoint_list(self) -> list[dict[str, Any]]:
+        """External hosts, interesting ones first."""
+        items = [
+            {"host": h, "files": f, "benign": h in BENIGN_HOSTS}
+            for h, f in self.endpoints.items()
+        ]
+        items.sort(key=lambda i: (i["benign"], i["host"]))
+        return items
+
+    def native_host_list(self) -> list[dict[str, Any]]:
+        """Native hosts, with ExtSync's own bridge marked as what it is."""
+        items = [
+            {
+                "host": h,
+                "files": f,
+                "isExtsyncBridge": h == _EXTSYNC_NATIVE_HOST,
+            }
+            for h, f in self.native_hosts.items()
+        ]
+        items.sort(key=lambda i: (i["isExtsyncBridge"], i["host"]))
+        return items
+
     def to_dict(self) -> dict[str, Any]:
         counts = self.counts()
         return {
@@ -343,6 +429,13 @@ class RiskScan:
             "signals": [s.to_dict() for s in self.sorted_signals[:200]],
             "counts": counts,
             "total": len(self.signals),
+            "endpoints": self.endpoint_list(),
+            "nativeHosts": self.native_host_list(),
+            "truncated": self.truncated,
+            # Which build of the scanner produced this. A report without it
+            # predates the scanner entirely and must be shown as NOT SCANNED
+            # rather than as a clean result.
+            "scannerVersion": SCANNER_VERSION,
             # A single word for the queue list. Explicitly NOT a verdict - it says
             # what was found, not whether to approve.
             "topLevel": (

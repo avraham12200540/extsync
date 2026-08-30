@@ -45,6 +45,10 @@ READS = [
     "/admin/moderation/listings/proj_x",
     "/admin/moderation/safe-mode",
     "/admin/moderation/audit",
+    # The triage view exposes other developers' submissions and their scan
+    # findings, so reading it is as privileged as acting on it.
+    "/admin/moderation/triage",
+    "/admin/moderation/progress",
 ]
 
 

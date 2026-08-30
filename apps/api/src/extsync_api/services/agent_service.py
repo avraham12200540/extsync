@@ -33,6 +33,7 @@ from ..models.user import User
 from ..security.tokens import new_opaque_token
 from ..security.crypto import hash_token
 from .audit import record_audit, record_security_event
+from .artifact_publication import public_artifact
 from .availability import release_is_agent_servable, release_is_publicly_available
 from .safe_mode import store_is_closed
 from .events import emit_event, notify_owner
@@ -261,6 +262,14 @@ async def get_release_metadata(db: AsyncSession, release_id: str) -> dict:
     # never-approved release has no reachable metadata, and the artifact it names
     # is not in public storage either.
     if rel is None or rel.signed_metadata is None or not release_is_agent_servable(rel):
+        raise not_found("מטא-דאטה של הגרסה לא נמצאה")
+    # The signed blob has the public download URL frozen inside it, so serving it
+    # for a release whose bytes have been archived out of public storage would
+    # hand the Agent a dead link - and a failed download is reported back and can
+    # trip the auto-stop heuristic into pausing a healthy channel. Fail cleanly
+    # instead: the Agent reads this as "no update" and picks up the current
+    # version on its next check.
+    if await public_artifact(db, rel.id) is None:
         raise not_found("מטא-דאטה של הגרסה לא נמצאה")
     return rel.signed_metadata
 

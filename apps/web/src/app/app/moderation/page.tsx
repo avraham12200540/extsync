@@ -152,6 +152,19 @@ export default function ModerationPage() {
 
       {/* Emergency control. Prominent when ON, because someone arriving at
           this screen mid-incident must not have to wonder whether it is set. */}
+      <Card className="mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-ink">{t("triage.title")}</p>
+            <p className="mt-0.5 text-xs text-ink-muted">{t("triage.subtitle")}</p>
+          </div>
+          <Link href="/app/moderation/triage"
+                className="shrink-0 rounded-md bg-brand-gradient px-4 py-2 text-sm font-medium text-white shadow-glow hover:brightness-110">
+            {t("mod.review")}
+          </Link>
+        </div>
+      </Card>
+
       <Card className={`mb-5 ${safeMode?.enabled ? "border-danger/50 bg-danger/5" : ""}`}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
