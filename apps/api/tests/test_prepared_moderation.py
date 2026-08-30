@@ -269,3 +269,39 @@ def test_preparing_a_decision_changes_nothing_public(db):
     assert release.review_status == ReviewStatus.legacy_pending
     assert release.reviewed_by_user_id is None
     assert release.reviewed_by_email_snapshot is None
+
+
+def test_approving_code_while_refusing_the_listing_does_not_approve_the_listing(db):
+    """The two halves of a decision can disagree, and the code half must not
+    quietly settle the listing half.
+
+    approve_release normally carries the listing along, because a reviewer on the
+    review page is looking at both. When the prepared decision says the listing
+    needs changes, that shortcut would set approved_listing to the very content
+    being refused - and the rejection that follows does not clear it, so the
+    store would keep serving a snapshot nobody approved.
+    """
+    seed(db, decision="approve_with_note")
+    run(db, lambda s: _mutate(s, "prep_0", listing_decision="listing_needs_changes"))
+
+    result = apply(db, ["prep_0"])
+    assert result.applied == 1
+
+    project = run(db, lambda s: s.get(Project, "ext_0"))
+    release = run(db, lambda s: s.get(Release, "rel_0"))
+    assert release.review_status == ReviewStatus.approved
+    assert project.listing_review_status == ReviewStatus.rejected
+    assert project.approved_listing is None, (
+        "the listing was refused, but an approved snapshot was published anyway"
+    )
+
+
+def test_approving_both_halves_still_approves_the_listing(db):
+    """The default path must keep working: one decision, both halves."""
+    seed(db, decision="approve")
+    result = apply(db, ["prep_0"])
+    assert result.applied == 1
+
+    project = run(db, lambda s: s.get(Project, "ext_0"))
+    assert project.listing_review_status == ReviewStatus.approved
+    assert project.approved_listing is not None

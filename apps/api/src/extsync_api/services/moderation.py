@@ -151,12 +151,19 @@ def _require_reviewable(release: Release) -> None:
 # --------------------------------------------------------------------------- approve
 async def approve_release(db: AsyncSession, project: Project, release: Release, *,
                           admin: User, reason: str | None = None, note: str | None = None,
-                          ip: str | None = None) -> Release:
+                          ip: str | None = None, approve_listing_too: bool = True) -> Release:
     """Clear a release for public distribution.
 
     Copies the validated build from private staging into public storage. Until
     this runs there is nothing at the public URL, so approval is what actually
     makes the bytes reachable - not a flag flip.
+
+    `approve_listing_too` exists for the one case where the two halves genuinely
+    disagree: the reviewer cleared the CODE but wants changes to the listing. The
+    default carries the listing along, because an administrator looking at the
+    review page is looking at both. Passing False leaves the listing alone so a
+    separate listing decision can be recorded without this first overwriting the
+    approved snapshot with content that was never approved.
     """
     _require_reviewable(release)
     _stamp(release, admin, ReviewStatus.approved, reason, note)
@@ -182,9 +189,10 @@ async def approve_release(db: AsyncSession, project: Project, release: Release, 
     # moment becomes the approved one. Without this a new extension would need
     # two separate approvals to be fully public, and the listing half would be
     # easy to forget.
-    if release.review_status == ReviewStatus.approved and project.listing_review_status in (
-        ReviewStatus.pending, ReviewStatus.legacy_pending,
-    ):
+    if (approve_listing_too
+            and release.review_status == ReviewStatus.approved
+            and project.listing_review_status in (ReviewStatus.pending,
+                                                  ReviewStatus.legacy_pending)):
         await approve_listing(db, project, admin=admin)
 
     await record_audit(db, action="moderation.approve", actor=admin,

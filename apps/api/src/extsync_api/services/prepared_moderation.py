@@ -220,8 +220,14 @@ async def _apply_one(db: AsyncSession, row: PreparedDecision, admin: User,
     note = (row.internal_note or "").strip() or None
 
     if row.decision in ("approve", "approve_with_note"):
-        await svc.approve_release(db, project, release, admin=admin,
-                                  reason=reason, note=note, ip=ip)
+        # When the review cleared the code but asked for listing changes, the
+        # approval must NOT carry the listing along: doing so would set the
+        # approved snapshot to content this very decision is refusing, and the
+        # rejection that follows would leave that snapshot in place.
+        await svc.approve_release(
+            db, project, release, admin=admin, reason=reason, note=note, ip=ip,
+            approve_listing_too=(row.listing_decision in (None, "approve_listing")),
+        )
     elif row.decision == "request_changes":
         await svc.request_changes(db, project, release, admin=admin,
                                   reason=reason, note=note, ip=ip)
