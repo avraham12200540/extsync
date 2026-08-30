@@ -167,6 +167,65 @@ export interface Release {
   review?: ReleaseReview | null;
 }
 
+/** Store moderation queue (platform administrators only). */
+export interface ModerationQueueItem {
+  releaseId: string;
+  projectId: string;
+  projectName: string;
+  projectSlug: string;
+  developerEmail?: string | null;
+  version: string;
+  channel: string;
+  status: string;
+  reviewStatus: ReviewStatus;
+  riskScore: number;
+  permissionsChanged: boolean;
+  createdAt?: string | null;
+  publishedAt?: string | null;
+  /** Currently serving a channel, i.e. what real users get right now. */
+  isLive: boolean;
+  /** No earlier reviewed release on this project - a brand new extension. */
+  isNewExtension: boolean;
+}
+
+export interface ModerationCounts {
+  pendingNew: number;
+  pendingUpdate: number;
+  legacyLive: number;
+  changesRequested: number;
+  rejected: number;
+  approved: number;
+}
+
+export interface ModerationDetail {
+  release: {
+    id: string; version: string; channel: string; status: string;
+    reviewStatus: ReviewStatus; riskScore: number;
+    permissionsChanged: boolean; requiresUserApproval: boolean;
+    releaseNotes?: string | null;
+    validationReport?: unknown;
+    createdAt?: string | null; publishedAt?: string | null;
+    isLive: boolean;
+  };
+  /** `note` is the administrator's internal note - admin API only, never shown
+   *  to the developer. */
+  review: {
+    reason?: string | null; note?: string | null;
+    reviewedAt?: string | null; reviewedByEmail?: string | null;
+  };
+  project: {
+    id: string; name: string; slug: string; status: string; visibility: string;
+    shortDescription?: string | null; fullDescription?: string | null;
+    iconUrl?: string | null; website?: string | null; repoUrl?: string | null;
+    category?: string | null; extensionId?: string | null;
+  };
+  developer: { email?: string | null; id?: string | null };
+  artifact: {
+    public: boolean; staged: boolean;
+    size?: number | null; sha256?: string | null; fileCount?: number | null;
+  };
+}
+
 export interface InstallLink {
   id: string;
   token: string;

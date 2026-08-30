@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, LibraryBig, Puzzle, Users, KeyRound, Inbox, Settings as SettingsIcon, LogOut } from "lucide-react";
+import { LayoutDashboard, LibraryBig, Puzzle, Users, KeyRound, Inbox, ShieldCheck, Settings as SettingsIcon, LogOut } from "lucide-react";
 import { useAuth } from "@/components/providers";
 import { useLocale } from "@/components/locale-context";
 import { LocaleToggle } from "@/components/locale-toggle";
@@ -42,8 +42,12 @@ function VerifyEmailBanner({ email }: { email: string }) {
 }
 
 // devOnly items are hidden for a personal (end_user) account.
+// adminOnly items are the store moderation area - platform administrators only.
+// Hiding it is only cosmetic: every moderation endpoint enforces platform_admin
+// server-side, so this list is never what keeps anyone out.
 const nav = [
   { href: "/app", key: "dash.nav.overview", icon: LayoutDashboard, devOnly: true },
+  { href: "/app/moderation", key: "dash.nav.moderation", icon: ShieldCheck, adminOnly: true },
   { href: "/app/library", key: "dash.nav.library", icon: LibraryBig },
   { href: "/app/projects", key: "dash.nav.extensions", icon: Puzzle, devOnly: true },
   { href: "/app/feedback", key: "dash.nav.feedback", icon: Inbox, devOnly: true },
@@ -83,7 +87,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return <div className="flex min-h-screen items-center justify-center"><Spinner /></div>;
   }
 
-  const navLinks = nav.filter((item) => !item.devOnly || isDeveloper).map((item) => {
+  const isPlatformAdmin = user?.role === "platform_admin";
+  const navLinks = nav.filter((item) => (!item.devOnly || isDeveloper) && (!item.adminOnly || isPlatformAdmin)).map((item) => {
     const active = pathname === item.href || (item.href !== "/app" && pathname.startsWith(item.href));
     const Icon = item.icon;
     return (
