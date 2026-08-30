@@ -200,7 +200,11 @@ services:
     environment:
       DOMAIN: ${DOMAIN}
     volumes:
-      - ./infrastructure/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Mount the config DIRECTORY, not the single file. A file bind pins an
+      # inode, so replacing Caddyfile atomically (sed -i, most editors) leaves
+      # the container serving a stale copy while validate and reload both
+      # report success. A directory mount resolves the name on each read.
+      - ./infrastructure/caddy:/etc/caddy:ro
       - caddy-data:/data
       - caddy-config:/config
     restart: unless-stopped
