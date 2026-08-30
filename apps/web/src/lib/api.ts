@@ -383,6 +383,27 @@ export interface ApplyPreparedResult {
   }[];
 }
 
+/** A SaveBridge client credential, as the admin API returns it.
+ *  There is no field here from which a token could be reconstructed. */
+export interface SaveBridgeCredential {
+  id: string;
+  label: string;
+  /** The non-secret lookup half. Safe to display. */
+  tokenId: string;
+  policy: "netfree_required" | "unrestricted_private";
+  credentialType: "public_distribution" | "private_distribution";
+  status: "active" | "revoked";
+  createdAt?: string | null;
+  createdByEmail?: string | null;
+  expiresAt?: string | null;
+  revokedAt?: string | null;
+  revokedByEmail?: string | null;
+  revokedReason?: string | null;
+  lastUsedAt?: string | null;
+  useCount: number;
+  notes?: string | null;
+}
+
 export interface ModerationCounts {
   pendingNew: number;
   pendingUpdate: number;

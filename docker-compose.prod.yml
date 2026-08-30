@@ -30,6 +30,11 @@ x-app-env: &app-env
   S3_FORCE_PATH_STYLE: "true"
   JWT_SECRET: ${JWT_SECRET}
   CSRF_SECRET: ${CSRF_SECRET}
+  # SaveBridge client credentials. The pepper MACs every issued credential -
+  # rotating it invalidates all of them - and the internal key is what the
+  # SaveBridge relay presents when asking this API to resolve one.
+  SAVEBRIDGE_CREDENTIAL_PEPPER: ${SAVEBRIDGE_CREDENTIAL_PEPPER}
+  SAVEBRIDGE_INTERNAL_KEY: ${SAVEBRIDGE_INTERNAL_KEY}
   JWT_ACCESS_TTL_SECONDS: ${JWT_ACCESS_TTL_SECONDS:-900}
   JWT_REFRESH_TTL_SECONDS: ${JWT_REFRESH_TTL_SECONDS:-2592000}
   SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-extsync_session}
