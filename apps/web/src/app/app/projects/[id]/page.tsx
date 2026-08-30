@@ -367,10 +367,16 @@ function VersionsTab({ project }: { project: Project }) {
     onError: (e) => setError(e instanceof ApiError ? e.message : t("dash.pd.upnetwork")),
   });
 
+  // Publishing no longer makes a version public - it submits it for review.
+  // Say so explicitly, so nobody is left believing their extension went live.
+  const [sentForReview, setSentForReview] = useState(false);
   const publish = useMutation({
     mutationFn: (releaseId: string) =>
       api.post(`/projects/${project.id}/releases/${releaseId}/publish`, { rolloutPercentage: 100 }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["releases", project.id] }),
+    onSuccess: () => {
+      setSentForReview(true);
+      qc.invalidateQueries({ queryKey: ["releases", project.id] });
+    },
   });
 
   const rollback = useMutation({
@@ -431,6 +437,13 @@ function VersionsTab({ project }: { project: Project }) {
         </Button>
       </Card>
 
+      {sentForReview && (
+        <div className="mb-3 rounded-lg border border-brand/30 bg-brand/5 p-3">
+          <p className="text-sm font-medium text-ink">{t("dash.pd.rv.sent.title")}</p>
+          <p className="mt-1 text-xs text-ink-muted">{t("dash.pd.rv.sent.body")}</p>
+        </div>
+      )}
+
       <div className="space-y-3">
         {(releases ?? []).map((r) => {
           const scanning = SCANNING.has(r.status);
@@ -443,6 +456,9 @@ function VersionsTab({ project }: { project: Project }) {
                     <span className="font-semibold text-ink" dir="ltr">v{r.version}</span>
                     <Badge>{r.channel}</Badge>
                     <Badge status={r.status}>{r.status}</Badge>
+                    {r.review && (
+                      <Badge status={r.review.status}>{t(`dash.pd.rv.${r.review.status}`)}</Badge>
+                    )}
                     {r.permissionsChanged && <Badge>{t("dash.pd.permschanged")}</Badge>}
                     {!scanning && (
                       <span className={`text-xs font-medium ${riskColor}`}>{t("dash.pd.risk")} {r.riskScore}</span>
@@ -476,6 +492,35 @@ function VersionsTab({ project }: { project: Project }) {
                   )}
                 </div>
               </div>
+
+              {/* moderation state: what it means, plus any explanation the
+                  administrator deliberately wrote for the developer. The
+                  administrator's internal note is never sent to this client. */}
+              {r.review && r.review.status !== "approved" && (
+                <div className={`mt-3 rounded-lg border p-3 text-xs ${
+                  r.review.status === "rejected"
+                    ? "border-danger/30 bg-danger/5"
+                    : r.review.status === "changes_requested"
+                    ? "border-warning/30 bg-warning/5"
+                    : "border-line bg-surface-2/50"
+                }`}>
+                  <p className="text-ink-muted">
+                    {r.review.status === "rejected"
+                      ? t("dash.pd.rv.rejected.body")
+                      : r.review.status === "changes_requested"
+                      ? t("dash.pd.rv.changes.body")
+                      : r.review.status === "legacy_pending"
+                      ? t("dash.pd.rv.legacy.body")
+                      : t("dash.pd.rv.pending.body")}
+                  </p>
+                  {r.review.reason && (
+                    <p className="mt-2 text-ink">
+                      <span className="font-medium">{t("dash.pd.rv.reason")}</span>{" "}
+                      {r.review.reason}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* live scan progress */}
               {scanning && (

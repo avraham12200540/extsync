@@ -131,6 +131,22 @@ export interface Project {
   screenshots?: Screenshot[];
 }
 
+/** Store moderation state of a release, as the DEVELOPER is allowed to see it.
+ *  `reason` is text an administrator deliberately wrote for the developer; the
+ *  administrator's internal note is never sent to this client at all. */
+export type ReviewStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "changes_requested"
+  | "legacy_pending";
+
+export interface ReleaseReview {
+  status: ReviewStatus;
+  reason?: string | null;
+  reviewedAt?: string | null;
+}
+
 export interface Release {
   id: string;
   projectId: string;
@@ -148,6 +164,7 @@ export interface Release {
   warningsCount?: number;
   publishedAt?: string | null;
   createdAt?: string | null;
+  review?: ReleaseReview | null;
 }
 
 export interface InstallLink {

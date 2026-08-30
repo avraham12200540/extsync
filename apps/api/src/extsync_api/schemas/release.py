@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from ..models.enums import Channel, ReleaseStatus
+from ..models.enums import Channel, ReleaseStatus, ReviewStatus
 from .common import CamelModel
 
 ALLOWED_ROLLOUT = {1, 5, 10, 25, 50, 75, 100}
@@ -52,6 +52,40 @@ class PermissionDiffInfo(CamelModel):
     risk_level: str = "low"
 
 
+class ReleaseReviewInfo(CamelModel):
+    """What the DEVELOPER is allowed to know about moderation of their release.
+
+    Deliberately a closed shape rather than a passthrough of the review columns.
+    `Release.review_note` is the administrator's private note and MUST NEVER
+    appear here or anywhere else developer-facing; the only free text that
+    reaches the developer is `review_reason`, which an administrator typed
+    knowing it would be shown to them. `reviewed_by_user_id` is withheld too -
+    who reviewed something is not the submitter's business.
+
+    Build this only via schemas.release.review_info(); do not construct it from
+    a model dump.
+    """
+
+    status: ReviewStatus
+    # Administrator's explanation, written FOR the developer. None unless one
+    # was deliberately entered.
+    reason: str | None = None
+    reviewed_at: str | None = None
+
+
+def review_info(release, iso) -> ReleaseReviewInfo:
+    """Map a Release to its developer-visible review state.
+
+    The single place that decides what crosses the line. Note it reads
+    `review_reason` and never `review_note`.
+    """
+    return ReleaseReviewInfo(
+        status=release.review_status,
+        reason=release.review_reason,
+        reviewed_at=iso(release.reviewed_at),
+    )
+
+
 class ReleaseResponse(CamelModel):
     id: str
     project_id: str
@@ -69,6 +103,7 @@ class ReleaseResponse(CamelModel):
     published_at: str | None = None
     created_at: str | None = None
     validation_report: dict | None = None
+    review: ReleaseReviewInfo | None = None
 
 
 class ReleaseListItem(CamelModel):
@@ -84,3 +119,4 @@ class ReleaseListItem(CamelModel):
     published_at: str | None = None
     validation_error: str | None = None  # first error message when validation_failed
     warnings_count: int = 0
+    review: ReleaseReviewInfo | None = None

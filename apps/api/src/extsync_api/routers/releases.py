@@ -17,6 +17,7 @@ from ..schemas.release import (
     ReleaseResponse,
     RevokeRequest,
     RollbackRequest,
+    review_info,
 )
 from ..services import release_service as svc
 from ..services.authz import ensure_can_publish, ensure_project_active, load_project_for_user
@@ -38,6 +39,7 @@ def _response(r: Release) -> ReleaseResponse:
         risk_score=r.risk_score, key_id=r.key_id,
         published_at=_iso(r.published_at), created_at=_iso(r.created_at),
         validation_report=r.validation_report,
+        review=review_info(r, _iso),
     )
 
 
@@ -50,6 +52,7 @@ def _list_item(r: Release) -> ReleaseListItem:
         risk_score=r.risk_score, created_at=_iso(r.created_at), published_at=_iso(r.published_at),
         validation_error=(errors[0].get("message") if errors else None),
         warnings_count=len(report.get("warnings") or []),
+        review=review_info(r, _iso),
     )
 
 

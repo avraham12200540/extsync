@@ -14,6 +14,7 @@ from ..models.enums import (
     NotificationKind,
     ProjectStatus,
     ReleaseStatus,
+    ReviewStatus,
     can_transition,
 )
 from ..models.project import Project
@@ -35,6 +36,7 @@ from .artifact_publication import (
     public_download_url,
 )
 from .audit import record_audit
+from .availability import release_is_publicly_available
 from .events import emit_event, notify_owner
 from .jobs import enqueue_validation
 from .push import notify_project_update
@@ -205,6 +207,18 @@ async def publish_release(
         raise APIError(ErrorCode.RELEASE_NOT_READY,
                        "הגרסה אינה במצב שניתן לפרסם ממנו", status_code=409)
 
+    # An administrator's decision is not something a developer can undo by
+    # re-publishing. The availability policy would keep a rejected release
+    # private anyway, but failing here means the developer gets a clear answer
+    # instead of a version that silently never goes live. Rejected is final for
+    # THIS release - the way forward is a new version.
+    if release.review_status in (ReviewStatus.rejected, ReviewStatus.changes_requested):
+        raise APIError(
+            ErrorCode.RELEASE_NOT_READY,
+            "הגרסה נדחתה בבדיקת מנהל האתר ולא ניתן לפרסם אותה. יש להעלות גרסה חדשה.",
+            status_code=409,
+        )
+
     if release.sequence is None:
         release.sequence = await _next_sequence(db, project.id)
     release.published_at = release.published_at or _now()
@@ -224,14 +238,30 @@ async def publish_release(
     await record_audit(db, action="release.publish", actor_user_id=user.id,
                        target_type="release", target_id=release.id, project_id=project.id,
                        ip_address=ip, extra={"channel": release.channel.value, "rollout": rollout})
-    await notify_owner(db, project.id, NotificationKind.release_published,
-                       title="הגרסה פורסמה",
-                       body=f"גרסה {release.version} פורסמה לערוץ {release.channel.value} ({rollout}%).",
-                       data={"releaseId": release.id})
+    # Publishing is now a SUBMISSION unless the release is already cleared, so
+    # say which one actually happened. Telling a developer their extension is
+    # live when it is sitting in a review queue is the one message we must not
+    # send.
+    live = release_is_publicly_available(release)
+    if live:
+        await notify_owner(db, project.id, NotificationKind.release_published,
+                           title="הגרסה פורסמה",
+                           body=f"גרסה {release.version} פורסמה לערוץ {release.channel.value} ({rollout}%).",
+                           data={"releaseId": release.id})
+    else:
+        await notify_owner(db, project.id, NotificationKind.release_published,
+                           title="הגרסה נשלחה לבדיקה",
+                           body=(f"גרסה {release.version} נשלחה לבדיקת מנהל האתר ותפורסם "
+                                 f"לציבור רק לאחר אישור."),
+                           data={"releaseId": release.id})
     await emit_event(db, project.id, "release.published",
                      {"releaseId": release.id, "version": release.version,
-                      "channel": release.channel.value, "rollout": rollout, "sequence": release.sequence})
-    await notify_project_update(project.id, release.channel.value)  # nudge connected Agents
+                      "channel": release.channel.value, "rollout": rollout,
+                      "sequence": release.sequence, "publiclyAvailable": live})
+    if live:
+        # Only worth waking Agents when there is actually something to fetch;
+        # an unapproved release would be filtered out at the update check anyway.
+        await notify_project_update(project.id, release.channel.value)
     return release
 
 

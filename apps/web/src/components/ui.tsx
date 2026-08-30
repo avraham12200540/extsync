@@ -81,6 +81,13 @@ const statusStyles: Record<string, string> = {
   superseded: "bg-gray-100 text-gray-600 dark:bg-slate-500/15 dark:text-slate-400",
   active: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
   draft: "bg-gray-100 text-gray-700 dark:bg-slate-500/15 dark:text-slate-300",
+  // Store moderation states (Release.review.status). No key collides with a
+  // ReleaseStatus above, so both share this map.
+  pending: "bg-indigo-100 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300",
+  approved: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
+  rejected: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
+  changes_requested: "bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300",
+  legacy_pending: "bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300",
 };
 
 export function Badge({ children, status }: { children: React.ReactNode; status?: string }) {
