@@ -237,9 +237,17 @@ async def queue(
         .join(Project, Project.id == Release.project_id)
         .join(owner, owner.id == Project.owner_user_id, isouter=True)
         .where(Release.review_status == state, Project.deleted_at.is_(None))
-        .order_by(Release.created_at.desc())
-        .limit(min(limit, 500)).offset(offset)
     )
+    if live_only:
+        # The live restriction has to be part of the query, not a filter applied
+        # to the page it returns. Filtering afterwards means LIMIT is spent on
+        # rows that are then discarded, so live releases ranked past the limit
+        # vanish from the queue entirely - with 116 legacy rows and the default
+        # limit of 100, 7 of the 46 live ones were never shown, and the count
+        # badge (which counts in SQL) disagreed with the list.
+        stmt = stmt.where(Release.id.in_(live) if live else false())
+    stmt = (stmt.order_by(Release.created_at.desc())
+            .limit(min(limit, 500)).offset(offset))
     rows = (await db.execute(stmt)).all()
 
     reviewed_projects = set((await db.scalars(
@@ -251,8 +259,6 @@ async def queue(
     items: list[QueueItem] = []
     for release, project, email in rows:
         is_live = release.id in live
-        if live_only and not is_live:
-            continue
         items.append(QueueItem(
             release_id=release.id, project_id=project.id, project_name=project.name,
             project_slug=project.slug, developer_email=email,
