@@ -1,13 +1,15 @@
 """Projects (Chrome extensions) and their stable signing keys (ADR-0005)."""
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+import datetime as dt
+
+from sqlalchemy import JSON, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db import Base
 from ..ids import generic_id, project_id
 from .base import SoftDeleteMixin, TimestampMixin, pg_enum
-from .enums import ProjectStatus, ProjectVisibility
+from .enums import ProjectStatus, ProjectVisibility, ReviewStatus
 
 
 class Project(Base, TimestampMixin, SoftDeleteMixin):
@@ -54,6 +56,33 @@ class Project(Base, TimestampMixin, SoftDeleteMixin):
     # every Agent acquisition. Deliberately a superset of the installation count -
     # an install is a real registered install, a download is just a download.
     download_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False, server_default="0")
+
+    # ---- public listing moderation (§12) ----
+    # The listing a developer can edit freely (name, descriptions, icon,
+    # screenshots) is public content in its own right, so the same rule applies
+    # to it as to a build: what the public sees is what an administrator
+    # approved, not what was most recently typed.
+    #
+    # `approved_listing` is the snapshot the store actually renders. The columns
+    # above stay the DEVELOPER's working copy. When they diverge,
+    # `listing_review_status` goes to pending and the store keeps showing the
+    # snapshot until an administrator accepts the change.
+    #
+    # NULL snapshot = grandfathered: projects that predate listing moderation
+    # keep rendering their live fields, exactly like legacy_pending releases,
+    # until someone reviews them.
+    approved_listing: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    listing_review_status: Mapped[ReviewStatus] = mapped_column(
+        pg_enum(ReviewStatus, "project_listing_review_status"),
+        default=ReviewStatus.pending,
+        nullable=False,
+        index=True,
+    )
+    listing_reviewed_by_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    listing_reviewed_at: Mapped[dt.datetime | None] = mapped_column(nullable=True)
+    listing_review_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Optimistic locking for sensitive concurrent edits.
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)

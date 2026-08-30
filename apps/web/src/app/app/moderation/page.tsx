@@ -2,13 +2,20 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { ShieldCheck, ShieldAlert, AlertTriangle, Radio } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ShieldCheck, ShieldAlert, AlertTriangle, Radio, Power } from "lucide-react";
 import { DashHeader } from "@/components/dashboard";
 import { useLocale } from "@/components/locale-context";
 import { useAuth } from "@/components/providers";
-import { api, type ModerationCounts, type ModerationQueueItem } from "@/lib/api";
-import { Badge, Card, Spinner } from "@/components/ui";
+import {
+  api,
+  type ListingQueueItem,
+  type ModerationCounts,
+  type ModerationAuditEntry,
+  type ModerationQueueItem,
+  type SafeModeStatus,
+} from "@/lib/api";
+import { Badge, Button, Card, Spinner } from "@/components/ui";
 
 /**
  * Store moderation queue - platform administrators only.
@@ -23,15 +30,19 @@ import { Badge, Card, Spinner } from "@/components/ui";
  * actually serving users right now rather than every historical row.
  */
 
-type TabKey = "new" | "update" | "legacy" | "changes" | "rejected" | "approved";
+type TabKey =
+  | "new" | "update" | "legacy" | "listings"
+  | "changes" | "rejected" | "approved" | "audit";
 
 const TABS: { key: TabKey; label: string; state: string; liveOnly?: boolean }[] = [
   { key: "new", label: "mod.tab.new", state: "pending" },
   { key: "update", label: "mod.tab.update", state: "pending" },
   { key: "legacy", label: "mod.tab.legacy", state: "legacy_pending", liveOnly: true },
+  { key: "listings", label: "mod.tab.listings", state: "" },
   { key: "changes", label: "mod.tab.changes", state: "changes_requested" },
   { key: "rejected", label: "mod.tab.rejected", state: "rejected" },
   { key: "approved", label: "mod.tab.approved", state: "approved" },
+  { key: "audit", label: "mod.tab.audit", state: "" },
 ];
 
 function countFor(counts: ModerationCounts | undefined, key: TabKey): number {
@@ -40,9 +51,11 @@ function countFor(counts: ModerationCounts | undefined, key: TabKey): number {
     case "new": return counts.pendingNew;
     case "update": return counts.pendingUpdate;
     case "legacy": return counts.legacyLive;
+    case "listings": return counts.listingPending;
     case "changes": return counts.changesRequested;
     case "rejected": return counts.rejected;
     case "approved": return counts.approved;
+    case "audit": return 0;
   }
 }
 
@@ -63,13 +76,46 @@ export default function ModerationPage() {
     enabled: user?.role === "platform_admin",
   });
 
+  const qc = useQueryClient();
+  const [safeReason, setSafeReason] = useState("");
+
+  const { data: safeMode } = useQuery({
+    queryKey: ["moderation-safe-mode"],
+    queryFn: () => api.get<SafeModeStatus>("/admin/moderation/safe-mode"),
+    enabled: user?.role === "platform_admin",
+  });
+
+  const toggleSafeMode = useMutation({
+    mutationFn: (enabled: boolean) =>
+      api.post("/admin/moderation/safe-mode", {
+        enabled,
+        reason: safeReason.trim() || undefined,
+      }),
+    onSuccess: () => {
+      setSafeReason("");
+      qc.invalidateQueries({ queryKey: ["moderation-safe-mode"] });
+    },
+  });
+
+  const { data: audit, isLoading: auditLoading } = useQuery({
+    queryKey: ["moderation-audit"],
+    queryFn: () => api.get<ModerationAuditEntry[]>("/admin/moderation/audit?limit=200"),
+    enabled: user?.role === "platform_admin" && tab === "audit",
+  });
+
+  const { data: listings, isLoading: listingsLoading } = useQuery({
+    queryKey: ["moderation-listings"],
+    queryFn: () => api.get<ListingQueueItem[]>("/admin/moderation/listings"),
+    enabled: user?.role === "platform_admin" && tab === "listings",
+  });
+
   const { data: items, isLoading } = useQuery({
     queryKey: ["moderation-queue", active.state, liveOnly],
     queryFn: () =>
       api.get<ModerationQueueItem[]>(
         `/admin/moderation/queue?state=${active.state}&liveOnly=${liveOnly ? "true" : "false"}&limit=500`,
       ),
-    enabled: user?.role === "platform_admin",
+    enabled: user?.role === "platform_admin" && tab !== "listings" && tab !== "audit",
   });
 
   const fmt = useMemo(() => {
@@ -103,6 +149,56 @@ export default function ModerationPage() {
         title={t("mod.title")}
         subtitle={t("mod.subtitle")}
       />
+
+      {/* Emergency control. Prominent when ON, because someone arriving at
+          this screen mid-incident must not have to wonder whether it is set. */}
+      <Card className={`mb-5 ${safeMode?.enabled ? "border-danger/50 bg-danger/5" : ""}`}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <Power className={`h-4 w-4 ${safeMode?.enabled ? "text-danger" : "text-ink-muted"}`} />
+              {t("mod.safe.title")}
+              {safeMode?.enabled && <Badge status="rejected">{t("mod.safe.on")}</Badge>}
+            </p>
+            <p className="mt-1 text-xs text-ink-muted">
+              {safeMode?.enabled ? t("mod.safe.on.body") : t("mod.safe.off.body")}
+            </p>
+            {/* Never let anyone believe this removed the files. */}
+            <p className="mt-1 text-xs text-ink-muted">{t("mod.safe.caveat")}</p>
+            {safeMode?.enabled && safeMode.reason && (
+              <p className="mt-1 text-xs text-ink">
+                {t("mod.safe.reason")} {safeMode.reason}
+              </p>
+            )}
+            {safeMode?.updatedByEmail && (
+              <p className="mt-1 text-xs text-ink-muted" dir="ltr">
+                {safeMode.updatedByEmail} {fmt(safeMode.updatedAt)}
+              </p>
+            )}
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <input
+              value={safeReason}
+              onChange={(e) => setSafeReason(e.target.value)}
+              maxLength={1000}
+              placeholder={t("mod.safe.reason.ph")}
+              className="w-56 rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-ink placeholder:text-ink-muted focus:border-brand outline-none"
+            />
+            <Button
+              variant={safeMode?.enabled ? "secondary" : "danger"}
+              size="sm"
+              disabled={toggleSafeMode.isPending}
+              onClick={() => {
+                const next = !safeMode?.enabled;
+                if (!confirm(t(next ? "mod.safe.confirm.on" : "mod.safe.confirm.off"))) return;
+                toggleSafeMode.mutate(next);
+              }}
+            >
+              {safeMode?.enabled ? t("mod.safe.reopen") : t("mod.safe.close")}
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       <div className="mb-5 flex flex-wrap gap-2">
         {TABS.map((x) => {
@@ -146,14 +242,82 @@ export default function ModerationPage() {
         </label>
       )}
 
-      {isLoading && <Spinner />}
+      {tab === "audit" && (
+        <>
+          {auditLoading && <Spinner />}
+          {!auditLoading && (audit ?? []).length === 0 && (
+            <Card><p className="text-sm text-ink-muted">{t("mod.empty")}</p></Card>
+          )}
+          <div className="space-y-2">
+            {(audit ?? []).map((e) => (
+              <Card key={e.id}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm text-ink">
+                      <span className="font-medium">{t(`mod.audit.${e.action}`)}</span>
+                      {e.projectName && <span className="text-ink-muted"> - {e.projectName}</span>}
+                    </p>
+                    <p className="mt-0.5 text-xs text-ink-muted">
+                      {e.adminEmail && <span dir="ltr">{e.adminEmail}</span>}
+                      {e.adminEmail && " \u00b7 "}
+                      {fmt(e.at)}
+                      {typeof e.extra?.version === "string" && (
+                        <span dir="ltr"> \u00b7 v{e.extra.version}</span>
+                      )}
+                    </p>
+                    {typeof e.extra?.reason === "string" && e.extra.reason && (
+                      <p className="mt-1 text-xs text-ink">{e.extra.reason}</p>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
 
-      {!isLoading && shown.length === 0 && (
+      {tab !== "audit" && (tab === "listings" ? listingsLoading : isLoading) && <Spinner />}
+
+      {tab === "listings" && !listingsLoading && (listings ?? []).length === 0 && (
+        <Card><p className="text-sm text-ink-muted">{t("mod.empty")}</p></Card>
+      )}
+
+      {tab === "listings" && (
+        <div className="space-y-3">
+          {(listings ?? []).map((l) => (
+            <Link key={l.projectId} href={`/app/moderation/listing/${l.projectId}`} className="block">
+              <Card className="lift">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-ink">{l.projectName}</span>
+                      <Badge status={l.listingReviewStatus}>
+                        {t(`dash.pd.rv.${l.listingReviewStatus}`)}
+                      </Badge>
+                      {l.changedFields.map((f) => (
+                        <Badge key={f} status="pending">{t(`mod.lf.${f}`)}</Badge>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-ink-muted">
+                      {l.developerEmail && <span dir="ltr">{l.developerEmail}</span>}
+                      {l.developerEmail && " \u00b7 "}
+                      {fmt(l.updatedAt)}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-sm font-medium text-brand">{t("mod.review")}</span>
+                </div>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {tab !== "listings" && tab !== "audit" && !isLoading && shown.length === 0 && (
         <Card><p className="text-sm text-ink-muted">{t("mod.empty")}</p></Card>
       )}
 
       <div className="space-y-3">
-        {shown.map((i) => (
+        {(tab === "listings" || tab === "audit" ? [] : shown).map((i) => (
           <Link key={i.releaseId} href={`/app/moderation/${i.releaseId}`} className="block">
             <Card className="lift">
               <div className="flex flex-wrap items-start justify-between gap-3">

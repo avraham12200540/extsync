@@ -24,6 +24,7 @@ from ..schemas.install_link import (
 from .artifact_publication import public_artifact, public_download_url
 from .audit import record_audit
 from .availability import release_is_publicly_available
+from .safe_mode import store_is_closed
 
 
 def _iso(value) -> str | None:
@@ -70,6 +71,10 @@ async def _active_release(db: AsyncSession, project_id: str, channel) -> Release
 
 
 async def resolve_install_link(db: AsyncSession, token: str) -> InstallPageResolve:
+    # Store Safe Mode closes install links too - otherwise anyone holding one
+    # could keep installing while the store is supposedly shut.
+    if await store_is_closed(db):
+        raise not_found("קישור ההתקנה לא נמצא")
     link = await db.scalar(select(InstallLink).where(InstallLink.token == token))
     if link is None:
         raise not_found("קישור ההתקנה לא נמצא")

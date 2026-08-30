@@ -18,7 +18,7 @@ from ..ids import secret_token
 from ..models.device import Installation
 from ..models.enums import Channel, InstallationStatus, InstallLinkType
 from ..models.install_link import InstallLink
-from ..models.project import Project, ProjectScreenshot
+from ..models.project import Project
 from ..models.rating import ProjectRating
 from ..models.release import ChannelState, Release, ReleasePermissionSnapshot
 from ..models.user import User
@@ -27,6 +27,8 @@ from ..services.ratelimit import client_ip, enforce_rate_limit
 from typing import Annotated
 from fastapi import Depends
 from ..services.artifact_publication import public_artifact, public_download_url
+from ..services.listing import current_listing
+from ..services.safe_mode import store_is_closed
 from ..services.availability import (
     public_project_clause,
     public_release_clause,
@@ -145,6 +147,9 @@ async def _my_ratings(db: AsyncSession, user_id: str | None, project_ids: list[s
 async def list_catalog(request: Request, db: DBSession, user: OptionalUser, q: str | None = None,
                        category: str | None = None) -> list[CatalogItem]:
     await enforce_rate_limit(f"catalog:{client_ip(request)}", limit=120, window_seconds=60)
+    # Store Safe Mode: the store serves nothing at all while it is on.
+    if await store_is_closed(db):
+        return []
     # A project is listed only if it has an active channel pointing at a release
     # that is ACTUALLY publicly available - published AND cleared by an
     # administrator. Listing an extension is itself publication, so a project
@@ -174,11 +179,16 @@ async def list_catalog(request: Request, db: DBSession, user: OptionalUser, q: s
         # latest stable (or any) published release version
         rel = await _latest_release(db, p.id)
         avg, cnt = ratings.get(p.id, (0.0, 0))
+        # Approved listing content, same rule as the detail page.
+        listing = await current_listing(db, p)
         items.append(CatalogItem(
-            slug=p.slug, name=p.name, short_description=p.short_description,
-            icon_url=p.icon_url, developer_name=await _developer_name(db, p.owner_user_id),
+            slug=p.slug, name=listing.get("name") or p.name,
+            short_description=listing.get("short_description") or "",
+            icon_url=listing.get("icon_url"),
+            developer_name=(listing.get("developer_name")
+                            or await _developer_name(db, p.owner_user_id)),
             extension_id=p.extension_id, latest_version=rel.version if rel else None,
-            category=p.category, published_at=_iso(rel.published_at) if rel else None,
+            category=listing.get("category"), published_at=_iso(rel.published_at) if rel else None,
             installs=installs.get(p.id, 0),
             downloads=p.download_count or 0,
             avg_rating=avg, ratings_count=cnt, my_rating=mine.get(p.id),
@@ -246,6 +256,8 @@ async def _latest_release(db: AsyncSession, project_id: str) -> Release | None:
 
 @router.get("/{slug}", response_model=CatalogDetail)
 async def catalog_detail(slug: str, db: DBSession, user: OptionalUser) -> CatalogDetail:
+    if await store_is_closed(db):
+        raise not_found("התוסף לא נמצא")
     project = await db.scalar(
         select(Project).where(Project.slug == slug, public_project_clause())
     )
@@ -322,23 +334,27 @@ async def catalog_detail(slug: str, db: DBSession, user: OptionalUser) -> Catalo
     mine = await _my_ratings(db, user.id if user else None, [project.id])
     avg, cnt = ratings.get(project.id, (0.0, 0))
 
-    shots = await db.scalars(
-        select(ProjectScreenshot)
-        .where(ProjectScreenshot.project_id == project.id)
-        .order_by(ProjectScreenshot.position, ProjectScreenshot.created_at)
-    )
-    screenshots = [s.url for s in shots]
+    # The listing the PUBLIC sees is the approved snapshot, not whatever the
+    # developer most recently typed. Without this, an extension could be approved
+    # with an innocuous name and description and then renamed to anything.
+    # A grandfathered project (no snapshot yet) falls back to its live fields.
+    listing = await current_listing(db, project)
 
     return CatalogDetail(
-        slug=project.slug, name=project.name, short_description=project.short_description,
-        full_description=project.full_description, icon_url=project.icon_url,
-        developer_name=await _developer_name(db, project.owner_user_id),
-        website=project.website, repo_url=project.repo_url,
-        privacy_policy_url=project.privacy_policy_url, extension_id=project.extension_id,
-        category=project.category,
+        slug=project.slug,
+        name=listing.get("name") or project.name,
+        short_description=listing.get("short_description") or "",
+        full_description=listing.get("full_description"),
+        icon_url=listing.get("icon_url"),
+        developer_name=(listing.get("developer_name")
+                        or await _developer_name(db, project.owner_user_id)),
+        website=listing.get("website"), repo_url=listing.get("repo_url"),
+        privacy_policy_url=listing.get("privacy_policy_url"),
+        extension_id=project.extension_id,
+        category=listing.get("category"),
         installs=(await _installs_map(db, [project.id])).get(project.id, 0),
         downloads=project.download_count or 0,
-        screenshots=screenshots,
+        screenshots=list(listing.get("screenshots") or []),
         channels=channels, permissions=perms,
         host_permissions=host_perms, uses_native_messaging=native, install_uri=install_uri,
         avg_rating=avg, ratings_count=cnt, my_rating=mine.get(project.id),

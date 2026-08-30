@@ -34,6 +34,7 @@ from ..schemas.auth import (
 from ..schemas.common import OkResponse
 from ..security.crypto import hash_token
 from ..services import auth_service as svc
+from ..services.listing import mark_owner_listings_dirty
 from ..services.ratelimit import client_ip, enforce_rate_limit
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -237,7 +238,12 @@ async def update_me(req: UpdateMeRequest, user: CurrentUser, db: DBSession) -> M
     # Public-facing display name (shown as the publisher in the store). Bound to
     # the request session, so the get_session dependency commits on success.
     if req.display_name is not None:
+        previous = user.display_name
         user.display_name = req.display_name.strip()
+        if user.display_name != previous:
+            # This name is shown publicly on every extension this user owns,
+            # so changing it is a change to each of those store listings.
+            await mark_owner_listings_dirty(db, user.id)
     if req.email_notif_optout is not None:
         # Store only known NotificationKind values (drop anything unrecognized).
         valid = {k.value for k in NotificationKind}

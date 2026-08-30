@@ -34,6 +34,7 @@ from ..security.tokens import new_opaque_token
 from ..security.crypto import hash_token
 from .audit import record_audit, record_security_event
 from .availability import release_is_agent_servable, release_is_publicly_available
+from .safe_mode import store_is_closed
 from .events import emit_event, notify_owner
 from .install_link_service import consume_install_link
 
@@ -171,6 +172,9 @@ async def unregister_extension(db: AsyncSession, device: Device, *, project_id: 
 
 # --------------------------------------------------------------------------- updates
 async def _active_release(db: AsyncSession, project_id: str, channel: Channel) -> tuple[Release | None, ChannelState | None]:
+    # Store Safe Mode: no updates are offered to anyone while it is on.
+    if await store_is_closed(db):
+        return None, None
     state = await db.scalar(
         select(ChannelState).where(
             ChannelState.project_id == project_id, ChannelState.channel == channel
@@ -249,6 +253,8 @@ async def _remember_bucket(db: AsyncSession, project_id: str, channel: Channel,
 
 
 async def get_release_metadata(db: AsyncSession, release_id: str) -> dict:
+    if await store_is_closed(db):
+        raise not_found("מטא-דאטה של הגרסה לא נמצאה")
     rel = await db.get(Release, release_id)
     # Paused/superseded are still served (a device may be mid-update or rolling
     # back), but the review dimension is never relaxed - so a rejected or

@@ -19,13 +19,25 @@ from sqlalchemy.orm import aliased
 from ..deps import AdminUser, DBSession
 from ..errors import not_found
 from ..models.enums import ProjectStatus, ProjectVisibility, ReleaseStatus, ReviewStatus
-from ..models.project import Project
+from ..models.audit import AuditEvent
+from ..models.enums import NotificationKind
+from ..models.project import Project, ProjectScreenshot
+from ..models.platform_flag import STORE_SAFE_MODE, PlatformFlag
 from ..models.release import ChannelState, Release
 from ..models.user import User
 from ..schemas.common import CamelModel
 from ..services import moderation as svc
 from ..services.artifact_publication import public_artifact, staged_artifact
+from ..services.audit import record_audit
+from ..services.events import notify_owner
+from ..services.listing import (
+    LISTING_FIELDS,
+    approve_listing,
+    build_snapshot,
+    reject_listing,
+)
 from ..services.ratelimit import client_ip
+from ..services.safe_mode import set_safe_mode
 
 router = APIRouter(prefix="/admin/moderation", tags=["moderation"])
 
@@ -94,6 +106,21 @@ class QueueCounts(CamelModel):
     changes_requested: int = 0
     rejected: int = 0
     approved: int = 0
+    listing_pending: int = 0
+
+
+class ListingQueueItem(CamelModel):
+    """A store listing whose text or images changed since it was approved."""
+
+    project_id: str
+    project_name: str
+    project_slug: str
+    developer_email: str | None = None
+    listing_review_status: ReviewStatus
+    updated_at: str | None = None
+    #: Fields that differ from the approved snapshot. Empty for a project
+    #: that has never been reviewed (nothing to diff against yet).
+    changed_fields: list[str] = []
 
 
 # --------------------------------------------------------------------------- helpers
@@ -158,6 +185,14 @@ async def queue_counts(_: AdminUser, db: DBSession) -> QueueCounts:
         changes_requested=await _count(Release.review_status == ReviewStatus.changes_requested),
         rejected=await _count(Release.review_status == ReviewStatus.rejected),
         approved=await _count(Release.review_status == ReviewStatus.approved),
+        listing_pending=await db.scalar(
+            select(func.count()).select_from(Project).where(
+                Project.deleted_at.is_(None),
+                Project.listing_review_status.in_(
+                    [ReviewStatus.pending, ReviewStatus.legacy_pending]
+                ),
+            )
+        ) or 0,
     )
 
 
@@ -316,3 +351,193 @@ async def unpublish(release_id: str, req: RequiredReasonDecision, admin: AdminUs
                                 note=req.note, ip=client_ip(request))
     await db.commit()
     return {"ok": True, "reviewStatus": release.review_status.value}
+
+
+# ------------------------------------------------------------------- listings
+@router.get("/listings", response_model=list[ListingQueueItem])
+async def listing_queue(_: AdminUser, db: DBSession, limit: int = 200) -> list[ListingQueueItem]:
+    """Store listings awaiting review.
+
+    Covers two cases at once: a listing whose text or images a developer changed
+    after approval (`pending`), and one that predates listing moderation and has
+    never been reviewed (`legacy_pending`). The public keeps seeing the approved
+    snapshot - or, for a legacy project, the live fields - until one of these is
+    acted on.
+    """
+    owner = aliased(User)
+    rows = (await db.execute(
+        select(Project, owner.email)
+        .join(owner, owner.id == Project.owner_user_id, isouter=True)
+        .where(
+            Project.deleted_at.is_(None),
+            Project.listing_review_status.in_(
+                [ReviewStatus.pending, ReviewStatus.legacy_pending]
+            ),
+        )
+        .order_by(Project.updated_at.desc())
+        .limit(min(limit, 500))
+    )).all()
+
+    items: list[ListingQueueItem] = []
+    for project, email in rows:
+        changed: list[str] = []
+        snapshot = project.approved_listing or None
+        if snapshot:
+            shots = (await db.scalars(
+                select(ProjectScreenshot.url)
+                .where(ProjectScreenshot.project_id == project.id)
+                .order_by(ProjectScreenshot.position.asc())
+            )).all()
+            for field in LISTING_FIELDS:
+                if (snapshot.get(field) or None) != (getattr(project, field) or None):
+                    changed.append(field)
+            if list(snapshot.get("screenshots") or []) != list(shots):
+                changed.append("screenshots")
+        items.append(ListingQueueItem(
+            project_id=project.id, project_name=project.name, project_slug=project.slug,
+            developer_email=email,
+            listing_review_status=project.listing_review_status,
+            updated_at=_iso(project.updated_at),
+            changed_fields=changed,
+        ))
+    return items
+
+
+@router.get("/listings/{project_id}")
+async def listing_detail(project_id: str, _: AdminUser, db: DBSession) -> dict:
+    """The approved listing beside the developer's current one, for a diff."""
+    project = await db.get(Project, project_id)
+    if project is None or project.deleted_at is not None:
+        raise not_found("הפרויקט לא נמצא")
+    owner = await db.get(User, project.owner_user_id)
+    proposed = await build_snapshot(db, project)
+    return {
+        "projectId": project.id,
+        "projectSlug": project.slug,
+        "listingReviewStatus": project.listing_review_status.value,
+        "reviewedAt": _iso(project.listing_reviewed_at),
+        "reason": project.listing_review_reason,
+        "developerEmail": owner.email if owner else None,
+        # None means nothing has been approved yet, so the store is currently
+        # rendering the developer's live fields (a grandfathered project).
+        "approved": project.approved_listing,
+        "proposed": proposed,
+    }
+
+
+@router.post("/listings/{project_id}/approve")
+async def approve_listing_route(project_id: str, req: ModerationDecision, admin: AdminUser,
+                                db: DBSession, request: Request) -> dict:
+    project = await db.get(Project, project_id)
+    if project is None or project.deleted_at is not None:
+        raise not_found("הפרויקט לא נמצא")
+    await approve_listing(db, project, admin_user_id=admin.id, reason=req.reason)
+    await record_audit(db, action="moderation.listing_approve", actor_user_id=admin.id,
+                       target_type="project", target_id=project.id, project_id=project.id,
+                       ip_address=client_ip(request))
+    await db.commit()
+    return {"ok": True, "listingReviewStatus": project.listing_review_status.value}
+
+
+@router.post("/listings/{project_id}/reject")
+async def reject_listing_route(project_id: str, req: RequiredReasonDecision, admin: AdminUser,
+                               db: DBSession, request: Request) -> dict:
+    """Refuse the developer's listing edits.
+
+    The approved snapshot is left alone, so the store simply keeps showing what
+    it was already showing - a refused edit never had any public effect.
+    """
+    project = await db.get(Project, project_id)
+    if project is None or project.deleted_at is not None:
+        raise not_found("הפרויקט לא נמצא")
+    await reject_listing(db, project, admin_user_id=admin.id, reason=req.reason)
+    await record_audit(db, action="moderation.listing_reject", actor_user_id=admin.id,
+                       target_type="project", target_id=project.id, project_id=project.id,
+                       ip_address=client_ip(request), extra={"reason": req.reason})
+    await notify_owner(db, project.id, NotificationKind.release_changes_requested,
+                       title="פרטי התוסף בחנות לא אושרו",
+                       body=f"השינויים בפרטי התוסף לא אושרו. סיבה: {req.reason}",
+                       email=True)
+    await db.commit()
+    return {"ok": True, "listingReviewStatus": project.listing_review_status.value}
+
+
+# ----------------------------------------------------------------- safe mode
+class SafeModeRequest(CamelModel):
+    enabled: bool
+    reason: str | None = Field(default=None, max_length=1000)
+
+
+@router.get("/safe-mode")
+async def safe_mode_status(_: AdminUser, db: DBSession) -> dict:
+    flag = await db.scalar(
+        select(PlatformFlag).where(PlatformFlag.key == STORE_SAFE_MODE)
+    )
+    actor = (await db.get(User, flag.updated_by_user_id)
+             if flag and flag.updated_by_user_id else None)
+    return {
+        "enabled": bool(flag and flag.enabled),
+        "reason": flag.reason if flag else None,
+        "updatedAt": _iso(flag.updated_at_utc) if flag else None,
+        "updatedByEmail": actor.email if actor else None,
+    }
+
+
+@router.post("/safe-mode")
+async def set_safe_mode_route(req: SafeModeRequest, admin: AdminUser,
+                              db: DBSession, request: Request) -> dict:
+    """Close or reopen the whole store.
+
+    While closed the public gets nothing: no catalog, no extension pages, no
+    install-link resolution, no Agent update offers. It does NOT remove files
+    from public storage - someone already holding a direct artifact URL can
+    still fetch that file. Removing a specific extension's bytes is what the
+    per-release takedown does. The UI states this distinction too, because
+    during an incident it is exactly the thing that must not be assumed.
+    """
+    await set_safe_mode(db, enabled=req.enabled, admin_user_id=admin.id,
+                        reason=req.reason)
+    await record_audit(
+        db,
+        action="moderation.safe_mode_on" if req.enabled else "moderation.safe_mode_off",
+        actor_user_id=admin.id, target_type="platform", target_id=STORE_SAFE_MODE,
+        ip_address=client_ip(request), extra={"reason": req.reason},
+    )
+    await db.commit()
+    return {"ok": True, "enabled": req.enabled}
+
+
+# --------------------------------------------------------------- audit trail
+@router.get("/audit")
+async def moderation_audit(_: AdminUser, db: DBSession, limit: int = 100,
+                           offset: int = 0) -> list[dict]:
+    """Every moderation decision ever taken, newest first.
+
+    Scoped to moderation actions rather than the whole audit log: this is the
+    record of who allowed what into the store, which is the thing anyone
+    auditing this system will ask to see.
+    """
+    actor = aliased(User)
+    rows = (await db.execute(
+        select(AuditEvent, actor.email, Project.name, Project.slug)
+        .join(actor, actor.id == AuditEvent.actor_user_id, isouter=True)
+        .join(Project, Project.id == AuditEvent.project_id, isouter=True)
+        .where(AuditEvent.action.like("moderation.%"))
+        .order_by(AuditEvent.created_at.desc())
+        .limit(min(limit, 500)).offset(offset)
+    )).all()
+    return [
+        {
+            "id": ev.id,
+            "action": ev.action,
+            "at": _iso(ev.created_at),
+            "adminEmail": email,
+            "projectName": pname,
+            "projectSlug": pslug,
+            "targetType": ev.target_type,
+            "targetId": ev.target_id,
+            "ip": ev.ip_address,
+            "extra": ev.extra or {},
+        }
+        for ev, email, pname, pslug in rows
+    ]

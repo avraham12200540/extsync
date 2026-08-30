@@ -19,6 +19,7 @@ from ..schemas.common import OkResponse
 from ..schemas.project import ProjectCreate, ProjectResponse, ProjectUpdate, ScreenshotItem
 from ..services import project_service as svc
 from ..services.authz import load_project_for_user
+from ..services.listing import mark_listing_dirty
 from ..services.ratelimit import client_ip
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -75,6 +76,9 @@ async def update_project(project_id: str, req: ProjectUpdate, request: Request,
                          user: CurrentUser, db: DBSession) -> ProjectResponse:
     project, perms = await load_project_for_user(db, project_id, user, Permission.PROJECT_UPDATE)
     project = await svc.update_project(db, project, req, user=user, ip=client_ip(request))
+    # Public listing text changed -> the store keeps showing the approved
+    # snapshot until an administrator accepts the new version.
+    await mark_listing_dirty(db, project)
     return _to_response(project, perms)
 
 
@@ -120,6 +124,7 @@ async def upload_icon(project_id: str, user: CurrentUser, db: DBSession,
     # URL unchanged and browsers/CDN keep serving the STALE old image. Append a
     # fresh version token each upload so every replace yields a new URL -> refetch.
     project.icon_url = f"{storage.public_url(settings.s3_bucket_artifacts, key)}?v={generic_id()}"
+    await mark_listing_dirty(db, project)
     await db.commit()
     return _to_response(project, perms)
 
@@ -130,6 +135,7 @@ async def remove_icon(project_id: str, user: CurrentUser, db: DBSession) -> Proj
     upload overwrites its key, so we just drop the reference)."""
     project, perms = await load_project_for_user(db, project_id, user, Permission.PROJECT_UPDATE)
     project.icon_url = None
+    await mark_listing_dirty(db, project)
     await db.commit()
     return _to_response(project, perms)
 
@@ -170,6 +176,8 @@ async def add_screenshot(project_id: str, user: CurrentUser, db: DBSession,
         url=storage.public_url(settings.s3_bucket_artifacts, key),
     )
     db.add(shot)
+    await db.flush()  # so the dirty check sees the new image
+    await mark_listing_dirty(db, project)
     await db.commit()
     return _to_response(project, perms, await _load_screenshots(db, project.id))
 
@@ -182,5 +190,7 @@ async def delete_screenshot(project_id: str, screenshot_id: str,
     if shot is None or shot.project_id != project.id:
         raise not_found("התמונה לא נמצאה")
     await db.delete(shot)
+    await db.flush()  # so the dirty check sees the removal
+    await mark_listing_dirty(db, project)
     await db.commit()
     return _to_response(project, perms, await _load_screenshots(db, project.id))

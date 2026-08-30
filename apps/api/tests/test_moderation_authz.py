@@ -31,11 +31,20 @@ ACTIONS = [
     ("/admin/moderation/releases/rel_x/reject", {"reason": "no"}),
     ("/admin/moderation/releases/rel_x/request-changes", {"reason": "fix"}),
     ("/admin/moderation/releases/rel_x/unpublish", {"reason": "remove"}),
+    ("/admin/moderation/listings/proj_x/approve", {}),
+    ("/admin/moderation/listings/proj_x/reject", {"reason": "no"}),
+    # Closing or reopening the entire store is the single most consequential
+    # button in the product.
+    ("/admin/moderation/safe-mode", {"enabled": True}),
 ]
 READS = [
     "/admin/moderation/counts",
     "/admin/moderation/queue",
     "/admin/moderation/releases/rel_x",
+    "/admin/moderation/listings",
+    "/admin/moderation/listings/proj_x",
+    "/admin/moderation/safe-mode",
+    "/admin/moderation/audit",
 ]
 
 

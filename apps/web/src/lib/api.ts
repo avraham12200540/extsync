@@ -204,6 +204,65 @@ export interface RiskSignal {
   evidence?: string | null;
 }
 
+export interface ListingQueueItem {
+  projectId: string;
+  projectName: string;
+  projectSlug: string;
+  developerEmail?: string | null;
+  listingReviewStatus: ReviewStatus;
+  updatedAt?: string | null;
+  /** Fields that differ from the approved snapshot. Empty for a project that
+   *  has never been reviewed - there is nothing to diff against yet. */
+  changedFields: string[];
+}
+
+export interface ListingSnapshot {
+  name?: string | null;
+  short_description?: string | null;
+  full_description?: string | null;
+  icon_url?: string | null;
+  category?: string | null;
+  website?: string | null;
+  repo_url?: string | null;
+  support_url?: string | null;
+  privacy_policy_url?: string | null;
+  screenshots?: string[];
+  capturedAt?: string;
+}
+
+export interface ListingDetail {
+  projectId: string;
+  projectSlug: string;
+  listingReviewStatus: ReviewStatus;
+  reviewedAt?: string | null;
+  reason?: string | null;
+  developerEmail?: string | null;
+  /** null = nothing approved yet, so the store is rendering the live fields. */
+  approved: ListingSnapshot | null;
+  proposed: ListingSnapshot;
+}
+
+export interface SafeModeStatus {
+  enabled: boolean;
+  reason?: string | null;
+  updatedAt?: string | null;
+  updatedByEmail?: string | null;
+}
+
+/** One moderation decision, for the audit trail. */
+export interface ModerationAuditEntry {
+  id: string;
+  action: string;
+  at?: string | null;
+  adminEmail?: string | null;
+  projectName?: string | null;
+  projectSlug?: string | null;
+  targetType?: string | null;
+  targetId?: string | null;
+  ip?: string | null;
+  extra?: Record<string, unknown>;
+}
+
 export interface ModerationCounts {
   pendingNew: number;
   pendingUpdate: number;
@@ -211,6 +270,7 @@ export interface ModerationCounts {
   changesRequested: number;
   rejected: number;
   approved: number;
+  listingPending: number;
 }
 
 export interface ModerationDetail {

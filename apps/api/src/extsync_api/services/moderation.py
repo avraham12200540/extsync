@@ -40,6 +40,7 @@ from .artifact_publication import publish_artifact_public, withdraw_artifact_pub
 from .audit import record_audit
 from .availability import PUBLIC_REVIEW_STATES
 from .events import emit_event, notify_owner
+from .listing import approve_listing
 
 logger = get_logger("extsync.moderation")
 
@@ -154,6 +155,16 @@ async def approve_release(db: AsyncSession, project: Project, release: Release, 
             "אין קובץ מאומת לגרסה הזו, ולכן לא ניתן לאשר אותה",
             status_code=409,
         )
+
+    # Approving is a judgement about the extension AS PRESENTED - the reviewer
+    # was looking at the listing on the same page - so the listing shown at that
+    # moment becomes the approved one. Without this a new extension would need
+    # two separate approvals to be fully public, and the listing half would be
+    # easy to forget.
+    if release.review_status == ReviewStatus.approved and project.listing_review_status in (
+        ReviewStatus.pending, ReviewStatus.legacy_pending,
+    ):
+        await approve_listing(db, project, admin_user_id=admin.id)
 
     await record_audit(db, action="moderation.approve", actor_user_id=admin.id,
                        target_type="release", target_id=release.id, project_id=project.id,
