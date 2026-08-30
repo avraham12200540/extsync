@@ -11,7 +11,7 @@ developers have submitted.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 from pydantic import Field
 from sqlalchemy import false, func, select
 from sqlalchemy.orm import aliased
@@ -159,11 +159,20 @@ async def queue_counts(_: AdminUser, db: DBSession) -> QueueCounts:
     live = await _live_release_ids(db)
 
     async def _count(*where) -> int:
-        return await db.scalar(select(func.count()).select_from(Release).where(*where)) or 0
+        # Joined to Project so a soft-deleted extension never inflates a queue
+        # badge with work that does not exist.
+        return await db.scalar(
+            select(func.count()).select_from(Release)
+            .join(Project, Project.id == Release.project_id)
+            .where(Project.deleted_at.is_(None), *where)
+        ) or 0
 
-    pending_rows = (await db.scalars(
-        select(Release).where(Release.review_status == ReviewStatus.pending)
-    )).all()
+    pending_rows = (await db.execute(
+        select(Release)
+        .join(Project, Project.id == Release.project_id)
+        .where(Project.deleted_at.is_(None),
+               Release.review_status == ReviewStatus.pending)
+    )).scalars().all()
     # A submission is an "update" when the project already has a reviewed release.
     reviewed_projects = set((await db.scalars(
         select(Release.project_id).where(
@@ -171,12 +180,10 @@ async def queue_counts(_: AdminUser, db: DBSession) -> QueueCounts:
         )
     )).all())
 
-    legacy_live = await db.scalar(
-        select(func.count()).select_from(Release).where(
-            Release.review_status == ReviewStatus.legacy_pending,
-            Release.id.in_(live) if live else false(),
-        )
-    ) or 0
+    legacy_live = await _count(
+        Release.review_status == ReviewStatus.legacy_pending,
+        Release.id.in_(live) if live else false(),
+    )
 
     return QueueCounts(
         pending_new=sum(1 for r in pending_rows if r.project_id not in reviewed_projects),
@@ -200,7 +207,11 @@ async def queue_counts(_: AdminUser, db: DBSession) -> QueueCounts:
 async def queue(
     _: AdminUser, db: DBSession,
     state: ReviewStatus = ReviewStatus.pending,
-    live_only: bool = False,
+    # FastAPI binds query parameters by the PYTHON name, so this needs an
+    # explicit camelCase alias to match the rest of the API. Without it the
+    # client's `liveOnly=true` was silently ignored and the legacy queue
+    # returned every historical row instead of the ~46 that are actually live.
+    live_only: bool = Query(False, alias="liveOnly"),
     limit: int = 100,
     offset: int = 0,
 ) -> list[QueueItem]:

@@ -135,3 +135,35 @@ def test_platform_admin_does_get_moderation():
 )
 def test_no_other_global_role_grants_moderation(role):
     assert not can_moderate(global_permissions(role))
+
+
+# ------------------------------------------------------- query parameter names
+
+def test_queue_live_only_is_exposed_as_camelcase(client):
+    """FastAPI binds query parameters by their PYTHON name.
+
+    `live_only: bool = False` therefore ignores a client sending `liveOnly=true`
+    and silently falls back to False - which made the legacy queue return every
+    historical release instead of only the ones actually live. Silent, because a
+    wrong-but-plausible list looks exactly like a right one.
+    """
+    spec = client.app.openapi()
+    params = spec["paths"]["/admin/moderation/queue"]["get"]["parameters"]
+    names = {p["name"] for p in params}
+    assert "liveOnly" in names, f"queue query params are {names}"
+    assert "live_only" not in names
+
+
+def test_no_moderation_query_parameter_is_snake_case(client):
+    """The whole API is camelCase on the wire. A snake_case query parameter is
+    almost always one the client will never manage to set."""
+    spec = client.app.openapi()
+    offenders = []
+    for path, ops in spec["paths"].items():
+        if "/admin/moderation" not in path:
+            continue
+        for method, op in ops.items():
+            for p in op.get("parameters", []):
+                if p.get("in") == "query" and "_" in p["name"]:
+                    offenders.append(f"{method.upper()} {path} ?{p['name']}")
+    assert not offenders, f"snake_case query params: {offenders}"
