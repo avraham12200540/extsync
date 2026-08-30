@@ -177,3 +177,67 @@ def test_no_moderation_query_parameter_is_snake_case(client):
                 if p.get("in") == "query" and "_" in p["name"]:
                     offenders.append(f"{method.upper()} {path} ?{p['name']}")
     assert not offenders, f"snake_case query params: {offenders}"
+
+
+# ------------------------------------------------- the positive case at HTTP
+
+def _promote(sessionmaker_factory, email: str) -> None:
+    """Make an existing account a platform administrator, in the DB.
+
+    Deliberately not an API call: there is no endpoint that grants this role,
+    which is itself part of the design.
+    """
+    import asyncio
+
+    from sqlalchemy import select
+
+    from extsync_api.models.enums import UserRole
+    from extsync_api.models.user import User
+
+    async def _go():
+        async with sessionmaker_factory() as s:
+            user = await s.scalar(select(User).where(User.email == email))
+            user.role = UserRole.platform_admin
+            await s.commit()
+
+    asyncio.run(_go())
+
+
+def test_platform_admin_can_read_the_prepared_queue(client, sessionmaker_factory):
+    """The negative tests above prove nobody else gets in. This proves the gate
+    is not simply closed to everyone, which would make them all pass for the
+    wrong reason."""
+    headers = _register(client, "admin-prep@example.com")
+    _promote(sessionmaker_factory, "admin-prep@example.com")
+
+    r = client.get("/admin/moderation/prepared", headers=headers)
+    assert r.status_code == 200, r.text
+    assert r.json() == []
+
+
+def test_platform_admin_can_call_apply_and_gets_a_per_item_result(
+    client, sessionmaker_factory,
+):
+    """An id that does not exist must come back as a reported failure, not a
+    500 and not a silent success."""
+    headers = _register(client, "admin-apply@example.com")
+    _promote(sessionmaker_factory, "admin-apply@example.com")
+
+    r = client.post("/admin/moderation/prepared/apply",
+                    json={"ids": ["prep_does_not_exist"]}, headers=headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["applied"] == 0
+    assert body["failed"] == 1
+    assert body["appliedBy"] == "admin-apply@example.com"
+    assert body["items"][0]["id"] == "prep_does_not_exist"
+
+
+def test_apply_rejects_an_empty_id_list(client, sessionmaker_factory):
+    """A batch that names nothing is a mistake, not a no-op to wave through."""
+    headers = _register(client, "admin-empty@example.com")
+    _promote(sessionmaker_factory, "admin-empty@example.com")
+
+    r = client.post("/admin/moderation/prepared/apply", json={"ids": []},
+                    headers=headers)
+    assert r.status_code == 422, r.text
