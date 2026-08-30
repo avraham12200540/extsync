@@ -10,10 +10,11 @@ from sqlalchemy import func, select
 from ..deps import CurrentUser, DBSession
 from ..errors import not_found
 from ..models.base import utcnow
-from ..models.enums import NotificationKind, ProjectStatus, ProjectVisibility
+from ..models.enums import NotificationKind
 from ..models.extension_feedback import ExtensionFeedback
 from ..models.project import Project
 from ..models.user import User
+from ..services.availability import public_project_clause
 from ..schemas.common import OkResponse
 from ..schemas.feedback import FeedbackCreate, FeedbackItem, UnreadCount
 from ..services.events import notify_owner
@@ -29,12 +30,7 @@ async def send_feedback(
     """Any signed-in user may message the developer of a public extension."""
     await enforce_rate_limit(f"feedback:{user.id}", limit=10, window_seconds=600)
     project = await db.scalar(
-        select(Project).where(
-            Project.slug == slug,
-            Project.visibility == ProjectVisibility.public,
-            Project.deleted_at.is_(None),
-            Project.status == ProjectStatus.active,  # mirror the catalog filter
-        )
+        select(Project).where(Project.slug == slug, public_project_clause())
     )
     if project is None:
         raise not_found("התוסף לא נמצא")

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import settings
 from ..errors import APIError, ErrorCode, not_found
 from ..ids import secret_token
-from ..models.enums import ProjectStatus, ReleaseStatus
+from ..models.enums import ProjectStatus
 from ..models.install_link import InstallLink
 from ..models.project import Project
 from ..models.release import (
@@ -21,8 +21,9 @@ from ..schemas.install_link import (
     InstallPagePermissions,
     InstallPageResolve,
 )
-from .audit import record_audit
 from .artifact_publication import public_artifact, public_download_url
+from .audit import record_audit
+from .availability import release_is_publicly_available
 
 
 def _iso(value) -> str | None:
@@ -63,7 +64,7 @@ async def _active_release(db: AsyncSession, project_id: str, channel) -> Release
     if state is None or state.active_release_id is None:
         return None
     rel = await db.get(Release, state.active_release_id)
-    if rel is None or rel.status not in (ReleaseStatus.published,):
+    if not release_is_publicly_available(rel):
         return None
     return rel
 

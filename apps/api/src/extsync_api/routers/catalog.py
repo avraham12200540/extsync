@@ -16,7 +16,7 @@ from ..deps import CurrentUser, OptionalUser
 from ..errors import not_found
 from ..ids import secret_token
 from ..models.device import Installation
-from ..models.enums import Channel, InstallationStatus, InstallLinkType, ProjectStatus, ProjectVisibility, ReleaseStatus
+from ..models.enums import Channel, InstallationStatus, InstallLinkType
 from ..models.install_link import InstallLink
 from ..models.project import Project, ProjectScreenshot
 from ..models.rating import ProjectRating
@@ -27,6 +27,11 @@ from ..services.ratelimit import client_ip, enforce_rate_limit
 from typing import Annotated
 from fastapi import Depends
 from ..services.artifact_publication import public_artifact, public_download_url
+from ..services.availability import (
+    public_project_clause,
+    public_release_clause,
+    release_is_publicly_available,
+)
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
 DBSession = Annotated[AsyncSession, Depends(get_session)]
@@ -140,16 +145,15 @@ async def _my_ratings(db: AsyncSession, user_id: str | None, project_ids: list[s
 async def list_catalog(request: Request, db: DBSession, user: OptionalUser, q: str | None = None,
                        category: str | None = None) -> list[CatalogItem]:
     await enforce_rate_limit(f"catalog:{client_ip(request)}", limit=120, window_seconds=60)
-    # Public projects that have at least one published release (an active channel).
+    # A project is listed only if it has an active channel pointing at a release
+    # that is ACTUALLY publicly available - published AND cleared by an
+    # administrator. Listing an extension is itself publication, so a project
+    # whose only release is awaiting review does not appear in the store at all.
     stmt = (
         select(Project)
         .join(ChannelState, ChannelState.project_id == Project.id)
-        .where(
-            Project.visibility == ProjectVisibility.public,
-            Project.deleted_at.is_(None),
-            Project.status == ProjectStatus.active,
-            ChannelState.active_release_id.is_not(None),
-        )
+        .join(Release, Release.id == ChannelState.active_release_id)
+        .where(public_project_clause(), public_release_clause())
         .distinct()
         .order_by(Project.updated_at.desc())
     )
@@ -196,12 +200,7 @@ async def track_download(slug: str, request: Request, db: DBSession) -> OkRespon
     await enforce_rate_limit(f"catalog-dl:{client_ip(request)}:{slug}", limit=10, window_seconds=60)
     res = await db.execute(
         update(Project)
-        .where(
-            Project.slug == slug,
-            Project.visibility == ProjectVisibility.public,
-            Project.deleted_at.is_(None),
-            Project.status == ProjectStatus.active,
-        )
+        .where(Project.slug == slug, public_project_clause())
         .values(download_count=Project.download_count + 1)
     )
     if res.rowcount == 0:
@@ -214,11 +213,7 @@ async def track_download(slug: str, request: Request, db: DBSession) -> OkRespon
 async def rate_project(slug: str, req: RateRequest, user: CurrentUser, db: DBSession) -> OkResponse:
     """One rating per signed-in user per extension; calling again updates it."""
     project = await db.scalar(
-        select(Project).where(
-            Project.slug == slug,
-            Project.visibility == ProjectVisibility.public,
-            Project.deleted_at.is_(None),
-        )
+        select(Project).where(Project.slug == slug, public_project_clause())
     )
     if project is None:
         raise not_found("התוסף לא נמצא")
@@ -244,7 +239,7 @@ async def _latest_release(db: AsyncSession, project_id: str) -> Release | None:
         )
         if state and state.active_release_id:
             rel = await db.get(Release, state.active_release_id)
-            if rel and rel.status == ReleaseStatus.published:
+            if release_is_publicly_available(rel):
                 return rel
     return None
 
@@ -252,11 +247,7 @@ async def _latest_release(db: AsyncSession, project_id: str) -> Release | None:
 @router.get("/{slug}", response_model=CatalogDetail)
 async def catalog_detail(slug: str, db: DBSession, user: OptionalUser) -> CatalogDetail:
     project = await db.scalar(
-        select(Project).where(
-            Project.slug == slug,
-            Project.visibility == ProjectVisibility.public,
-            Project.deleted_at.is_(None),
-        )
+        select(Project).where(Project.slug == slug, public_project_clause())
     )
     if project is None:
         raise not_found("התוסף לא נמצא")
@@ -274,7 +265,7 @@ async def catalog_detail(slug: str, db: DBSession, user: OptionalUser) -> Catalo
         if not state or not state.active_release_id:
             continue
         rel = await db.get(Release, state.active_release_id)
-        if rel is None or rel.status != ReleaseStatus.published:
+        if not release_is_publicly_available(rel):
             continue
         # Only an APPROVED release has a public artifact, so an unapproved one
         # simply has no download URL to publish here.
@@ -299,25 +290,33 @@ async def catalog_detail(slug: str, db: DBSession, user: OptionalUser) -> Catalo
                 native = snap.uses_native_messaging
 
     # A public install link (for the managed / auto-updating path). Every public
-    # store extension with a published release should be installable via the Agent,
-    # so if the developer never created a link, make one automatically (owned by them).
-    link = await db.scalar(
-        select(InstallLink).where(
-            InstallLink.project_id == project.id, InstallLink.disabled_at.is_(None)
-        ).order_by(InstallLink.created_at.asc())
-    )
-    if link is None and channels:
-        link = InstallLink(
-            project_id=project.id,
-            token=secret_token(32),
-            label="התקנה מהחנות",
-            link_type=InstallLinkType.public,
-            channel=Channel.stable,
-            created_by_user_id=project.owner_user_id,
+    # store extension with a publicly available release should be installable via
+    # the Agent, so if the developer never created a link, make one automatically
+    # (owned by them).
+    #
+    # `channels` only ever contains releases that passed the availability policy,
+    # so an extension with nothing approved neither mints a link nor advertises an
+    # existing one. A link that already exists must not become an install button
+    # for unreviewed content just because it predates the submission.
+    install_uri = None
+    if channels:
+        link = await db.scalar(
+            select(InstallLink).where(
+                InstallLink.project_id == project.id, InstallLink.disabled_at.is_(None)
+            ).order_by(InstallLink.created_at.asc())
         )
-        db.add(link)
-        await db.commit()
-    install_uri = f"extsync://install?token={link.token}" if link else None
+        if link is None:
+            link = InstallLink(
+                project_id=project.id,
+                token=secret_token(32),
+                label="התקנה מהחנות",
+                link_type=InstallLinkType.public,
+                channel=Channel.stable,
+                created_by_user_id=project.owner_user_id,
+            )
+            db.add(link)
+            await db.commit()
+        install_uri = f"extsync://install?token={link.token}"
 
     ratings = await _ratings_map(db, [project.id])
     mine = await _my_ratings(db, user.id if user else None, [project.id])

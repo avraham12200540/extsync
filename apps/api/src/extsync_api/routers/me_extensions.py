@@ -20,11 +20,12 @@ from ..config import settings
 from ..deps import CurrentUser, DBSession
 from ..errors import APIError, ErrorCode, not_found
 from ..ids import secret_token
-from ..models.enums import Channel, InstallLinkType, ProjectStatus, ProjectVisibility
+from ..models.enums import Channel, InstallLinkType
 from ..models.install_link import InstallLink
 from ..models.project import Project
 from ..models.user import User
 from ..models.user_extension import UserExtension
+from ..services.availability import project_is_publicly_listed
 from ..schemas.common import OkResponse
 from ..schemas.user_extensions import (
     InstallBatchItem,
@@ -46,12 +47,8 @@ _BATCH_TTL_HOURS = 24
 
 
 def _is_public(project: Project | None) -> bool:
-    return (
-        project is not None
-        and project.visibility == ProjectVisibility.public
-        and project.status == ProjectStatus.active
-        and project.deleted_at is None
-    )
+    # Delegates to the one authority - do not re-derive this locally.
+    return project_is_publicly_listed(project)
 
 
 async def _library_projects(db, user_id: str) -> list[Project]:
@@ -76,6 +73,12 @@ async def _public_install_link(db, project: Project) -> InstallLink | None:
     exhausted we mint a fresh public one, like the store detail page."""
     if not _is_public(project):
         return None
+    # Checked BEFORE looking for a link, not only before minting one: an install
+    # link that predates the current submission must not keep handing out an
+    # extension whose releases are no longer publicly available (never approved,
+    # or taken down). _latest_release applies the availability policy.
+    if await _latest_release(db, project.id) is None:
+        return None
     links = (await db.scalars(
         select(InstallLink).where(
             InstallLink.project_id == project.id,
@@ -85,8 +88,6 @@ async def _public_install_link(db, project: Project) -> InstallLink | None:
     )).all()
     link = next((l for l in links if l.is_usable()[0]), None)
     if link is None:
-        if await _latest_release(db, project.id) is None:
-            return None  # nothing published - not installable
         link = InstallLink(
             project_id=project.id,
             token=secret_token(32),

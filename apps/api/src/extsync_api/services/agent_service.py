@@ -33,6 +33,7 @@ from ..models.user import User
 from ..security.tokens import new_opaque_token
 from ..security.crypto import hash_token
 from .audit import record_audit, record_security_event
+from .availability import release_is_agent_servable, release_is_publicly_available
 from .events import emit_event, notify_owner
 from .install_link_service import consume_install_link
 
@@ -178,7 +179,9 @@ async def _active_release(db: AsyncSession, project_id: str, channel: Channel) -
     if state is None or state.active_release_id is None or state.is_paused:
         return None, state
     rel = await db.get(Release, state.active_release_id)
-    if rel is None or rel.status != ReleaseStatus.published:
+    # Both dimensions, via the one authority: a release the administrator has not
+    # cleared is not an update anyone gets offered.
+    if not release_is_publicly_available(rel):
         return None, state
     return rel, state
 
@@ -247,9 +250,11 @@ async def _remember_bucket(db: AsyncSession, project_id: str, channel: Channel,
 
 async def get_release_metadata(db: AsyncSession, release_id: str) -> dict:
     rel = await db.get(Release, release_id)
-    if rel is None or rel.signed_metadata is None or rel.status not in (
-        ReleaseStatus.published, ReleaseStatus.paused, ReleaseStatus.superseded
-    ):
+    # Paused/superseded are still served (a device may be mid-update or rolling
+    # back), but the review dimension is never relaxed - so a rejected or
+    # never-approved release has no reachable metadata, and the artifact it names
+    # is not in public storage either.
+    if rel is None or rel.signed_metadata is None or not release_is_agent_servable(rel):
         raise not_found("מטא-דאטה של הגרסה לא נמצאה")
     return rel.signed_metadata
 

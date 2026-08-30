@@ -5,6 +5,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..errors import conflict
+from ..logging import get_logger
 from ..models.enums import ProjectStatus, TeamRole
 from ..models.project import Project, ProjectKey
 from ..models.team import TeamMember
@@ -13,6 +14,8 @@ from ..schemas.project import ProjectCreate, ProjectUpdate, slugify
 from ..security.crypto import encrypt_str
 from .audit import record_audit
 from .extension_key import generate_project_keypair
+
+logger = get_logger("extsync.project_service")
 
 
 async def _unique_slug(db: AsyncSession, base: str) -> str:
@@ -90,11 +93,42 @@ async def list_projects_for_user(db: AsyncSession, user: User) -> list[Project]:
     return list((await db.scalars(stmt)).all())
 
 
+#: Exactly what a developer may change on their own project. The update path used
+#: to setattr() whatever the schema happened to carry, which meant any field added
+#: to ProjectUpdate later became developer-writable the moment it was declared -
+#: including, one day, something that governs whether the project is public.
+#: Enumerated here so that new fields fail CLOSED and have to be added on purpose.
+#: Note `status` is deliberately absent: only the platform moves a project between
+#: active/suspended, and never through this path.
+DEVELOPER_EDITABLE_PROJECT_FIELDS: frozenset[str] = frozenset({
+    "name",
+    "short_description",
+    "full_description",
+    "website",
+    "repo_url",
+    "support_url",
+    "privacy_policy_url",
+    "category",
+    "icon_url",
+    "visibility",
+    "allow_channel_switch",
+    "bridge_mode",
+})
+
+
 async def update_project(db: AsyncSession, project: Project, data: ProjectUpdate, *,
                          user: User, ip: str | None) -> Project:
     if data.expected_version is not None and data.expected_version != project.version:
         raise conflict("הפרויקט עודכן בינתיים. רעננו ונסו שוב.")
     fields = data.model_dump(exclude_unset=True, exclude={"expected_version"}, by_alias=False)
+    rejected = sorted(set(fields) - DEVELOPER_EDITABLE_PROJECT_FIELDS)
+    if rejected:
+        # Not an error the caller can exploit for information - just refuse to
+        # write it, and leave a trail that someone tried.
+        logger.warning("project.update ignored non-editable fields %s on %s by %s",
+                       rejected, project.id, user.id)
+        for key in rejected:
+            fields.pop(key, None)
     for key, value in fields.items():
         setattr(project, key, value)
     await record_audit(db, action="project.update", actor_user_id=user.id,
