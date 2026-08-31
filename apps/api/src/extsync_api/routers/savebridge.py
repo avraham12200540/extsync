@@ -168,9 +168,33 @@ class AuthenticateRequest(CamelModel):
     token: str = Field(min_length=1, max_length=256)
 
 
+def _reject_if_from_the_public_edge(request: Request) -> None:
+    """Refuse an /internal/ call that arrived through the public edge.
+
+    Defence in depth, not the primary control - the shared key is that. This
+    exists because the endpoint turned out to be reachable at
+    api.extsync.com/internal/..., so a leaked key would have been directly
+    usable from anywhere rather than only from inside the network.
+
+    Caddy is the only upstream and ALWAYS appends X-Forwarded-For (see
+    services.ratelimit.client_ip, which depends on the same fact). The relay
+    talks to http://api:8000 directly and sets no such header. So the header's
+    presence means "this came from outside", and that is the one thing this
+    endpoint must never accept.
+
+    A forged X-Forwarded-For can only ADD the header, which makes the check
+    refuse - it cannot remove one, so it cannot be used to sneak in.
+
+    404, not 403: an endpoint that is not supposed to be reachable from the
+    internet should not confirm to the internet that it exists.
+    """
+    if request.headers.get("x-forwarded-for") is not None:
+        raise not_found("not found")
+
+
 @router.post("/internal/savebridge/authenticate")
 async def authenticate_for_relay(
-    req: AuthenticateRequest, db: DBSession,
+    req: AuthenticateRequest, request: Request, db: DBSession,
     x_savebridge_internal_key: str = Header(default=""),
 ) -> dict:
     """Tell the relay who a client credential is, and what policy it carries.
@@ -183,6 +207,8 @@ async def authenticate_for_relay(
     performs the NetFree check itself, so there is exactly one component that
     decides whether a gated download proceeds.
     """
+    _reject_if_from_the_public_edge(request)
+
     expected = settings.savebridge_internal_key
     if not expected or not hmac.compare_digest(x_savebridge_internal_key, expected):
         raise APIError(ErrorCode.FORBIDDEN, "forbidden", status_code=403)

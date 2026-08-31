@@ -191,3 +191,60 @@ def test_the_internal_endpoint_reports_revocation(client, sessionmaker_factory):
                     json={"token": created["token"]})
     assert r.status_code == 200
     assert r.json() == {"ok": False, "reason": "revoked"}
+
+
+# ------------------------------------------- the internal endpoint's origin
+
+def test_an_internal_call_that_came_through_the_edge_is_refused(client):
+    """Defence in depth for an endpoint that turned out to be publicly routed.
+
+    Caddy is the only upstream and always appends X-Forwarded-For; the relay
+    talks to api:8000 directly and sets none. So the header's presence means the
+    call came from outside, which is exactly what this endpoint must refuse -
+    even with the correct key.
+    """
+    from extsync_api.config import settings
+
+    r = client.post(
+        "/internal/savebridge/authenticate",
+        headers={"X-SaveBridge-Internal-Key": settings.savebridge_internal_key,
+                 "X-Forwarded-For": "203.0.113.9"},
+        json={"token": "sbc_v1_x.y"})
+    # 404, not 403: it should not confirm to the internet that it exists.
+    assert r.status_code == 404, r.text
+
+
+def test_a_forged_forwarded_header_cannot_help_an_attacker(client):
+    """The check can only be tripped, never evaded: an attacker can ADD the
+    header (refused) but cannot remove the one Caddy appends."""
+    from extsync_api.config import settings
+
+    for spoof in ("127.0.0.1", "", "172.18.0.5, 203.0.113.9"):
+        r = client.post(
+            "/internal/savebridge/authenticate",
+            headers={"X-SaveBridge-Internal-Key": settings.savebridge_internal_key,
+                     "X-Forwarded-For": spoof},
+            json={"token": "sbc_v1_x.y"})
+        assert r.status_code == 404, f"{spoof!r} -> {r.status_code}"
+
+
+def test_a_direct_internal_call_still_works(client):
+    """The guard must not break the relay, which is the only legitimate caller."""
+    from extsync_api.config import settings
+
+    r = client.post(
+        "/internal/savebridge/authenticate",
+        headers={"X-SaveBridge-Internal-Key": settings.savebridge_internal_key},
+        json={"token": "sbc_v1_AAAAAAAAAAAAAAAAAAAAAA.BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"ok": False, "reason": "invalid"}
+
+
+def test_the_admin_routes_are_unaffected_by_the_edge_guard(client, sessionmaker_factory):
+    """Admin routes are SUPPOSED to be reachable through the edge - the guard
+    must be scoped to /internal/ and not leak onto them."""
+    headers = _register(client, "sbedge@example.com")
+    _promote(sessionmaker_factory, "sbedge@example.com")
+    r = client.get("/admin/savebridge/credentials",
+                   headers={**headers, "X-Forwarded-For": "203.0.113.9"})
+    assert r.status_code == 200, r.text
