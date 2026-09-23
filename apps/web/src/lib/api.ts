@@ -412,6 +412,29 @@ export interface ModerationCounts {
   rejected: number;
   approved: number;
   listingPending: number;
+  /** Reports from users that no administrator has handled yet. */
+  openReports: number;
+}
+
+/** A report about an extension. Administrator-only - never shown to the
+ *  developer, since a report may be about the developer's own conduct. */
+export interface ExtensionReportItem {
+  id: string;
+  projectId: string;
+  projectName: string;
+  projectSlug: string;
+  releaseId?: string | null;
+  /** Optional - a report can be submitted with no reason at all. */
+  reason?: string | null;
+  /** Optional contact address the reporter chose to give. */
+  reporterEmail?: string | null;
+  /** Account email, only if the reporter happened to be signed in. */
+  reporterAccount?: string | null;
+  status: "open" | "resolved" | "dismissed";
+  createdAt?: string | null;
+  handledAt?: string | null;
+  handledByEmail?: string | null;
+  adminNote?: string | null;
 }
 
 export interface ModerationDetail {

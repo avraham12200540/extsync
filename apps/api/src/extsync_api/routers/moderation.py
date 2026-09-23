@@ -20,6 +20,7 @@ from ..deps import AdminUser, DBSession
 from ..errors import not_found
 from ..models.enums import ProjectStatus, ProjectVisibility, ReleaseStatus, ReviewStatus
 from ..models.audit import AuditEvent
+from ..models.extension_report import REPORT_OPEN, ExtensionReport
 from ..models.enums import NotificationKind
 from ..models.project import Project, ProjectScreenshot
 from ..models.platform_flag import STORE_SAFE_MODE, PlatformFlag
@@ -114,6 +115,8 @@ class QueueCounts(CamelModel):
     rejected: int = 0
     approved: int = 0
     listing_pending: int = 0
+    # Reports from users about extensions, not yet handled by an administrator.
+    open_reports: int = 0
 
 
 class ListingQueueItem(CamelModel):
@@ -229,6 +232,12 @@ async def queue_counts(_: AdminUser, db: DBSession) -> QueueCounts:
                     [ReviewStatus.pending, ReviewStatus.legacy_pending]
                 ),
             )
+        ) or 0,
+        open_reports=await db.scalar(
+            select(func.count()).select_from(ExtensionReport)
+            .join(Project, Project.id == ExtensionReport.project_id)
+            .where(Project.deleted_at.is_(None),
+                   ExtensionReport.status == REPORT_OPEN)
         ) or 0,
     )
 

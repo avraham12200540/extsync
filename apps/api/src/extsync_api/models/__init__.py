@@ -24,6 +24,7 @@ from .device import (
     UpdateAttempt,
 )
 from .extension_feedback import ExtensionFeedback
+from .extension_report import ExtensionReport
 from .install_link import InstallLink
 from .likes_quota import LikesQuotaDaily, LikesQuotaEvent, LikesQuotaState
 from .platform_flag import STORE_SAFE_MODE, PlatformFlag
@@ -56,6 +57,7 @@ __all__ = [
     "DeviceSession",
     "DeveloperProfile",
     "ExtensionFeedback",
+    "ExtensionReport",
     "EmailVerification",
     "Installation",
     "InstallationEvent",

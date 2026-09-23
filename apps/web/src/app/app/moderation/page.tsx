@@ -3,12 +3,13 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ShieldCheck, ShieldAlert, AlertTriangle, Radio, Power } from "lucide-react";
+import { ShieldCheck, ShieldAlert, AlertTriangle, Radio, Power, Flag } from "lucide-react";
 import { DashHeader } from "@/components/dashboard";
 import { useLocale } from "@/components/locale-context";
 import { useAuth } from "@/components/providers";
 import {
   api,
+  type ExtensionReportItem,
   type ListingQueueItem,
   type ModerationCounts,
   type ModerationAuditEntry,
@@ -32,7 +33,7 @@ import { Badge, Button, Card, Spinner } from "@/components/ui";
 
 type TabKey =
   | "new" | "update" | "legacy" | "listings"
-  | "changes" | "rejected" | "approved" | "audit";
+  | "changes" | "rejected" | "approved" | "reports" | "audit";
 
 const TABS: { key: TabKey; label: string; state: string; liveOnly?: boolean }[] = [
   { key: "new", label: "mod.tab.new", state: "pending" },
@@ -42,6 +43,7 @@ const TABS: { key: TabKey; label: string; state: string; liveOnly?: boolean }[] 
   { key: "changes", label: "mod.tab.changes", state: "changes_requested" },
   { key: "rejected", label: "mod.tab.rejected", state: "rejected" },
   { key: "approved", label: "mod.tab.approved", state: "approved" },
+  { key: "reports", label: "mod.tab.reports", state: "" },
   { key: "audit", label: "mod.tab.audit", state: "" },
 ];
 
@@ -55,6 +57,7 @@ function countFor(counts: ModerationCounts | undefined, key: TabKey): number {
     case "changes": return counts.changesRequested;
     case "rejected": return counts.rejected;
     case "approved": return counts.approved;
+    case "reports": return counts.openReports ?? 0;
     case "audit": return 0;
   }
 }
@@ -103,6 +106,27 @@ export default function ModerationPage() {
     enabled: user?.role === "platform_admin" && tab === "audit",
   });
 
+  // Reports from users. Open ones by default - handled ones stay reachable for
+  // the record, they are just not the workload.
+  const [reportsAll, setReportsAll] = useState(false);
+  const { data: reports, isLoading: reportsLoading } = useQuery({
+    queryKey: ["moderation-reports", reportsAll],
+    queryFn: () =>
+      api.get<ExtensionReportItem[]>(
+        `/admin/moderation/reports?state=${reportsAll ? "all" : "open"}&limit=200`,
+      ),
+    enabled: user?.role === "platform_admin" && tab === "reports",
+  });
+
+  const handleReport = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: ExtensionReportItem["status"] }) =>
+      api.post(`/admin/moderation/reports/${id}`, { status }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["moderation-reports"] });
+      qc.invalidateQueries({ queryKey: ["moderation-counts"] });
+    },
+  });
+
   const { data: listings, isLoading: listingsLoading } = useQuery({
     queryKey: ["moderation-listings"],
     queryFn: () => api.get<ListingQueueItem[]>("/admin/moderation/listings"),
@@ -115,7 +139,8 @@ export default function ModerationPage() {
       api.get<ModerationQueueItem[]>(
         `/admin/moderation/queue?state=${active.state}&liveOnly=${liveOnly ? "true" : "false"}&limit=500`,
       ),
-    enabled: user?.role === "platform_admin" && tab !== "listings" && tab !== "audit",
+    enabled: user?.role === "platform_admin"
+      && tab !== "listings" && tab !== "audit" && tab !== "reports",
   });
 
   const fmt = useMemo(() => {
@@ -280,7 +305,7 @@ export default function ModerationPage() {
                       {e.adminEmail && " \u00b7 "}
                       {fmt(e.at)}
                       {typeof e.extra?.version === "string" && (
-                        <span dir="ltr"> \u00b7 v{e.extra.version}</span>
+                        <span dir="ltr">{" \u00b7 "}v{e.extra.version}</span>
                       )}
                     </p>
                     {typeof e.extra?.reason === "string" && e.extra.reason && (
@@ -294,7 +319,108 @@ export default function ModerationPage() {
         </>
       )}
 
-      {tab !== "audit" && (tab === "listings" ? listingsLoading : isLoading) && <Spinner />}
+      {tab === "reports" && (
+        <>
+          <label className="mb-4 flex items-center gap-2 text-sm text-ink-muted">
+            <input
+              type="checkbox"
+              checked={reportsAll}
+              onChange={(e) => setReportsAll(e.target.checked)}
+              className="h-4 w-4 rounded border-line"
+            />
+            {t("mod.rep.showall")}
+          </label>
+          {reportsLoading && <Spinner />}
+          {!reportsLoading && (reports ?? []).length === 0 && (
+            <Card><p className="text-sm text-ink-muted">{t("mod.empty")}</p></Card>
+          )}
+          <div className="space-y-3">
+            {(reports ?? []).map((r) => (
+              <Card key={r.id}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Flag className="h-4 w-4 text-danger" aria-hidden="true" />
+                      <Link href={`/store/${r.projectSlug}`} target="_blank"
+                            className="font-semibold text-ink hover:text-brand">
+                        {r.projectName}
+                      </Link>
+                      <Badge status={r.status === "open" ? "pending"
+                        : r.status === "resolved" ? "approved" : "superseded"}>
+                        {t(`mod.rep.status.${r.status}`)}
+                      </Badge>
+                    </div>
+                    {/* The reason is optional, so its absence is stated rather
+                        than left as a blank that looks like a rendering bug. */}
+                    {r.reason ? (
+                      <p className="mt-2 whitespace-pre-wrap break-words text-sm text-ink">{r.reason}</p>
+                    ) : (
+                      <p className="mt-2 text-sm italic text-ink-muted">{t("mod.rep.noreason")}</p>
+                    )}
+                    <p className="mt-2 text-xs text-ink-muted">
+                      {fmt(r.createdAt)}
+                      {r.reporterEmail && (
+                        <>
+                          {" \u00b7 "}{t("mod.rep.contact")}{" "}
+                          <a href={`mailto:${r.reporterEmail}`} dir="ltr" className="text-brand hover:underline">
+                            {r.reporterEmail}
+                          </a>
+                        </>
+                      )}
+                      {r.reporterAccount && (
+                        <>
+                          {" \u00b7 "}{t("mod.rep.account")}{" "}
+                          <span dir="ltr">{r.reporterAccount}</span>
+                        </>
+                      )}
+                      {!r.reporterEmail && !r.reporterAccount && <>{" \u00b7 "}{t("mod.rep.anonymous")}</>}
+                    </p>
+                    {r.status !== "open" && (
+                      <p className="mt-1 text-xs text-ink-muted">
+                        {t("mod.rep.handledby")}{" "}
+                        {r.handledByEmail && <span dir="ltr">{r.handledByEmail}</span>}
+                        {r.handledAt && <>{" \u00b7 "}{fmt(r.handledAt)}</>}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    {/* The release that was live when the report was made - where
+                        an administrator can actually act on it (reject, unpublish). */}
+                    {r.releaseId && (
+                      <Link href={`/app/moderation/${r.releaseId}`}>
+                        <Button size="sm" variant="secondary">{t("mod.rep.openrelease")}</Button>
+                      </Link>
+                    )}
+                    {r.status === "open" ? (
+                      <>
+                        <Button size="sm" variant="primary"
+                                disabled={handleReport.isPending}
+                                onClick={() => handleReport.mutate({ id: r.id, status: "resolved" })}>
+                          {t("mod.rep.resolve")}
+                        </Button>
+                        <Button size="sm" variant="ghost"
+                                disabled={handleReport.isPending}
+                                onClick={() => handleReport.mutate({ id: r.id, status: "dismissed" })}>
+                          {t("mod.rep.dismiss")}
+                        </Button>
+                      </>
+                    ) : (
+                      <Button size="sm" variant="ghost"
+                              disabled={handleReport.isPending}
+                              onClick={() => handleReport.mutate({ id: r.id, status: "open" })}>
+                        {t("mod.rep.reopen")}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
+
+      {tab !== "audit" && tab !== "reports"
+        && (tab === "listings" ? listingsLoading : isLoading) && <Spinner />}
 
       {tab === "listings" && !listingsLoading && (listings ?? []).length === 0 && (
         <Card><p className="text-sm text-ink-muted">{t("mod.empty")}</p></Card>
@@ -330,12 +456,12 @@ export default function ModerationPage() {
         </div>
       )}
 
-      {tab !== "listings" && tab !== "audit" && !isLoading && shown.length === 0 && (
+      {tab !== "listings" && tab !== "audit" && tab !== "reports" && !isLoading && shown.length === 0 && (
         <Card><p className="text-sm text-ink-muted">{t("mod.empty")}</p></Card>
       )}
 
       <div className="space-y-3">
-        {(tab === "listings" || tab === "audit" ? [] : shown).map((i) => (
+        {(tab === "listings" || tab === "audit" || tab === "reports" ? [] : shown).map((i) => (
           <Link key={i.releaseId} href={`/app/moderation/${i.releaseId}`} className="block">
             <Card className="lift">
               <div className="flex flex-wrap items-start justify-between gap-3">

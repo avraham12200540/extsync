@@ -11,6 +11,7 @@ import type { CatalogDetail } from "@/lib/api";
 import { MarketingShell } from "@/components/marketing";
 import { RatingSection } from "@/components/rating-section";
 import { FeedbackForm } from "@/components/feedback-form";
+import { ReportExtension } from "@/components/report-extension";
 import { ScreenshotGallery } from "@/components/screenshot-gallery";
 import { Badge } from "@/components/ui";
 import { formatDate, safeHref, safeJsonLd } from "@/lib/utils";
@@ -225,6 +226,10 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
 
           {/* private message to the developer (login only at the send step) */}
           <FeedbackForm slug={d.slug} />
+
+          {/* report to the SITE ADMINISTRATORS - never to the developer. No
+              login, and nothing required. */}
+          <ReportExtension slug={d.slug} />
         </div>
       </main>
     </MarketingShell>
