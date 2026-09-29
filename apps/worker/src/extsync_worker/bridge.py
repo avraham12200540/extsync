@@ -129,6 +129,11 @@ _BRIDGE_JS = r"""// ExtSync auto-injected update bridge — do not edit. https:/
     catch (e) { port = null; return; }
     port.onMessage.addListener(onMessage);
     port.onDisconnect.addListener(function () {
+      // Read lastError, or Chrome files "Unchecked runtime.lastError: Specified
+      // native messaging host not found" on the extension's error page every
+      // time the service worker starts on a machine without the Agent. Users
+      // read that as a fault in the extension; it is only "no Agent here".
+      void chrome.runtime.lastError;
       port = null;
       if (!retried) { retried = true; setTimeout(connect, 5000); }
     });

@@ -23,6 +23,17 @@ def _names_and_manifest(data: bytes):
     return names, manifest
 
 
+def test_bridge_reads_last_error_when_the_agent_is_missing():
+    # Without this read Chrome shows "Unchecked runtime.lastError: Specified
+    # native messaging host not found" on every install that has no Agent.
+    from extsync_worker import bridge
+
+    js = bridge._BRIDGE_JS
+    start = js.index("port.onDisconnect.addListener(function () {")
+    handler = js[start:js.index("});", start)]
+    assert "chrome.runtime.lastError" in handler
+
+
 def test_reroots_wrapped_extension():
     src = _zip({
         "my-ext/manifest.json": json.dumps({"manifest_version": 3, "name": "X", "version": "2.5.2"}),
